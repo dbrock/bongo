@@ -1332,6 +1332,16 @@ Interactive mpg123 processes support pausing and seeking."
   (yamse-line-play (yamse-point-at-next-line
                     (yamse-active-track-position))))
 
+(defun yamse-tracks-exist-p ()
+  (let (tracks-exist)
+    (save-excursion
+      (goto-char (point-min))
+      (while (and (not (eobp)) (not tracks-exist))
+        (when (yamse-line-track-p)
+          (setq tracks-exist t))
+        (forward-line)))
+    tracks-exist))
+
 (defun yamse-play-random ()
   (interactive)
   (unless (yamse-tracks-exist-p)
