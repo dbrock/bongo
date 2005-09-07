@@ -1229,7 +1229,7 @@ These will come at the end or right before the file name."
 Interactive mpg123 processes support pausing and seeking."
   (yamse-alist-get player 'interactive-flag))
 
-(defun yamse-mpg123-player-pause (player)
+(defun yamse-mpg123-player-pause/resume (player)
   (if (yamse-mpg123-player-interactive-p player)
       (process-send-string (yamse-player-process player) "PAUSE\n")
     (error "This mpg123 process does not support pausing")))
