@@ -1156,7 +1156,11 @@ If PLAYER does not support seeking, signal an error."
         (yamse-player-killed player))))))
 
 
-;;;; The mpg123 player
+;;;; The mpg123 player backend
+
+(defgroup yamse-mpg123 nil
+  "The mpg123 player backend."
+  :group 'yamse)
 
 (defcustom yamse-mpg123-program-name "mpg123"
   "The name of the mpg123-compatible executable."
