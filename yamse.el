@@ -221,24 +221,25 @@ Separate the obtained formatted field values by `yamse-field-separator'."
         (data (cdr field)))
     (cond
      ((eq type 'artist)
-      (propertize (yamse-alist-get data 'name)
-                  'face 'yamse-artist))
+      (propertize (yamse-alist-get data 'name) 'face 'yamse-artist))
      ((eq type 'album)
-      (let ((title (propertize (yamse-alist-get data 'title)
-                               'face 'yamse-album-title))
-            (year (propertize (yamse-alist-get data 'year)
-                              'face 'yamse-album-year)))
-        (if (null year) title
+      (let ((title (yamse-alist-get data 'title))
+            (year (yamse-alist-get data 'year)))
+        (if (null year) (propertize title 'face 'yamse-album-title)
           (format-spec yamse-album-format
-                       `((?t . ,title) (?y . ,year))))))
+                       `((?t . ,(propertize
+                                 title 'face 'yamse-album-title))
+                         (?y . ,(propertize
+                                 year 'face 'yamse-album-year)))))))
      ((eq type 'track)
-      (let ((title (propertize (yamse-alist-get data 'title)
-                               'face 'yamse-track-title))
-            (index (propertize (yamse-alist-get data 'index)
-                               'face 'yamse-track-index)))
-        (if (null index) title
+      (let ((title (yamse-alist-get data 'title))
+            (index (yamse-alist-get data 'index)))
+        (if (null index) (propertize title 'face 'yamse-track-title)
           (format-spec yamse-track-format
-                       `((?t . ,title) (?i . ,index)))))))))
+                       `((?t . ,(propertize
+                                 title 'face 'yamse-track-title))
+                         (?i . ,(propertize
+                                 index 'face 'yamse-track-index))))))))))
 
 (defun yamse-infoset-from-file-name (file-name)
   (funcall yamse-infoset-from-file-name-function file-name))
@@ -259,13 +260,13 @@ Separate the obtained formatted field values by `yamse-field-separator'."
         (track (index . ,(nth 3 values))
                (title . ,(nth 4 values)))))
      ((and (= 4 (length values))
-           (string-match yamse-track-index-regexp (nth 2)))
+           (string-match yamse-file-name-track-index-regexp (nth 2 values)))
       `((artist (name . ,(nth 0 values)))
         (album (title . ,(nth 1 values)))
         (track (index . ,(nth 2 values))
                (title . ,(nth 3 values)))))
      ((and (= 4 (length values))
-           (string-match yamse-album-year-regexp (nth 1)))
+           (string-match yamse-file-name-album-year-regexp (nth 1 values)))
       `((artist (name . ,(nth 0 values)))
         (album (year  . ,(nth 1 values))
                (title . ,(nth 2 values)))
@@ -283,6 +284,10 @@ Separate the obtained formatted field values by `yamse-field-separator'."
         (track (title . ,(nth 1 values)))))
      ((= 1 (length values))
       `((track (title . ,(nth 0 values))))))))
+
+(defun yamse-simple-infoset-from-file-name (file-name)
+  `((track (title . ,(file-name-sans-extension
+                      (file-name-nondirectory file-name))))))
 
 
 ;;;; Basic point-manipulation routines
