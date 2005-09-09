@@ -391,7 +391,7 @@ If no matching line is found, return nil."
     (bongo-goto-point point)
     (when (not (bongo-first-line-p))
       (let (match)
-        (while (and (not (eobp)) (not match))
+        (while (and (not (bobp)) (not match))
           (forward-line -1)
           (when (funcall predicate)
             (setq match t)))
@@ -409,7 +409,7 @@ If no matching line is found, return nil."
     (bongo-goto-point point)
     (when (not (bongo-last-line-p))
       (let (match)
-        (while (and (not (bobp)) (not match))
+        (while (and (not (eobp)) (not match))
           (forward-line)
           (when (funcall predicate)
             (setq match t)))
@@ -431,7 +431,7 @@ This function works like `bongo-point-before-next-line-satisfying'."
 If POINT is non-nil, start before that line; otherwise,
   start before the current line.
 If no object line is found before the starting line, return nil."
-  (bongo-point-before-previous-line-satisfying 'bongo-line-object-p point))
+  (bongo-point-before-previous-line-satisfying 'bongo-object-line-p point))
 
 (defalias 'bongo-point-at-previous-object-line
   #'bongo-point-before-previous-object-line)
@@ -441,7 +441,7 @@ If no object line is found before the starting line, return nil."
 If POINT is non-nil, start after that line; otherwise,
   start after the current line.
 If no object line is found after the starting line, return nil."
-  (bongo-point-before-next-line-satisfying 'bongo-line-object-p point))
+  (bongo-point-before-next-line-satisfying 'bongo-object-line-p point))
 
 (defalias 'bongo-point-at-next-object-line
   #'bongo-point-before-next-object-line)
@@ -449,7 +449,7 @@ If no object line is found after the starting line, return nil."
 (defun bongo-point-after-next-object-line (&optional point)
   "Return the character position after the next object line.
 This function works like `bongo-point-before-next-object-line'."
-  (bongo-point-after-next-line-satisfying 'bongo-line-object-p point))
+  (bongo-point-after-next-line-satisfying 'bongo-object-line-p point))
 
 (defun bongo-backward-object-line ()
   "If possible, move point to the previous object line.
@@ -479,7 +479,7 @@ If no track line is found after the starting line, return nil."
 
 (defun bongo-point-after-section (&optional point)
   "Return the point after the section with its header on POINT."
-  (unless (bongo-line-header-p point)
+  (unless (bongo-header-line-p point)
     (error "Point is not on a section header"))
   (save-excursion 
     (bongo-goto-point point)
@@ -509,7 +509,7 @@ You should use `bongo-line-infoset' most of the time."
 (defun bongo-header-infoset (&optional point)
   "Return the infoset for the header at POINT.
 You should use `bongo-line-infoset' most of the time."
-  (unless (bongo-line-header-p point)
+  (unless (bongo-header-line-p point)
     (error "Point is not on a header line"))
   (let ((next-track (bongo-point-at-next-track-line)))
     (if (null next-track)
@@ -525,7 +525,7 @@ For header lines, it is derived from the `bongo-fields' text property
   and the infoset of the nearest following track line."
     (cond
      ((bongo-line-track-p point) (bongo-track-infoset point))
-     ((bongo-line-header-p point) (bongo-header-infoset point))))
+     ((bongo-header-line-p point) (bongo-header-infoset point))))
 
 (defun bongo-line-internal-infoset (&optional point)
   "Return the internal infoset for the line at POINT.
@@ -543,7 +543,7 @@ The internal infoset contains values of the internal fields only."
 
 (defun bongo-line-fields (&optional point)
   "Return the names of the fields defined for the line at POINT."
-  (if (bongo-line-header-p point)
+  (if (bongo-header-line-p point)
       (bongo-line-get-property 'bongo-fields point)
     (mapcar 'car (bongo-line-infoset point))))
 
@@ -557,7 +557,7 @@ FIELDS should be a list of field names."
   (save-excursion
     (bongo-goto-point point)
     (bongo-line-set-property 'bongo-external-fields fields)
-    (if (bongo-line-empty-header-p)
+    (if (bongo-empty-header-line-p)
         (bongo-delete-line)
       (bongo-redisplay-line))))
 
@@ -582,7 +582,7 @@ For track lines, this is always the same as the external field names.
 For header lines, the internal field names are also added."
   (cond ((bongo-line-track-p point)
          (bongo-line-external-fields point))
-        ((bongo-line-header-p point)
+        ((bongo-header-line-p point)
          (append (bongo-line-external-fields point)
                  (bongo-line-internal-fields point)))))
 
@@ -591,7 +591,7 @@ For header lines, the internal field names are also added."
 See `bongo-line-external-fields-proposal'."
   (cond ((bongo-line-track-p point)
          (bongo-line-indentation point))
-        ((bongo-line-header-p point)
+        ((bongo-header-line-p point)
          (+ (length (bongo-line-external-fields point))
             (length (bongo-line-internal-fields point))))))
 
@@ -618,24 +618,24 @@ See `bongo-line-proposed-external-fields'."
 This will be nil for header lines and non-nil for track lines."
   (bongo-line-get-property 'bongo-file-name point))
 
-(defun bongo-line-track-p (&optional point)
+(defun bongo-track-line-p (&optional point)
   "Return non-nil if the line at POINT is a track line."
   (not (null (bongo-line-file-name point))))
 
-(defun bongo-line-header-p (&optional point)
+(defun bongo-header-line-p (&optional point)
   "Return non-nil if the line at POINT is a header line."
   (bongo-line-get-property 'bongo-header-p point))
 
-(defun bongo-line-object-p (&optional point)
+(defun bongo-object-line-p (&optional point)
   "Return non-nil if the line at POINT is an object line.
 Object lines are either track lines or header lines."
-  (or (bongo-line-track-p point) (bongo-line-header-p point)))
+  (or (bongo-track-line-p point) (bongo-header-line-p point)))
 
-(defun bongo-line-empty-header-p (&optional point)
+(defun bongo-empty-header-line-p (&optional point)
   "Return non-nil if the line at POINT is an empty header line.
 Empty header lines have no internal fields and are not supposed ever
 to exist for long enough to be visible to the user."
-  (and (bongo-line-header-p point)
+  (and (bongo-header-line-p point)
        (null (bongo-line-internal-fields point))))
 
 
@@ -803,7 +803,7 @@ the region share the same value for the field."
     (let ((last-value nil)
           (common-p t))
       (goto-char beg)
-      (when (not (bongo-line-object-p))
+      (when (not (bongo-object-line-p))
         (bongo-forward-object-line))
       (when (< (point) end)
         (setq last-value (bongo-line-field-value field))
@@ -835,7 +835,7 @@ A field is common at POINT if it is common in the region around
 the object at POINT and either the previous or the next object."
   (save-excursion
     (bongo-goto-point point)
-    (unless (bongo-line-object-p)
+    (unless (bongo-object-line-p)
       (error "Point is not on an object line"))
     (let ((before-previous (bongo-point-before-previous-object-line))
           (after-next (bongo-point-after-next-object-line)))
@@ -908,7 +908,7 @@ that could be made external without changing anything else."
 (defun bongo-line-redundant-header-p (&optional point)
   "Return non-nil if the line at POINT is a redundant header.
 Redundant headers are headers whose internal fields are all externalizable."
-  (and (bongo-line-header-p point)
+  (and (bongo-header-line-p point)
        (bongo-set-equal-p (bongo-line-externalizable-fields point)
                           (bongo-line-internal-fields point))))
 
@@ -924,21 +924,21 @@ Redundant headers are headers whose internal fields are all externalizable."
 
 (defun bongo-maybe-forward-object-line ()
   (interactive)
-  (if (bongo-line-object-p) t
+  (if (bongo-object-line-p) t
     (bongo-forward-object-line)))
 
 (defun bongo-maybe-backward-object-line ()
   (interactive)
-  (if (bongo-line-object-p) t
+  (if (bongo-object-line-p) t
     (bongo-backward-object-line)))
 
 (defun bongo-forward-section ()
   (interactive)
   (when (bongo-maybe-forward-object-line)
     (cond
-     ((bongo-line-track-p)
+     ((bongo-track-line-p)
       (bongo-forward-object-line))
-     ((bongo-line-header-p)
+     ((bongo-header-line-p)
       (goto-char (bongo-point-after-section))))))
 
 (defun bongo-maybe-insert-intermediate-header ()
@@ -964,183 +964,6 @@ existing header into two (see `bongo-maybe-insert-intermediate-header')."
         (when (> (length fields) (bongo-line-indentation))
           (bongo-line-set-external-fields fields)
           (bongo-maybe-insert-intermediate-header))))))
-
-(defun bongo-join-region (beg end &optional fields)
-  "Externalize all fields that are common between BEG and END.
-This function creates a new header if necessary.
-If the lines cannot be joined, an error is signaled."
-  (interactive "r")
-  (when (null fields)
-    (setq fields (bongo-region-common-fields beg end)))
-  (when (null fields)
-    (error "Cannot join tracks: no common fields"))
-  (when (= 0 (bongo-region-line-count beg end))
-    (error "Cannot join tracks: region empty"))
-  (when (bongo-region-fields-external-p beg end fields)
-    (error "Cannot join tracks: already joined"))
-  (when (= 1 (bongo-region-line-count beg end))
-    (error "Cannot join tracks: need more than one"))
-  (save-excursion
-    (setq end (move-marker (make-marker) end))
-    (goto-char beg)
-    (beginning-of-line)
-    (let ((indent (length fields)))
-      (while (< (point) end)
-        (when (< (bongo-line-indentation) indent)
-          (bongo-line-set-external-fields fields))
-        (bongo-forward-object-line)))
-    (move-marker end nil)
-;;;     (when (bongo-line-redundant-header-p)
-;;;       (bongo-delete-line))
-    (goto-char beg)
-    (bongo-insert-header)))
-
-(defun bongo-join ()
-  (interactive)
-  (if (and transient-mark-mode mark-active)
-      (bongo-join-region (region-beginning) (region-end))
-    (let ((fields (bongo-common-fields-at-point)))
-      (when (null fields)
-        (error "Cannot join tracks: no common fields"))
-      (let ((values (bongo-line-field-values fields))
-            (before (bongo-point-before-line))
-            (after (bongo-point-after-line)))
-        (save-excursion
-          (while (and (bongo-backward-object-line)
-                      (equal values (bongo-line-field-values fields)))
-            (setq before (bongo-point-before-line))))
-        (save-excursion
-          (while (and (bongo-forward-object-line)
-                      (equal values (bongo-line-field-values fields)))
-            (setq after (bongo-point-after-line))))
-        (bongo-join-region before after)))))
-
-(defun bongo-split ()
-  (interactive)
-  (save-excursion
-    (when (not (bongo-line-object-p))
-      (bongo-backward-object-line))
-    (when (not (bongo-line-object-p))
-      (error "No bongo object here"))
-    (when (bongo-line-track-p)
-      (unless (bongo-line-indented-p)
-        (error "Cannot split tracks: not joined"))
-      (bongo-backward-up-section))
-    (let ((fields (bongo-line-internal-fields))
-          (end (move-marker (make-marker) (bongo-point-after-section))))
-      (bongo-delete-line)
-      (while (< (point) end)
-        (let ((previous (point)))
-          (bongo-forward-section)
-          (bongo-line-set-external-fields
-           (set-difference (bongo-line-external-fields previous)
-                           fields) previous)))
-      (move-marker end nil))))
-
-
-;;;; Displaying
-
-(defun bongo-redisplay-line ()
-  "Redisplay the current line, preserving semantic text properties."
-  (let ((inhibit-read-only t)
-        (indentation (bongo-line-indentation))
-        (infoset (bongo-line-internal-infoset))
-        (header-p (bongo-line-header-p))
-        (properties (bongo-line-get-semantic-properties)))
-    (save-excursion
-      (bongo-clear-line)
-      (dotimes (_ indentation) (insert bongo-indentation-string))
-      (let ((content (bongo-format-infoset infoset)))
-        (insert (if (not header-p) content
-                  (bongo-format-header content))))
-      (bongo-line-set-properties properties)
-;;       (bongo-line-set-property 'face (if header-p 'bongo-header
-;;                                        'bongo-track))
-      )))
-
-(defun bongo-redisplay (&optional arg)
-  "Redisplay every line in the entire buffer.
-With prefix argument, remove all indentation and headers."
-  (interactive "P")
-  (save-excursion
-    (with-bongo-buffer
-      (goto-char (point-min))
-      (while (not (eobp))
-        (cond
-         ((and arg (bongo-line-header-p))
-          (bongo-delete-line))
-         ((and arg (bongo-line-track-p))
-          (bongo-line-set-external-fields nil)
-          (forward-line))
-         (t
-          (bongo-redisplay-line)
-          (forward-line)))))))
-
-
-;;;; Inserting
-
-(defun bongo-insert-line (&rest properties)
-  "Insert a new line with PROPERTIES before the current line.
-Externalize as many fields of the new line as possible and redisplay it.
-Point is left immediately after the new line."
-  (with-bongo-buffer
-    (let ((inhibit-read-only t))
-      (insert (apply 'propertize "\n" properties)))
-    (forward-line -1)
-    (bongo-externalize-fields)
-    (if (bongo-line-empty-header-p)
-        (bongo-delete-line)
-      (bongo-redisplay-line)
-      (forward-line))))
-
-(defun bongo-insert-header (&optional fields)
-  "Insert a new header line with internal FIELDS.
-FIELDS defaults to the external fields of the current line."
-  (bongo-insert-line 'bongo-header-p t 'bongo-fields
-                     (or fields (bongo-line-external-fields))))
-
-(defun bongo-insert-file (file-name)
-  "Insert a new track line corresponding to FILE-NAME.
-If FILE-NAME names a directory, call `bongo-insert-directory'."
-  (interactive (list (expand-file-name
-                      (read-file-name "Insert track: "
-                                      default-directory nil t))))
-  (if (file-directory-p file-name)
-      (bongo-insert-directory file-name)
-    (bongo-insert-line 'bongo-file-name file-name)))
-
-(defun bongo-insert-directory (directory-name)
-  "Insert a new track line for each file in DIRECTORY-NAME.
-Only insert files whose names match `bongo-file-name-regexp'.
-Do not examine subdirectories of DIRECTORY-NAME."
-  (interactive (list (expand-file-name
-                      (read-directory-name "Insert directory: "
-                                           default-directory nil t))))
-  (when (not (file-directory-p directory-name))
-    (error "File is not a directory: %s" directory-name))
-;;;   (when (file-exists-p (concat directory-name "/cover.jpg")))
-  (dolist (file-name (directory-files directory-name t
-                                      bongo-file-name-track-regexp))
-    (bongo-insert-file file-name)))
-
-(defun bongo-insert-directory-tree (directory-name)
-  "Insert a new track line for each file below DIRECTORY-NAME.
-Only insert files whose names match `bongo-file-name-regexp'.
-
-This function descends each subdirectory of DIRECTORY-NAME recursively,
-but actually uses `bongo-gnu-find-program' to find the files."
-  (interactive (list (expand-file-name
-                      (read-directory-name "Insert directory tree: "
-                                           default-directory nil t))))
-  (with-temp-buffer
-    (call-process bongo-gnu-find-program nil t nil
-                  directory-name "-regextype" "emacs"
-                  "-type" "f" "-iregex" bongo-file-name-track-regexp)
-    (sort-lines nil (point-min) (point-max))
-    (goto-char (point-min))
-    (while (not (eobp))
-      (bongo-insert-file (buffer-substring (point) (point-at-eol)))
-      (forward-line))))
 
 
 ;;;; Player types
@@ -1218,35 +1041,39 @@ but actually uses `bongo-gnu-find-program' to find the files."
 
 (defun bongo-player-succeeded (player)
   "Run the hooks appropriate for when PLAYER has succeeded."
-  (with-current-buffer (bongo-player-buffer player)
-    (run-hook-with-args 'bongo-player-succeeded-functions player)
-    (bongo-player-finished player)))
+  (when (bongo-player-buffer player)
+    (with-current-buffer (bongo-player-buffer player)
+      (run-hook-with-args 'bongo-player-succeeded-functions player)
+      (bongo-player-finished player))))
 
 (defun bongo-player-failed (player)
   "Run the hooks appropriate for when PLAYER has failed."
   (let ((process (bongo-player-process player)))
     (message "Process `%s' exited abnormally with code %d"
              (process-name process) (process-exit-status process)))
-  (with-current-buffer (bongo-player-buffer player)
-    (run-hook-with-args 'bongo-player-failed-functions player)
-    (bongo-player-finished player)))
+  (when (bongo-player-buffer player)
+    (with-current-buffer (bongo-player-buffer player)
+      (run-hook-with-args 'bongo-player-failed-functions player)
+      (bongo-player-finished player))))
 
 (defun bongo-player-killed (player)
   "Run the hooks appropriate for when PLAYER was killed."
   (let ((process (bongo-player-process player)))
     (message "Process `%s' received fatal signal %s"
              (process-name process) (process-exit-status process)))
-  (with-current-buffer (bongo-player-buffer player)
-    (run-hook-with-args 'bongo-player-killed-functions player)
-    (bongo-player-finished player)))
+  (when (bongo-player-buffer player)
+    (with-current-buffer (bongo-player-buffer player)
+      (run-hook-with-args 'bongo-player-killed-functions player)
+      (bongo-player-finished player))))
 
 (defun bongo-player-finished (player)
   "Run the hooks appropriate for when PLAYER has finished.
 Then perform the next action according to `bongo-next-action'.
 You should not call this function directly."
-  (with-current-buffer (bongo-player-buffer player)
-    (run-hook-with-args 'bongo-player-finished-functions player)
-    (bongo-perform-next-action)))
+  (when (bongo-player-buffer player)
+    (with-current-buffer (bongo-player-buffer player)
+      (run-hook-with-args 'bongo-player-finished-functions player)
+      (bongo-perform-next-action))))
 
 (defun bongo-play (file-name &optional player-type-name)
   "Start playing FILE-NAME and return the new player.
@@ -1297,6 +1124,18 @@ This function runs `bongo-player-started-functions'."
 (defun bongo-player-buffer (player)
   "Return the buffer associated with PLAYER."
   (bongo-player-get player 'buffer))
+
+(defun bongo-player-file-name (player)
+  "Return the name of the file played by PLAYER."
+  (bongo-player-get player 'file-name))
+
+(defun bongo-player-infoset (player)
+  "Return the infoset for the file played by PLAYER."
+  (bongo-infoset-from-file-name (bongo-player-file-name player)))
+
+(defun bongo-player-show-infoset (player)
+  "Display in the minibuffer what PLAYER is playing."
+  (message (bongo-format-infoset (bongo-player-infoset player))))
 
 (defun bongo-player-running-p (player)
   "Return non-nil if PLAYER's process is currently running."
@@ -1473,7 +1312,8 @@ Interactive mpg123 processes support pausing and seeking."
                          bongo-mpg123-program-name arguments))
          (player `(mpg123
                    (process . ,process)
-                   (buffer . , (current-buffer))
+                   (file-name . ,file-name)
+                   (buffer . ,(current-buffer))
                    (stop . bongo-default-player-stop)
                    (interactive-flag . ,bongo-mpg123-interactive)
                    (pause/resume . bongo-mpg123-player-pause/resume)
@@ -1514,10 +1354,10 @@ Interactive mpg123 processes support pausing and seeking."
 ;;;   "Return non-nil if there is an active player for this buffer."
 ;;;   (not (null bongo-player)))
 
-(defun bongo-line-play (&optional point)
+(defun bongo-play-line (&optional point)
   "Start playing the track on the line at POINT."
   (interactive)
-  (if (not (bongo-line-track-p point))
+  (if (not (bongo-track-line-p point))
       (error "No track at point")
     (bongo-set-active-track-position point)
     (let ((player (bongo-play (bongo-line-file-name point))))
@@ -1533,17 +1373,18 @@ Interactive mpg123 processes support pausing and seeking."
   (interactive)
   (when (null (bongo-active-track-position))
     (error "No active track"))
-  (when (bongo-last-line-p (bongo-active-track-position))
-    (error "Already at the last track"))
-  (bongo-line-play (bongo-point-at-next-line
-                    (bongo-active-track-position))))
+  (let ((position (bongo-point-at-next-track-line
+                   (bongo-active-track-position))))
+    (if (null position)
+        (error "No more tracks")
+      (bongo-line-play ))))
 
 (defun bongo-tracks-exist-p ()
   (let (tracks-exist)
     (save-excursion
       (goto-char (point-min))
       (while (and (not (eobp)) (not tracks-exist))
-        (when (bongo-line-track-p)
+        (when (bongo-track-line-p)
           (setq tracks-exist t))
         (forward-line)))
     tracks-exist))
@@ -1554,7 +1395,7 @@ Interactive mpg123 processes support pausing and seeking."
     (error "No tracks"))
   (save-excursion
     (goto-char (1+ (random (point-max))))
-    (while (not (bongo-line-track-p))
+    (while (not (bongo-track-line-p))
       (goto-char (1+ (random (point-max))))
     (bongo-line-play))))
 
@@ -1583,6 +1424,186 @@ Interactive mpg123 processes support pausing and seeking."
     (error "No active player")))
 
 
+;;;; Inserting
+
+(defun bongo-insert-line (&rest properties)
+  "Insert a new line with PROPERTIES before the current line.
+Externalize as many fields of the new line as possible and redisplay it.
+Point is left immediately after the new line."
+  (with-bongo-buffer
+    (let ((inhibit-read-only t))
+      (insert (apply 'propertize "\n" properties)))
+    (forward-line -1)
+    (bongo-externalize-fields)
+    (if (bongo-empty-header-line-p)
+        (bongo-delete-line)
+      (bongo-redisplay-line)
+      (forward-line))))
+
+(defun bongo-insert-header (&optional fields)
+  "Insert a new header line with internal FIELDS.
+FIELDS defaults to the external fields of the current line."
+  (bongo-insert-line 'bongo-header-p t 'bongo-fields
+                     (or fields (bongo-line-external-fields))))
+
+(defun bongo-insert-file (file-name)
+  "Insert a new track line corresponding to FILE-NAME.
+If FILE-NAME names a directory, call `bongo-insert-directory'."
+  (interactive (list (expand-file-name
+                      (read-file-name "Insert track: "
+                                      default-directory nil t))))
+  (if (file-directory-p file-name)
+      (bongo-insert-directory file-name)
+    (bongo-insert-line 'bongo-file-name file-name)))
+
+(defun bongo-insert-directory (directory-name)
+  "Insert a new track line for each file in DIRECTORY-NAME.
+Only insert files whose names match `bongo-file-name-regexp'.
+Do not examine subdirectories of DIRECTORY-NAME."
+  (interactive (list (expand-file-name
+                      (read-directory-name "Insert directory: "
+                                           default-directory nil t))))
+  (when (not (file-directory-p directory-name))
+    (error "File is not a directory: %s" directory-name))
+;;;   (when (file-exists-p (concat directory-name "/cover.jpg")))
+  (dolist (file-name (directory-files directory-name t
+                                      bongo-file-name-track-regexp))
+    (bongo-insert-file file-name)))
+
+(defun bongo-insert-directory-tree (directory-name)
+  "Insert a new track line for each file below DIRECTORY-NAME.
+Only insert files whose names match `bongo-file-name-regexp'.
+
+This function descends each subdirectory of DIRECTORY-NAME recursively,
+but actually uses `bongo-gnu-find-program' to find the files."
+  (interactive (list (expand-file-name
+                      (read-directory-name "Insert directory tree: "
+                                           default-directory nil t))))
+  (with-temp-buffer
+    (call-process bongo-gnu-find-program nil t nil
+                  directory-name "-regextype" "emacs"
+                  "-type" "f" "-iregex" bongo-file-name-track-regexp)
+    (sort-lines nil (point-min) (point-max))
+    (goto-char (point-min))
+    (while (not (eobp))
+      (bongo-insert-file (buffer-substring (point) (point-at-eol)))
+      (forward-line))))
+
+
+;;; Joining/splitting
+
+(defun bongo-join-region (beg end &optional fields)
+  "Externalize all fields that are common between BEG and END.
+This function creates a new header if necessary.
+If the lines cannot be joined, an error is signaled."
+  (interactive "r")
+  (when (null fields)
+    (unless (setq fields (bongo-region-common-fields beg end))
+      (error "Cannot join tracks: no common fields")))
+  (when (= 0 (bongo-region-line-count beg end))
+    (error "Cannot join tracks: region empty"))
+  (when (bongo-region-fields-external-p beg end fields)
+    (error "Cannot join tracks: already joined"))
+  (when (= 1 (bongo-region-line-count beg end))
+    (error "Cannot join tracks: need more than one"))
+  (save-excursion
+    (setq end (move-marker (make-marker) end))
+    (goto-char beg)
+    (beginning-of-line)
+    (let ((indent (length fields)))
+      (while (< (point) end)
+        (when (< (bongo-line-indentation) indent)
+          (bongo-line-set-external-fields fields))
+        (bongo-forward-object-line)))
+    (move-marker end nil)
+;;;     (when (bongo-line-redundant-header-p)
+;;;       (bongo-delete-line))
+    (goto-char beg)
+    (bongo-insert-header)))
+
+(defun bongo-join ()
+  (interactive)
+  (if (and transient-mark-mode mark-active)
+      (bongo-join-region (region-beginning) (region-end))
+    (let ((fields (bongo-common-fields-at-point)))
+      (when (null fields)
+        (error "Cannot join tracks: no common fields"))
+      (let ((values (bongo-line-field-values fields))
+            (before (bongo-point-before-line))
+            (after (bongo-point-after-line)))
+        (save-excursion
+          (while (and (bongo-backward-object-line)
+                      (equal values (bongo-line-field-values fields)))
+            (setq before (bongo-point-before-line))))
+        (save-excursion
+          (while (and (bongo-forward-object-line)
+                      (equal values (bongo-line-field-values fields)))
+            (setq after (bongo-point-after-line))))
+        (bongo-join-region before after fields)))))
+
+(defun bongo-split ()
+  (interactive)
+  (save-excursion
+    (when (not (bongo-object-line-p))
+      (bongo-backward-object-line))
+    (when (not (bongo-object-line-p))
+      (error "No bongo object here"))
+    (when (bongo-track-line-p)
+      (unless (bongo-line-indented-p)
+        (error "Cannot split tracks: not joined"))
+      (bongo-backward-up-section))
+    (let ((fields (bongo-line-internal-fields))
+          (end (move-marker (make-marker) (bongo-point-after-section))))
+      (bongo-delete-line)
+      (while (< (point) end)
+        (let ((previous (point)))
+          (bongo-forward-section)
+          (bongo-line-set-external-fields
+           (set-difference (bongo-line-external-fields previous)
+                           fields) previous)))
+      (move-marker end nil))))
+
+
+;;;; Displaying
+
+(defun bongo-redisplay-line ()
+  "Redisplay the current line, preserving semantic text properties."
+  (let ((inhibit-read-only t)
+        (indentation (bongo-line-indentation))
+        (infoset (bongo-line-internal-infoset))
+        (header-p (bongo-header-line-p))
+        (properties (bongo-line-get-semantic-properties)))
+    (save-excursion
+      (bongo-clear-line)
+      (dotimes (_ indentation) (insert bongo-indentation-string))
+      (let ((content (bongo-format-infoset infoset)))
+        (insert (if (not header-p) content
+                  (bongo-format-header content))))
+      (bongo-line-set-properties properties)
+;;       (bongo-line-set-property 'face (if header-p 'bongo-header
+;;                                        'bongo-track))
+      )))
+
+(defun bongo-redisplay (&optional arg)
+  "Redisplay every line in the entire buffer.
+With prefix argument, remove all indentation and headers."
+  (interactive "P")
+  (save-excursion
+    (with-bongo-buffer
+      (goto-char (point-min))
+      (while (not (eobp))
+        (cond
+         ((and arg (bongo-header-line-p))
+          (bongo-delete-line))
+         ((and arg (bongo-track-line-p))
+          (bongo-line-set-external-fields nil)
+          (forward-line))
+         (t
+          (bongo-redisplay-line)
+          (forward-line)))))))
+
+
+;;; Killing/yanking
 
 (defun bongo-kill-line (&optional arg)
   "In Bongo, kill the current line.
@@ -1591,13 +1612,13 @@ See `kill-line'."
   (interactive "P")
   (let ((inhibit-read-only t))
     (cond
-     ((bongo-line-track-p)
+     ((bongo-track-line-p)
       (when (bongo-line-active-track-p)
         (bongo-unset-active-track-position))
       (let ((kill-whole-line t))
         (beginning-of-line)
         (kill-line arg)))
-     ((bongo-line-header-p)
+     ((bongo-header-line-p)
       (kill-region (bongo-point-before-line)
                    (bongo-point-after-section)))
      (t
@@ -1619,6 +1640,20 @@ See `kill-region'."
       (bongo-kill-line)))
   (move-marker end nil))
 
+(defun bongo-show (&optional arg)
+  "Display what Bongo is playing in the minibuffer.
+With prefix argument, insert the description at point."
+  (interactive "P")
+  (let (string)
+    (with-bongo-buffer
+      (let ((position (bongo-active-track-position)))
+        (when (null position)
+          (error "No track is currently playing"))
+        (setq string (bongo-format-infoset
+                      (bongo-line-infoset position)))))
+    (if arg (insert string)
+      (message string))))
+
 (defun bongo-yank (&optional arg)
   "In Bongo, reinsert the last sequence of killed lines.
 See `yank'."
@@ -1630,7 +1665,7 @@ See `yank'."
           (end (move-marker (make-marker) (region-end))))
       (save-excursion
         (goto-char beg)
-        (when (not (bongo-line-object-p))
+        (when (not (bongo-object-line-p))
           (bongo-forward-object-line))
         (while (and (< (point) end))
           (let ((player (bongo-line-get-property 'bongo-player)))
@@ -1648,12 +1683,13 @@ See `yank'."
         (bongo-insert-header)
         ;; In case the upper header does disappear,
         ;; we need to merge backwards to connect.
-        (when (not (bongo-line-object-p))
+        (when (not (bongo-object-line-p))
           (bongo-forward-object-line))
         (when (< (point) end)
           (bongo-externalize-fields))
         (move-marker end nil)))))
 
+;; XXX: This definitely does not work properly.
 (defun bongo-yank-pop (&optional arg)
   "In Bongo, replace the just-yanked lines with different ones.
 See `yank-pop'."
@@ -1662,12 +1698,15 @@ See `yank-pop'."
     (yank-pop arg)
     (bongo-externalize-fields)))
 
+;; XXX: This probably does not work properly.
 (defun bongo-undo (&optional arg)
   "In Bongo, undo some previous changes.
 See `undo'."
   (interactive "P")
   (let ((inhibit-read-only t))
     (undo arg)))
+
+
 
 (defun bongo-quit ()
   "Quit Bongo by selecting some other buffer."
@@ -1721,24 +1760,34 @@ See `undo'."
   "Execute the forms in BODY in some Bongo buffer.
 If the current buffer is a Bongo buffer, don't switch buffers.
 Otherwise, switch to the default Bongo buffer.
-If no Bongo buffer exists at all, create one."
+If no Bongo buffer exists at all, a default one will be created."
   (declare (indent 0) (debug t))
   `(save-current-buffer
      (unless (eq major-mode 'bongo-mode)
-       (switch-to-buffer (bongo-default-buffer)))
+       (set-buffer (bongo-default-buffer)))
      ,@body))
 
+(defvar bongo-default-buffer nil
+  "The default Bongo buffer, or nil.
+When executed from a buffer that is not in Bongo mode,
+all Bongo commands will operate on this buffer instead.
+This variable overrides `bongo-default-buffer-name'.")
+
 (defun bongo-default-buffer ()
-  "Return the default Bongo playlist buffer.
-If no playlist buffer exists, create one."
-  (or (get-buffer bongo-default-buffer-name)
+  "Return the default Bongo buffer, creating it if necessary.
+If the variable `bongo-default-buffer' is non-nil, return that.
+Otherwise, return the buffer named `bongo-default-buffer-name',
+creating it if necessary."
+  (or bongo-default-buffer
+      (get-buffer bongo-default-buffer-name)
       (save-excursion
         (set-buffer (get-buffer-create bongo-default-buffer-name))
         (bongo-mode)
         (current-buffer))))
 
 (defun bongo ()
-  "Start the Bongo multimedia system."
+  "Switch to the default Bongo buffer.
+See `bongo-default-buffer'."
   (interactive)
   (switch-to-buffer (bongo-default-buffer)))
 
