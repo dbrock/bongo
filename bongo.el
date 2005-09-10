@@ -1,5 +1,9 @@
-;;; bongo.el --- buffer-oriented media player for Emacs
+;;; bongo.el --- a buffer-oriented media player for Emacs
 ;; Copyright (C) 2005  Daniel Brockman
+
+;; Author: Daniel Brockman <daniel@brockman.se>
+;; URL: http://www.brockman.se/software/bongo/
+;; Created: The shiny afternoon of September 3, 2005
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -472,7 +476,7 @@ Return non-nil if point was moved to an object line."
 If POINT is non-nil, start after that line; otherwise,
   start after the current line.
 If no track line is found after the starting line, return nil."
-  (bongo-point-before-next-line-satisfying 'bongo-line-track-p point))
+  (bongo-point-before-next-line-satisfying 'bongo-track-line-p point))
 
 (defalias 'bongo-point-at-next-track-line
   #'bongo-point-before-next-track-line)
@@ -502,7 +506,7 @@ If no track line is found after the starting line, return nil."
 (defun bongo-track-infoset (&optional point)
   "Return the infoset for the track at POINT.
 You should use `bongo-line-infoset' most of the time."
-  (unless (bongo-line-track-p point)
+  (unless (bongo-track-line-p point)
     (error "Point is not on a track line"))
   (bongo-infoset-from-file-name (bongo-line-file-name point)))
 
@@ -524,7 +528,7 @@ For track lines, the infoset is obtained by passing the file name to
 For header lines, it is derived from the `bongo-fields' text property
   and the infoset of the nearest following track line."
     (cond
-     ((bongo-line-track-p point) (bongo-track-infoset point))
+     ((bongo-track-line-p point) (bongo-track-infoset point))
      ((bongo-header-line-p point) (bongo-header-infoset point))))
 
 (defun bongo-line-internal-infoset (&optional point)
@@ -580,7 +584,7 @@ externalize if their field values match those of this line.
 
 For track lines, this is always the same as the external field names.
 For header lines, the internal field names are also added."
-  (cond ((bongo-line-track-p point)
+  (cond ((bongo-track-line-p point)
          (bongo-line-external-fields point))
         ((bongo-header-line-p point)
          (append (bongo-line-external-fields point)
@@ -589,7 +593,7 @@ For header lines, the internal field names are also added."
 (defun bongo-line-indentation-proposal (&optional point)
   "Return the number of external fields proposed by the line at POINT.
 See `bongo-line-external-fields-proposal'."
-  (cond ((bongo-line-track-p point)
+  (cond ((bongo-track-line-p point)
          (bongo-line-indentation point))
         ((bongo-header-line-p point)
          (+ (length (bongo-line-external-fields point))
@@ -1377,7 +1381,7 @@ Interactive mpg123 processes support pausing and seeking."
                    (bongo-active-track-position))))
     (if (null position)
         (error "No more tracks")
-      (bongo-line-play ))))
+      (bongo-line-play position))))
 
 (defun bongo-tracks-exist-p ()
   (let (tracks-exist)
@@ -1590,17 +1594,20 @@ With prefix argument, remove all indentation and headers."
   (interactive "P")
   (save-excursion
     (with-bongo-buffer
+      (message "Rendering playlist...")
       (goto-char (point-min))
       (while (not (eobp))
         (cond
          ((and arg (bongo-header-line-p))
-          (bongo-delete-line))
+          (bongo-delete-line)
+          (bongo-maybe-forward-object-line))
          ((and arg (bongo-track-line-p))
           (bongo-line-set-external-fields nil)
-          (forward-line))
-         (t
+          (bongo-forward-object-line))
+         ((bongo-object-line-p)
           (bongo-redisplay-line)
-          (forward-line)))))))
+          (bongo-forward-object-line))))
+      (message "Rendering playlist...done"))))
 
 
 ;;; Killing/yanking
@@ -1720,14 +1727,14 @@ See `undo'."
   (use-local-map bongo-mode-map)
   (setq buffer-read-only t)
   (setq major-mode 'bongo-mode)
-  (setq mode-name "Playlist")
+  (setq mode-name "Bongo")
   (setq font-lock-defaults '())
   (set (make-local-variable 'overlay-arrow-position) (make-marker))
 ;;  (set (make-local-variable 'yank-excluded-properties) nil)
   (run-mode-hooks 'bongo-mode-hook))
 
 (defvar bongo-mode-map
-  (let ((map (make-keymap)))
+  (let ((map (make-sparse-keymap)))
     (suppress-keymap map)
     (define-key map "\C-m" 'bongo-line-play)
     (define-key map "q" 'bongo-quit)
