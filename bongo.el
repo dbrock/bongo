@@ -1371,7 +1371,7 @@ Interactive mpg123 processes support pausing and seeking."
   (interactive)
   (when (null (bongo-active-track-position))
     (error "No active track"))
-  (bongo-line-play (bongo-active-track-position)))
+  (bongo-play-line (bongo-active-track-position)))
 
 (defun bongo-play-next ()
   (interactive)
@@ -1381,7 +1381,7 @@ Interactive mpg123 processes support pausing and seeking."
                    (bongo-active-track-position))))
     (if (null position)
         (error "No more tracks")
-      (bongo-line-play position))))
+      (bongo-play-line position))))
 
 (defun bongo-tracks-exist-p ()
   (let (tracks-exist)
@@ -1401,7 +1401,7 @@ Interactive mpg123 processes support pausing and seeking."
     (goto-char (1+ (random (point-max))))
     (while (not (bongo-track-line-p))
       (goto-char (1+ (random (point-max))))
-    (bongo-line-play))))
+    (bongo-play-line))))
 
 (defun bongo-stop ()
   (interactive)
@@ -1736,7 +1736,7 @@ See `undo'."
 (defvar bongo-mode-map
   (let ((map (make-sparse-keymap)))
     (suppress-keymap map)
-    (define-key map "\C-m" 'bongo-line-play)
+    (define-key map "\C-m" 'bongo-play-line)
     (define-key map "q" 'bongo-quit)
     (define-key map "g" 'bongo-redisplay)
     (define-key map "j" 'bongo-join)
