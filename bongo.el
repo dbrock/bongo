@@ -146,6 +146,11 @@ Therefore, if you change this list, you probably also need to change
   :type 'string
   :group 'bongo)
 
+(defcustom bongo-gnu-find-extra-arguments '("-regextype" "emacs")
+  "Extra arguments to pass to GNU find."
+  :type '(repeat string)
+  :group 'bongo)
+
 (defcustom bongo-header-format "[%s]"
   "Template for displaying header lines.
 %s means the header line content."
@@ -1484,9 +1489,10 @@ but actually uses `bongo-gnu-find-program' to find the files."
                       (read-directory-name "Insert directory tree: "
                                            default-directory nil t))))
   (with-temp-buffer
-    (call-process bongo-gnu-find-program nil t nil
-                  directory-name "-regextype" "emacs"
-                  "-type" "f" "-iregex" bongo-file-name-track-regexp)
+    (apply 'call-process bongo-gnu-find-program nil t nil
+           directory-name "-type" "f"
+           "-iregex" bongo-file-name-track-regexp
+           bongo-gnu-find-extra-arguments)
     (sort-lines nil (point-min) (point-max))
     (goto-char (point-min))
     (while (not (eobp))
