@@ -1405,8 +1405,8 @@ Interactive mpg123 processes support pausing and seeking."
   (save-excursion
     (goto-char (1+ (random (point-max))))
     (while (not (bongo-track-line-p))
-      (goto-char (1+ (random (point-max))))
-    (bongo-play-line))))
+      (goto-char (1+ (random (point-max)))))
+    (bongo-play-line)))
 
 (defun bongo-stop ()
   (interactive)
