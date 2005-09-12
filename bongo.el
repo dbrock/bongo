@@ -20,43 +20,6 @@
 ;; Software Foundation, 51 Franklin Street, Fifth Floor,
 ;; Boston, MA 02110-1301, USA.
 
-;;; Commentary:
-
-;; A week ago, I sent a message to the EMMS mailing list,
-;; whining about how vectors make for pretty lousy playlists.
-;; I like to mess around with my playlists a let, cutting and
-;; pasting tracks all over the place.  The thing is, it takes
-;; forever to do that when your playlist is a large vector.
-
-;; So the question was, what do we use instead?  We considered
-;; singly linked lists, doubly linked lists, chocolate lists,
-;; strawberry lists --- all the kinds of lists.  But then Jorgen
-;; took the words out of my mouth and said, ``I guess we could
-;; also use what Emacs is good with, namely, a buffer.''
-
-;; Buffers can do fast insertions, deletions, and random access.
-;; They are the best of both worlds, and what's even cooler is
-;; that they are already implemented!
-
-;; Jorgen actually first said that he didn't want ``yet another
-;; useless buffer lying around'' (he doesn't use the EMMS PBI),
-;; but changed his mind when he realized that keeping the buffer
-;; out of the way would be as easy as sticking a blank at the
-;; start of its name.
-
-;; So it was more or less agreed that maybe a plain old Emacs
-;; buffer would be the best solution after all.
-
-;; I guess you could consider this a proof-of-concept hack:
-;; the groundwork of a buffer-oriented media player for Emacs.
-
-;; Please note that this is a very early develompent version.
-;; There are lots of bugs and most things don't work properly.
-;; Moreover, the codebase currently changes violently each day.
-
-;; I'm a long-time EMMS follower and contributor, and though
-;; this code was written from scratch, EMMS paved the way.
-
 ;;; Code:
 
 (defgroup bongo nil
