@@ -993,7 +993,7 @@ existing header into two (see `bongo-maybe-insert-intermediate-header')."
       (while (and list (null best-player-type))
         (let* ((player-type (bongo-alist-get bongo-player-types
                                              (cdar list)))
-               (matcher (or (caar list)
+               (matcher (or (cdar list)
                             (bongo-alist-get player-type
                                              'default-matcher))))
           (when (bongo-file-name-matches-p file-name matcher)
