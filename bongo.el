@@ -1227,10 +1227,10 @@ If PLAYER does not support seeking, signal an error."
         (bongo-player-killed player))))))
 
 
-;;;; The mpg123 player backend
+;;;; The mpg123 backend
 
 (defgroup bongo-mpg123 nil
-  "The mpg123 player backend."
+  "The mpg123 backend."
   :group 'bongo)
 
 (defcustom bongo-mpg123-program-name "mpg123"
@@ -1239,7 +1239,7 @@ If PLAYER does not support seeking, signal an error."
   :group 'bongo-mpg123)
 
 (defcustom bongo-mpg123-device-type nil
-  "The type of device (oss, alsa, esd, etc.) used by mpg123.
+  "The type of device (oss, alsa, esd, etc.) to be used by mpg123.
 This corresponds to the `-o' option of mpg123."
   :type '(choice (const :tag "System default" nil)
                  (const :tag "ALSA" "alsa")
@@ -1251,7 +1251,7 @@ This corresponds to the `-o' option of mpg123."
   :group 'bongo-mpg123)
 
 (defcustom bongo-mpg123-device nil
-  "The device (e.g., for ALSA, 1:0 or 2:1) used by mpg123.
+  "The device (e.g., for ALSA, 1:0 or 2:1) to be used by mpg123.
 This corresponds to the `-a' option of mpg123."
   :type '(choice (const :tag "System default" nil) string)
   :group 'bongo-mpg123)
@@ -1320,7 +1320,7 @@ Interactive mpg123 processes support pausing and seeking."
     (error "This mpg123 process does not support seeking")))
 
 (defun bongo-start-mpg123-player (file-name)
-  (let* ((process-connection-type nil) ; Use a pipe, not a PTY.
+  (let* ((process-connection-type nil)
          (arguments (append
                      (when bongo-mpg123-device-type
                        (list "-o" bongo-mpg123-device-type))
