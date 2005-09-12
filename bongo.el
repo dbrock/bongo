@@ -577,8 +577,8 @@ See `bongo-line-proposed-external-fields'."
     (bongo-line-indentation-proposal
      (bongo-point-at-previous-object-line point))))
 
-;; (defun bongo-line-relatively-outdented-p ()
-;;   (< (bongo-line-indentation) (bongo-line-proposed-indentation)))
+;;; (defun bongo-line-relatively-outdented-p ()
+;;;   (< (bongo-line-indentation) (bongo-line-proposed-indentation)))
 
 (defun bongo-line-file-name (&optional point)
   "Return the `bongo-file-name' text property of the file at POINT.
@@ -608,8 +608,8 @@ to exist for long enough to be visible to the user."
 
 ;;;; General convenience routines
 
-;; (defmacro nor (&rest conditions)
-;;   `(not (or ,@conditions)))
+;;; (defmacro nor (&rest conditions)
+;;;   `(not (or ,@conditions)))
 
 (defun bongo-shortest (a b)
   "Return the shorter of the lists A and B."
@@ -868,23 +868,23 @@ at least one line in the region."
         (forward-line))
       external-p)))
 
-;; (defun bongo-external-fields-in-region-equal-p (beg end)
-;;   "In Bongo, return the fields that are external in the region.
-;; The region delimiters BEG and END should be integers or markers.
-
-;; Only the fields that are external for all objects throughout
-;; the region are considered to be external ``in the region.''"
-;;   (save-excursion
-;;     (goto-char beg)
-;;     (let* ((equal t)
-;;            (fields (bongo-external-fields))
-;;            (values (bongo-get fields)))
-;;       (while (and (< (point) end) equal)
-;;         (unless (equal (bongo-get fields) values)
-;;           (setq equal nil))
-;;         (forward-line))
-;;       equal)))
-
+;;; (defun bongo-external-fields-in-region-equal-p (beg end)
+;;;   "In Bongo, return the fields that are external in the region.
+;;; The region delimiters BEG and END should be integers or markers.
+;;;
+;;; Only the fields that are external for all objects throughout
+;;; the region are considered to be external ``in the region.''"
+;;;   (save-excursion
+;;;     (goto-char beg)
+;;;     (let* ((equal t)
+;;;            (fields (bongo-external-fields))
+;;;            (values (bongo-get fields)))
+;;;       (while (and (< (point) end) equal)
+;;;         (unless (equal (bongo-get fields) values)
+;;;           (setq equal nil))
+;;;         (forward-line))
+;;;       equal)))
+;;;
 ;;; (defun bongo-external-fields-at-point-equal-to-previous-p (&optional point)
 ;;;   (if (bongo-point-at-first-line-p point)
 ;;;       (zerop (bongo-indentation-at-point point))
@@ -1587,8 +1587,8 @@ If the lines cannot be joined, an error is signaled."
         (insert (if (not header-p) content
                   (bongo-format-header content))))
       (bongo-line-set-properties properties)
-;;       (bongo-line-set-property 'face (if header-p 'bongo-header
-;;                                        'bongo-track))
+;;;       (bongo-line-set-property 'face (if header-p 'bongo-header
+;;;                                        'bongo-track))
       )))
 
 (defun bongo-redisplay (&optional arg)
@@ -1633,8 +1633,8 @@ See `kill-line'."
                    (bongo-point-after-section)))
      (t
       (kill-line arg)))
-;;     (when (bongo-redundant-header-at-point-p)
-;;       (bongo-delete-line))
+;;;     (when (bongo-redundant-header-at-point-p)
+;;;       (bongo-delete-line))
     ))
 
 (defun bongo-kill-region (&optional beg end)
