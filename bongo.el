@@ -1724,6 +1724,85 @@ See `undo'."
     (undo arg)))
 
 
+;;;; Serializing playlist buffers
+
+;;; (defun bongo-parse-playlist-header ()
+;;;   "Parse a Bongo playlist header.
+;;; Leave point immediately after the header."
+;;;   (let (pairs)
+;;;     (while (looking-at "\\([a-zA-Z-]+\\): \\(.*\\)")
+;;;       (setq pairs (cons (cons (intern (downcase (match-string 1)))
+;;;                               (match-string 2))
+;;;                         pairs))
+;;;       (forward-line))
+;;;     pairs))
+
+(defvar bongo-magic-string
+  "Content-Type: application/x-bongo-playlist\n"
+  "The string that identifies serialized Bongo playlists.
+Any file that starts with this string will be assumed to be a
+serialized Bongo playlist.")
+
+(add-to-list 'auto-mode-alist '("\\.bongo$" . bongo-mode))
+(add-to-list 'format-alist
+             (list 'bongo-playlist
+                   "Bongo playlist" bongo-magic-string
+                   'bongo-decode-playlist
+                   'bongo-encode-playlist t nil))
+
+(defun bongo-decode-playlist (beg end)
+  "Convert a serialized Bongo playlist into the real thing.
+Modify region between BEG and END; return the new end of the region.
+
+This function is used when loading playlists from files.
+You probably do not want to call this function directly;
+instead, use high-level functions such as `find-file'."
+  (save-excursion
+    (save-restriction
+      (narrow-to-region beg end)
+      (goto-char (point-min))
+      (unless (looking-at bongo-magic-string)
+        (error "Unrecognized playlist format"))
+      (bongo-delete-line)
+      (while (not (eobp))
+        (let ((start (point)))
+          (condition-case nil
+              (let ((object (read (current-buffer))))
+                (delete-region start (point))
+                (if (stringp object) (insert object)
+                  (error "Unexpected object: %s" object)))
+            (end-of-file
+             (delete-region start (point-max))))))
+      (point-max))))
+
+(defvar bongo-line-serializable-properties
+  (list 'face 'bongo-file-name 'bongo-header-p
+        'bongo-fields 'bongo-external-fields)
+  "The list of serializable text properties used in Bongo buffers.
+Serializable text properties are saved when a playlist is written to a file,
+whereas all other text properties are discarded.")
+
+(defun bongo-encode-playlist (beg end buffer)
+  "Serialize part of a Bongo playlist into a flat representation.
+Modify region between BEG and END; return the new end of the region.
+
+This function is used when writing playlists to files.
+You probably do not want to call this function directly;
+instead, use high-level functions such as `save-buffer'."
+  (save-excursion
+    (save-restriction
+      (narrow-to-region beg end)
+      (bongo-ensure-final-newline)
+      (goto-char (point-min))
+      (insert bongo-magic-string "\n")
+      (while (not (eobp))
+        (bongo-keep-text-properties (point-at-bol) (point-at-eol) '(face))
+        (bongo-keep-text-properties (point-at-eol) (1+ (point-at-eol))
+                                    bongo-line-serializable-properties)
+        (prin1 (bongo-extract-line) (current-buffer))
+        (insert "\n")))))
+
+
 
 (defun bongo-quit ()
   "Quit Bongo by selecting some other buffer."
@@ -1740,10 +1819,8 @@ See `undo'."
   (use-local-map bongo-mode-map)
   (setq buffer-read-only t)
   (setq major-mode 'bongo-mode)
-  (setq mode-name "Bongo")
-  (setq font-lock-defaults '())
-  (set (make-local-variable 'overlay-arrow-position) (make-marker))
-;;  (set (make-local-variable 'yank-excluded-properties) nil)
+  (setq mode-name "Bongo-Playlist")
+  (setq buffer-file-format '(bongo-playlist))
   (run-mode-hooks 'bongo-mode-hook))
 
 (defvar bongo-mode-map
