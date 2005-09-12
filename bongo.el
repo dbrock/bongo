@@ -466,15 +466,6 @@ If no track line is found after the starting line, return nil."
         (bongo-forward-object-line))
       (point))))
 
-;; (defun bongo-field-dependencies (field)
-;;   (or (assoc field bongo-field-dependencies) (list field)))
-
-;; (defun bongo-fields-with-dependencies (fields)
-;;   (remove-duplicates (mapcan 'bongo-field-dependencies fields)))
-
-;; (defun bongo-filter-info (fields info)
-;;   (bongo-filter-alist (bongo-fields-with-dependencies fields) info)))
-
 (defun bongo-track-infoset (&optional point)
   "Return the infoset for the track at POINT.
 You should use `bongo-line-infoset' most of the time."
@@ -744,6 +735,8 @@ If they are distinct but on the same line, return 1."
 
 
 ;;;; Text properties
+
+;;; XXX: Should rename these to `bongo-get-line-property', etc.
 
 (defun bongo-line-get-property (name &optional point)
   "Return the value of the text property NAME on the line at POINT.
