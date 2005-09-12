@@ -751,7 +751,9 @@ Actually only look at the terminating newline."
   (get-text-property (bongo-point-at-eol point) name))
 
 (defvar bongo-line-semantic-properties
-  '(bongo-file-name bongo-header-p bongo-fields bongo-external-fields)
+  (list 'bongo-file-name 'bongo-header-p
+        'bongo-fields 'bongo-external-fields
+        'bongo-player)
   "The list of semantic text properties used in Bongo buffers.
 When redisplaying lines, semantic text properties are preserved,
 whereas all other text properties (e.g., `face') are discarded.")
