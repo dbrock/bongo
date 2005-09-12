@@ -186,20 +186,20 @@ This is used by `bongo-insert-directory' to filter out non-playable files."
 
 (defcustom bongo-file-name-field-separator " - "
   "String used to split file names into fields.
-This is used by the function `bongo-default-infoset-from-file-name'."
+This is used by `bongo-default-infoset-from-file-name'."
   :type 'string
   :group 'bongo)
 
 (defcustom bongo-file-name-album-year-regexp
   "^\\([0-9]{4}\\|'?[0-9]{2}\\)$"
   "Regexp matching album years.
-This is used by the function `bongo-default-infoset-from-file-name'."
+This is used by `bongo-default-infoset-from-file-name'."
   :type 'regexp
   :group 'bongo)
 
 (defcustom bongo-file-name-track-index-regexp "^[0-9]+$"
   "Regexp matching track indices.
-This is used by the function `bongo-default-infoset-from-file-name'."
+This is used by `bongo-default-infoset-from-file-name'."
   :type 'regexp
   :group 'bongo)
 
@@ -654,7 +654,8 @@ If ALIST is a symbol, operate on the vaule of that symbol instead."
         (cons (cons key value) alist)))))
 
 (defun bongo-filter-alist (keys alist)
-  "Return a new list of each pair in ALIST whose car is in KEYS."
+  "Return a new list of each pair in ALIST whose car is in KEYS.
+Key comparisons are done with `eq'."
   (remove-if-not (lambda (pair)
                    (memq (car pair) keys)) alist))
 
@@ -1488,7 +1489,7 @@ but actually uses `bongo-gnu-find-program' to find the files."
       (forward-line))))
 
 
-;;; Joining/splitting
+;;;; Joining/splitting
 
 (defun bongo-join-region (beg end &optional fields)
   "Externalize all fields that are common between BEG and END.
@@ -1604,7 +1605,7 @@ With prefix argument, remove all indentation and headers."
       (message "Rendering playlist...done"))))
 
 
-;;; Killing/yanking
+;;;; Killing/yanking
 
 (defun bongo-kill-line (&optional arg)
   "In Bongo, kill the current line.
