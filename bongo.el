@@ -1,5 +1,6 @@
 ;;; bongo.el --- a buffer-oriented media player for Emacs
 ;; Copyright (C) 2005  Daniel Brockman
+;; Copyright (C) 2005  Lars Öhrman
 
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
@@ -977,8 +978,24 @@ existing header into two (see `bongo-maybe-insert-intermediate-header')."
 ;;;; Player types
 
 (defvar bongo-player-types
-  '((mpg123 (default-matcher . "\\.[mM][pP][23]$")
-            (constructor . bongo-start-mpg123-player))))
+  `((mpg123
+     (default-matcher . "\\.[mM][pP][23]$")
+     (constructor . bongo-start-mpg123-player))
+    (mplayer
+     (default-matcher .
+       ,(concat "\\." (regexp-opt
+                       '("mp3" "ogg" "mpg" "avi"
+                         "wav" "asf" "wma" "wmv") t) "$"))
+     (constructor . bongo-start-mplayer-player)))
+  "List of available Bongo player backends.
+Entries are of the following form:
+  (NAME (default-matcher . MATCHER)
+        (constructor . CONSTRUCTOR)).
+
+CONSTRUCTOR is a function that recieves one argument, FILE-NAME.
+  It should immediately start a player for FILE-NAME.
+MATCHER can be t, nil, a string, or a symbol.
+  See `bongo-file-name-matches-p' for more information.")
 
 (defcustom bongo-preferred-player-types nil
   "List of preferred Bongo player backends.
@@ -1351,6 +1368,100 @@ Interactive mpg123 processes support pausing and seeking."
           (set-process-filter process 'ignore)
         (set-process-filter process 'bongo-mpg123-process-filter)
         (process-send-string process (format "LOAD %s\n" file-name))))))
+
+
+;;;; The mplayer backend
+
+(defgroup bongo-mplayer nil
+  "The mplayer backend."
+  :group 'bongo)
+
+(defcustom bongo-mplayer-program-name "mplayer"
+  "The name of the mplayer executable."
+  :type 'string
+  :group 'bongo-mplayer)
+
+(defcustom bongo-mplayer-audio-device nil
+  "The audio device to be used by mplayer.
+This corresponds to the `-ao' option of mplayer."
+  :type '(choice (const :tag "System default" nil)
+                 string)
+  :group 'bongo-mplayer)
+
+(defcustom bongo-mplayer-video-device nil
+  "The video device to be used by mplayer.
+This corresponds to the `-vo' option of mplayer."
+  :type '(choice (const :tag "System default" nil)
+                 string)
+  :group 'bongo-mplayer)
+
+(defcustom bongo-mplayer-interactive t
+  "If non-nil, use the slave mode of mplayer.
+Setting this to nil disables the pause and seek functionality."
+  :type 'boolean
+  :group 'bongo-mplayer)
+
+(defcustom bongo-mplayer-extra-arguments nil
+  "Extra command-line arguments to pass to mplayer.
+These will come at the end or right before the file name."
+  :type '(repeat string)
+  :group 'bongo-mplayer)
+
+(defcustom bongo-mplayer-seek-increment 5.0
+  "The step size (in seconds) to use for relative seeking.
+This is used by `bongo-mplayer-seek-by'."
+  :type 'float
+  :group 'bongo-mplayer)
+
+(defun bongo-mplayer-player-interactive-p (player)
+  "Return non-nil if PLAYER's process is interactive.
+Interactive mplayer processes support pausing and seeking."
+  (bongo-alist-get player 'interactive-flag))
+
+(defun bongo-mplayer-player-pause/resume (player)
+  (if (bongo-mplayer-player-interactive-p player)
+      (process-send-string (bongo-player-process player) "pause\n")
+    (error "This mplayer process does not support pausing")))
+
+(defun bongo-mplayer-player-seek-to (player position)
+  (if (bongo-mpg123-player-interactive-p player)
+      (process-send-string
+       (bongo-player-process player)
+       (format "seek %f 2\n" position))
+    (error "This mplayer process does not support seeking")))
+
+(defun bongo-mplayer-player-seek-by (player delta)
+  (if (bongo-mplayer-player-interactive-p player)
+      (process-send-string
+       (bongo-player-process player)
+       (format "seek %f 0\n" (* bongo-mplayer-seek-increment delta)))
+    (error "This mplayer process does not support seeking")))
+
+(defun bongo-start-mplayer-player (file-name)
+  (let* ((process-connection-type nil)
+         (arguments (append
+                     (when bongo-mplayer-audio-device
+                       (list "-ao" bongo-mplayer-audio-device))
+                     (when bongo-mplayer-video-device
+                       (list "-vo" bongo-mplayer-video-device))
+                     bongo-mplayer-extra-arguments
+                     (if bongo-mplayer-interactive
+                         (list "-quiet" "-slave" file-name)
+                       (list file-name))))
+         (process (apply 'start-process "bongo-mplayer" nil
+                         bongo-mplayer-program-name arguments))
+         (player `(mplayer
+                   (process . ,process)
+                   (file-name . ,file-name)
+                   (buffer . ,(current-buffer))
+                   (stop . bongo-default-player-stop)
+                   (interactive-flag . ,bongo-mplayer-interactive)
+                   (pause/resume . bongo-mplayer-player-pause/resume)
+                   (seek-by . bongo-mplayer-player-seek-by)
+                   (seek-to . bongo-mplayer-player-seek-to))))
+    (prog1 player
+      (set-process-sentinel process 'bongo-default-player-process-sentinel)
+      (bongo-process-put process 'bongo-player player))))
 
 
 ;;;; Controlling playback
