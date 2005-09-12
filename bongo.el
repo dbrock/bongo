@@ -658,6 +658,16 @@ If ALIST is a symbol, operate on the vaule of that symbol instead."
   (remove-if-not (lambda (pair)
                    (memq (car pair) keys)) alist))
 
+(defun bongo-filter-plist (keys plist)
+  "Return a new list of each property in PLIST whose name is in KEYS.
+Key comparisons are done with `eq'."
+  (let (new-plist)
+    (while plist
+      (when (memq (car plist) keys)
+        (setq new-plist `(,(car plist) ,(cadr plist) ,@new-plist)))
+      (setq plist (cddr plist)))
+    new-plist))
+
 (if (and (fboundp 'process-put) (fboundp 'process-get))
     (progn
       (defalias 'bongo-process-get #'process-get)
@@ -681,11 +691,30 @@ If ALIST is a symbol, operate on the vaule of that symbol instead."
      process (plist-put (bongo-process-plist process)
                         property value))))
 
+
+;;;; Line-oriented convenience routines
+
+(defun bongo-ensure-final-newline ()
+  "Make sure the last line in the current buffer ends with a newline.
+Do nothing if the current buffer is empty."
+  (or (= (point-min) (point-max))
+      (= (char-before (point-max)) ?\n)
+      (save-excursion
+        (goto-char (point-max))
+        (insert "\n"))))
+
 (defun bongo-delete-line (&optional point)
   "Delete the line at POINT."
   (let ((inhibit-read-only t))
     (delete-region (bongo-point-before-line point)
                    (bongo-point-after-line point))))
+
+(defun bongo-extract-line (&optional point)
+  "Delete the line at POINT and return its content.
+The content includes the final newline, if any."
+  (prog1 (buffer-substring (bongo-point-before-line point)
+                           (bongo-point-after-line point))
+    (bongo-delete-line point)))
 
 (defun bongo-clear-line (&optional point)
   "Remove all contents of the line at POINT."
@@ -729,16 +758,8 @@ whereas all other text properties (e.g., `face') are discarded.")
   "Return the list of semantic text properties at POINT.
 The value of `bongo-line-semantic-properties' determines which
 text properties are considered \"semantic\" by this function."
-  (let ((properties (text-properties-at (or point (point))))
-        (semantic-properties nil))
-    (while properties
-      (when (member (car properties) bongo-line-semantic-properties)
-        (setq semantic-properties
-              (cons (car properties)
-                    (cons (cadr properties)
-                          semantic-properties))))
-      (setq properties (cddr properties)))
-    semantic-properties))
+  (bongo-filter-plist bongo-line-semantic-properties
+                      (text-properties-at (bongo-point-at-eol point))))
 
 (defun bongo-line-set-property (name value &optional point)
   "Set the text property NAME to VALUE on the line at POINT.
