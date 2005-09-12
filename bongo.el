@@ -145,10 +145,12 @@ This is used by the function `bongo-default-format-infoset'."
   :type 'function
   :group 'bongo)
 
-(defcustom bongo-field-separator " —— " ;; " -- "
+(defcustom bongo-field-separator " —— "
   "String used to separate field values.
 This is used by the function `bongo-default-format-field'."
-  :type 'string
+  :type '(choice (const :tag " —— (Unicode dashes)" " —— ")
+                 (const :tag " -- (ASCII dashes)" " -- ")
+                 string)
   :group 'bongo)
 
 (defcustom bongo-album-format "%t (%y)"
