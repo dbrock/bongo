@@ -720,15 +720,15 @@ The content includes the final newline, if any."
 (defun bongo-clear-line (&optional point)
   "Remove all contents of the line at POINT."
   (let ((inhibit-read-only t))
+    (bongo-ensure-final-newline)
     (save-excursion
       (bongo-goto-point point)
       ;; Avoid deleting the newline, because that would
       ;; cause the markers on this line to become mixed up
       ;; with those on the next line.
       (delete-region (point-at-bol) (point-at-eol))
-      (unless (eobp)
-        ;; Remove all text properties from the newline.
-        (set-text-properties (point) (1+ (point)) nil)))))
+      ;; Remove all text properties from the newline.
+      (set-text-properties (point) (1+ (point)) nil))))
 
 (defun bongo-region-line-count (beg end)
   "Return the number of lines between BEG and END.
@@ -746,8 +746,9 @@ If they are distinct but on the same line, return 1."
 ;;;; Text properties
 
 (defun bongo-line-get-property (name &optional point)
-  "Return the value of the text property NAME at POINT."
-  (get-text-property (or point (point)) name))
+  "Return the value of the text property NAME on the line at POINT.
+Actually only look at the terminating newline."
+  (get-text-property (bongo-point-at-eol point) name))
 
 (defvar bongo-line-semantic-properties
   '(bongo-file-name bongo-header-p bongo-fields bongo-external-fields)
@@ -756,7 +757,9 @@ When redisplaying lines, semantic text properties are preserved,
 whereas all other text properties (e.g., `face') are discarded.")
 
 (defun bongo-line-get-semantic-properties (&optional point)
-  "Return the list of semantic text properties at POINT.
+  "Return the list of semantic text properties on the line at POINT.
+Actually only look at the terminating newline.
+
 The value of `bongo-line-semantic-properties' determines which
 text properties are considered \"semantic\" by this function."
   (bongo-filter-plist bongo-line-semantic-properties
@@ -764,30 +767,40 @@ text properties are considered \"semantic\" by this function."
 
 (defun bongo-line-set-property (name value &optional point)
   "Set the text property NAME to VALUE on the line at POINT.
-The text property will be set for every character on the line at POINT,
-including any terminating newline."
-  (let ((inhibit-read-only t))
-    (put-text-property (bongo-point-before-line point)
-                       (bongo-point-after-line point)
-                       name value)))
+The text property will only be set for the terminating newline."
+  (let ((inhibit-read-only t)
+        (position (bongo-point-at-eol point)))
+    (bongo-ensure-final-newline)
+    (put-text-property position (1+ position) name value)))
 
 (defun bongo-line-set-properties (properties &optional point)
   "Set the text properties PROPERTIES on the line at POINT.
-The text properties will be set for every character on the line at POINT,
-including any terminating newline."
-  (let ((inhibit-read-only t))
-    (add-text-properties (bongo-point-before-line point)
-                         (bongo-point-after-line point)
-                         properties)))
+The text properties will only be set for the terminating newline."
+  (let ((inhibit-read-only t)
+        (position (bongo-point-at-eol point)))
+    (bongo-ensure-final-newline)
+    (add-text-properties position (1+ position) properties)))
 
 (defun bongo-line-remove-property (name &optional point)
   "Remove the text property NAME from the line at POINT.
-The text property will be removed from every character on the line at POINT,
-including any terminating newline."
-  (let ((inhibit-read-only t))
-    (remove-text-properties (bongo-point-before-line point)
-                            (bongo-point-after-line point)
-                            (list name nil))))
+The text properties will only be removed from the terminating newline."
+  (let ((inhibit-read-only t)
+        (position (bongo-point-at-eol point)))
+    (bongo-ensure-final-newline)
+    (remove-text-properties position (1+ position) (list name nil))))
+
+(defun bongo-keep-text-properties (beg end keys)
+  "Keep only some properties in text from BEG to END."
+  (save-excursion
+    (save-restriction
+      (narrow-to-region beg end)
+      (goto-char (point-min))
+      (while (not (eobp))
+        (let* ((properties (text-properties-at (point)))
+               (kept-properties (bongo-filter-plist keys properties))
+               (next (or (next-property-change (point)) (point-max))))
+          (set-text-properties (point) next kept-properties)
+          (goto-char next))))))
 
 
 ;;;; Sectioning
