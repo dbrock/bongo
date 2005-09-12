@@ -109,7 +109,11 @@ Therefore, if you change this list, you probably also need to change
   :type 'string
   :group 'bongo)
 
-(defcustom bongo-gnu-find-extra-arguments '("-regextype" "emacs")
+(defcustom bongo-gnu-find-extra-arguments
+  (when (and (executable-find bongo-gnu-find-program)
+             (equal 0 (call-process bongo-gnu-find-program nil nil nil
+                                    "-regextype" "emacs" "-prune")))
+    '("-regextype" "emacs"))
   "Extra arguments to pass to GNU find."
   :type '(repeat string)
   :group 'bongo)
