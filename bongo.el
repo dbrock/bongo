@@ -1733,7 +1733,10 @@ See `undo'."
 (defun bongo-mode ()
   "Major mode for Bongo playlist buffers."
   (interactive)
-  (kill-all-local-variables)
+  (let ((arrow-position overlay-arrow-position))
+    (kill-all-local-variables)
+    (set (make-local-variable 'overlay-arrow-position)
+         (or arrow-position (make-marker))))
   (use-local-map bongo-mode-map)
   (setq buffer-read-only t)
   (setq major-mode 'bongo-mode)
