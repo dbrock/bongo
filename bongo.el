@@ -980,7 +980,24 @@ existing header into two (see `bongo-maybe-insert-intermediate-header')."
   '((mpg123 (default-matcher . "\\.[mM][pP][23]$")
             (constructor . bongo-start-mpg123-player))))
 
-(defvar bongo-preferred-player-types nil)
+(defcustom bongo-preferred-player-types nil
+  "List of preferred Bongo player backends.
+Entries are of the form (PLAYER-TYPE . MATCHER).
+
+PLAYER-TYPE is the name of a player backend; i.e., a symbol with a
+  corresponding entry in `bongo-player-types'.
+MATCHER, if non-nil, overrides the default matcher for PLAYER-TYPE."
+  :type `(repeat (cons :tag "Preference"
+                       (choice :tag "Player type"
+                               ,@(mapcar (lambda (x) (cons 'const x))
+                                         bongo-player-types)
+                               symbol)
+                       (choice :tag "Condition"
+                               (const :tag "Player type default" nil)
+                               (const :tag "Always prefer this" t)
+                               (regexp :tag "File name regexp")
+                               (function :tag "File name predicate"))))
+  :group 'bongo)
 
 (defun bongo-file-name-matches-p (file-name matcher)
   (cond
