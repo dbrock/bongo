@@ -1333,8 +1333,8 @@ If your mpg123 does not support that option, set this variable to nil."
   :type '(choice (const :tag "None (lowest)" nil) integer)
   :group 'bongo-mpg123)
 
-(defcustom bongo-mpg123-seek-granularity 150
-  "The minimum number of frames to skip when seeking relatively.
+(defcustom bongo-mpg123-seek-increment 150
+  "The step size (in frames) to use for relative seeking.
 This is used by `bongo-mpg123-seek-by'."
   :type 'integer
   :group 'bongo-mpg123)
@@ -1373,7 +1373,7 @@ Interactive mpg123 processes support pausing and seeking."
       (process-send-string
        (bongo-player-process player)
        (format "JUMP %s%d\n" (if (< delta 0) "-" "+")
-               (* bongo-mpg123-seek-granularity (abs delta))))
+               (* bongo-mpg123-seek-increment (abs delta))))
     (error "This mpg123 process does not support seeking")))
 
 (defun bongo-start-mpg123-player (file-name)
