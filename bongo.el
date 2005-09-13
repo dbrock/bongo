@@ -130,11 +130,6 @@ Therefore, if you change this list, you probably also need to change
   :type 'string
   :group 'bongo)
 
-;; (defgroup bongo-info nil
-;;   "Displaying track info."
-;;   :prefix "bongo-"
-;;   :group 'bongo)
-
 (defcustom bongo-infoset-formatting-function 'bongo-default-format-infoset
   "Function used to convert an info set into a string."
   :type 'function
@@ -168,17 +163,6 @@ This is used by the function `bongo-default-format-field'.
 %t means the track title.
 %i means the track index."
   :type 'string
-  :group 'bongo)
-
-;; (defgroup bongo-file-name nil
-;;   "Parsing file names."
-;;   :prefix "bongo-file-name-"
-;;   :group 'bongo)
-
-(defcustom bongo-file-name-track-regexp ".*\\.mp3$"
-  "Regexp matching names of playable files.
-This is used by `bongo-insert-directory' to filter out non-playable files."
-  :type 'regexp
   :group 'bongo)
 
 (defcustom bongo-infoset-from-file-name-function
@@ -979,13 +963,11 @@ existing header into two (see `bongo-maybe-insert-intermediate-header')."
 
 (defvar bongo-player-types
   `((mpg123
-     (default-matcher . "\\.[mM][pP][23]$")
+     (default-matcher . ("mp3" "mp2"))
      (constructor . bongo-start-mpg123-player))
     (mplayer
-     (default-matcher .
-       ,(concat "\\." (regexp-opt
-                       '("mp3" "ogg" "mpg" "avi"
-                         "wav" "asf" "wma" "wmv") t) "$"))
+     (default-matcher . ("mp3" "ogg" "wav" "wma"
+                         "avi" "mpg" "asf" "wmv"))
      (constructor . bongo-start-mplayer-player)))
   "List of available Bongo player backends.
 Entries are of the following form:
@@ -994,7 +976,7 @@ Entries are of the following form:
 
 CONSTRUCTOR is a function that recieves one argument, FILE-NAME.
   It should immediately start a player for FILE-NAME.
-MATCHER can be t, nil, a string, or a symbol.
+MATCHER can be t, nil, a string, a list, or a symbol.
   See `bongo-file-name-matches-p' for more information.")
 
 (defcustom bongo-preferred-player-types nil
@@ -1003,27 +985,86 @@ Entries are of the form (PLAYER-TYPE . MATCHER).
 
 PLAYER-TYPE is the name of a player backend; i.e., a symbol with a
   corresponding entry in `bongo-player-types'.
-MATCHER, if non-nil, overrides the default matcher for PLAYER-TYPE."
-  :type `(repeat (cons :tag "Preference"
-                       (choice :tag "Player type"
-                               ,@(mapcar (lambda (x) (cons 'const x))
-                                         bongo-player-types)
-                               symbol)
-                       (choice :tag "Condition"
-                               (const :tag "Player type default" nil)
-                               (const :tag "Always prefer this" t)
-                               (regexp :tag "File name regexp")
-                               (function :tag "File name predicate"))))
+MATCHER, if non-nil, overrides the default matcher for PLAYER-TYPE.
+  See `bongo-file-name-matches-p' for more information."
+  :type `(repeat
+          (cons :tag "Preference"
+                (choice :tag "Player type"
+                        ,@(mapcar (lambda (x) `(const ,(car x)))
+                                  bongo-player-types)
+                        symbol)
+                (choice :tag "Condition"
+                        (const :tag "Default file name constraint" nil)
+                        (const :tag "Always preferred" t)
+                        (radio :tag "Custom constraint" :value ".*"
+                               (regexp :tag "File name pattern")
+                               (repeat :tag "File name extensions" string)
+                               (function :tag "File name predicate")))))
   :group 'bongo)
 
 (defun bongo-file-name-matches-p (file-name matcher)
+  "Return non-nil if FILE-NAME matches MATCHER.
+The possible values of MATCHER are listed below.
+
+If it is t, return non-nil immediately.
+If it is a string, treat it as a regular expression;
+  return non-nil if FILE-NAME matches MATCHER.
+If it is a symbol, treat it as a function name;
+  return non-nil if (MATCHER FILE-NAME) returns non-nil.
+If it is a list, treat it as a set of file name extensions;
+  return non-nil if the extension of FILE-NAME appears in MATCHER.
+Otherwise, signal an error."
   (cond
    ((eq t matcher) t)
    ((stringp matcher) (string-match matcher file-name))
    ((symbolp matcher) (funcall matcher file-name))
+   ((listp matcher)
+    (let ((extension (file-name-extension file-name)))
+      (let (match)
+        (while (and matcher (not match))
+          (if (equal (car matcher) extension)
+              (setq match t)
+            (setq matcher (cdr matcher)))))
+      match))
    (t (error "Bad file name matcher: %s" matcher))))
 
+;;; XXX: These functions needs to be refactored.
+
+(defun bongo-track-file-name-regexp ()
+  "Return a regexp matching the names of playable files.
+Walk `bongo-preferred-player-types' and `bongo-player-types',
+collecting file name regexps and file name extensions, and
+construct a regexp that matches all of the possibilities."
+  (let (extensions regexps)
+    (let ((list bongo-preferred-player-types))
+      (while list
+        (let ((matcher (or (cddr list)
+                           (bongo-alist-get (cdar list)
+                                            'default-matcher))))
+          (cond
+           ((stringp matcher)
+            (setq regexps (cons matcher regexps)))
+           ((listp matcher)
+            (setq extensions (append matcher extensions)))))
+        (setq list (cdr list))))
+    (let ((list bongo-player-types))
+      (while list
+        (let ((matcher (bongo-alist-get (cdar list) 'default-matcher)))
+          (cond
+           ((stringp matcher)
+            (setq regexps (cons matcher regexps)))
+           ((listp matcher)
+            (setq extensions (append matcher extensions)))))
+        (setq list (cdr list))))
+    (when extensions
+      (let ((regexp (format ".*\\.%s$" (regexp-opt extensions t))))
+        (setq regexps (cons regexp regexps))))
+    (if (null regexps) "."
+      (mapconcat 'identity regexps "\\|"))))
+
 (defun bongo-best-player-type-for-file (file-name)
+  "Return a player type that can play the file FILE-NAME, or nil.
+First search `bongo-preferred-player-types', then `bongo-player-types'."
   (let ((best-player-type nil))
     (let ((list bongo-preferred-player-types))
       (while (and list (null best-player-type))
@@ -1038,10 +1079,10 @@ MATCHER, if non-nil, overrides the default matcher for PLAYER-TYPE."
     (unless best-player-type
       (let ((list bongo-player-types))
         (while (and list (null best-player-type))
-          (when (bongo-file-name-matches-p
-                 file-name (bongo-alist-get (car list) 'default-matcher))
-            (setq best-player-type (car list))))
-          (setq list (cdr list))))
+          (let ((matcher (bongo-alist-get (car list) 'default-matcher)))
+            (if (bongo-file-name-matches-p file-name matcher)
+                (setq best-player-type (car list))
+              (setq list (cdr list)))))))
     best-player-type))
 
 
@@ -1134,14 +1175,16 @@ This function calls `bongo-start-player'."
 If you don't specify PLAYER-TYPE-NAME, Bongo will try to find
 the best player for FILE-NAME.
 This function runs `bongo-player-started-functions'."
-  (let* ((player-type (if player-type-name
-                          (bongo-alist-get bongo-player-types
-                                           player-type-name)
-                        (bongo-best-player-type-for-file file-name)))
-         (player (funcall (bongo-alist-get player-type 'constructor)
-                          file-name)))
-    (prog1 player
-      (run-hook-with-args 'bongo-player-started-functions player))))
+  (let ((player-type (if player-type-name
+                         (bongo-alist-get bongo-player-types
+                                          player-type-name)
+                       (bongo-best-player-type-for-file file-name))))
+    (when (null player-type)
+      (error "Don't know how to play `%s'" file-name))
+    (let ((player (funcall (bongo-alist-get player-type 'constructor)
+                           file-name)))
+      (prog1 player
+        (run-hook-with-args 'bongo-player-started-functions player)))))
 
 (defun bongo-player-type (player)
   "Return the player type of PLAYER (`mpg123', `mplayer', etc.)."
@@ -1594,7 +1637,8 @@ If FILE-NAME names a directory, call `bongo-insert-directory'."
 
 (defun bongo-insert-directory (directory-name)
   "Insert a new track line for each file in DIRECTORY-NAME.
-Only insert files whose names match `bongo-file-name-regexp'.
+Only insert files that can be played by some backend, as determined
+by the file name (see `bongo-track-file-name-regexp').
 Do not examine subdirectories of DIRECTORY-NAME."
   (interactive (list (expand-file-name
                       (read-directory-name "Insert directory: "
@@ -1603,22 +1647,23 @@ Do not examine subdirectories of DIRECTORY-NAME."
     (error "File is not a directory: %s" directory-name))
 ;;;   (when (file-exists-p (concat directory-name "/cover.jpg")))
   (dolist (file-name (directory-files directory-name t
-                                      bongo-file-name-track-regexp))
+                                      (bongo-track-file-name-regexp)))
     (bongo-insert-file file-name)))
 
 (defun bongo-insert-directory-tree (directory-name)
   "Insert a new track line for each file below DIRECTORY-NAME.
-Only insert files whose names match `bongo-file-name-regexp'.
+Only insert files that can be played by some backend, as determined
+by the file name (see `bongo-track-file-name-regexp').
 
 This function descends each subdirectory of DIRECTORY-NAME recursively,
-but actually uses `bongo-gnu-find-program' to find the files."
+using `bongo-gnu-find-program' to find the files."
   (interactive (list (expand-file-name
                       (read-directory-name "Insert directory tree: "
                                            default-directory nil t))))
   (with-temp-buffer
     (apply 'call-process bongo-gnu-find-program nil t nil
            directory-name "-type" "f"
-           "-iregex" bongo-file-name-track-regexp
+           "-iregex" (bongo-track-file-name-regexp)
            bongo-gnu-find-extra-arguments)
     (sort-lines nil (point-min) (point-max))
     (goto-char (point-min))
