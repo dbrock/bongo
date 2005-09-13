@@ -976,17 +976,16 @@ Entries are of the following form:
 
 CONSTRUCTOR is a function that recieves one argument, FILE-NAME.
   It should immediately start a player for FILE-NAME.
-MATCHER can be t, nil, a string, a list, or a symbol.
-  See `bongo-file-name-matches-p' for more information.")
+MATCHER can be t, nil, a string, a list, or a symbol;
+  see `bongo-file-name-matches-p' for more information.")
 
 (defcustom bongo-preferred-backends nil
   "List of preferred Bongo player backends.
-Entries are of the form (BACKEND . MATCHER).
+Entries are of the form (BACKEND-NAME . MATCHER).
 
-BACKEND is the name of a player backend; i.e., a symbol with a
-  corresponding entry in `bongo-backends'.
-MATCHER, if non-nil, overrides the default matcher for BACKEND.
-  See `bongo-file-name-matches-p' for more information."
+BACKEND-NAME is the key for an entry in `bongo-backends'.
+MATCHER, if non-nil, overrides the default matcher for the backend;
+see `bongo-file-name-matches-p' for more information."
   :type `(repeat
           (cons :tag "Preference"
                 (choice :tag "Backend"
