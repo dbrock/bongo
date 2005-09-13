@@ -1024,8 +1024,8 @@ Otherwise, signal an error."
         (while (and matcher (not match))
           (if (equal (car matcher) extension)
               (setq match t)
-            (setq matcher (cdr matcher)))))
-      match))
+            (setq matcher (cdr matcher))))
+        match)))
    (t (error "Bad file name matcher: %s" matcher))))
 
 ;;; XXX: These functions needs to be refactored.
