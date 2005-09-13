@@ -959,9 +959,9 @@ existing header into two (see `bongo-maybe-insert-intermediate-header')."
           (bongo-maybe-insert-intermediate-header))))))
 
 
-;;;; Player types
+;;;; Backends
 
-(defvar bongo-player-types
+(defvar bongo-backends
   `((mpg123
      (default-matcher . ("mp3" "mp2"))
      (constructor . bongo-start-mpg123-player))
@@ -979,22 +979,22 @@ CONSTRUCTOR is a function that recieves one argument, FILE-NAME.
 MATCHER can be t, nil, a string, a list, or a symbol.
   See `bongo-file-name-matches-p' for more information.")
 
-(defcustom bongo-preferred-player-types nil
+(defcustom bongo-preferred-backends nil
   "List of preferred Bongo player backends.
-Entries are of the form (PLAYER-TYPE . MATCHER).
+Entries are of the form (BACKEND . MATCHER).
 
-PLAYER-TYPE is the name of a player backend; i.e., a symbol with a
-  corresponding entry in `bongo-player-types'.
-MATCHER, if non-nil, overrides the default matcher for PLAYER-TYPE.
+BACKEND is the name of a player backend; i.e., a symbol with a
+  corresponding entry in `bongo-backends'.
+MATCHER, if non-nil, overrides the default matcher for BACKEND.
   See `bongo-file-name-matches-p' for more information."
   :type `(repeat
           (cons :tag "Preference"
-                (choice :tag "Player type"
+                (choice :tag "Backend"
                         ,@(mapcar (lambda (x) `(const ,(car x)))
-                                  bongo-player-types)
+                                  bongo-backends)
                         symbol)
                 (choice :tag "Condition"
-                        (const :tag "Default file name constraint" nil)
+                        (const :tag "Default constraint for backend" nil)
                         (const :tag "Always preferred" t)
                         (radio :tag "Custom constraint" :value ".*"
                                (regexp :tag "File name pattern")
@@ -1032,11 +1032,11 @@ Otherwise, signal an error."
 
 (defun bongo-track-file-name-regexp ()
   "Return a regexp matching the names of playable files.
-Walk `bongo-preferred-player-types' and `bongo-player-types',
+Walk `bongo-preferred-backends' and `bongo-backends',
 collecting file name regexps and file name extensions, and
 construct a regexp that matches all of the possibilities."
   (let (extensions regexps)
-    (let ((list bongo-preferred-player-types))
+    (let ((list bongo-preferred-backends))
       (while list
         (let ((matcher (or (cddr list)
                            (bongo-alist-get (cdar list)
@@ -1047,7 +1047,7 @@ construct a regexp that matches all of the possibilities."
            ((listp matcher)
             (setq extensions (append matcher extensions)))))
         (setq list (cdr list))))
-    (let ((list bongo-player-types))
+    (let ((list bongo-backends))
       (while list
         (let ((matcher (bongo-alist-get (cdar list) 'default-matcher)))
           (cond
@@ -1062,28 +1062,26 @@ construct a regexp that matches all of the possibilities."
     (if (null regexps) "."
       (mapconcat 'identity regexps "\\|"))))
 
-(defun bongo-best-player-type-for-file (file-name)
-  "Return a player type that can play the file FILE-NAME, or nil.
-First search `bongo-preferred-player-types', then `bongo-player-types'."
-  (let ((best-player-type nil))
-    (let ((list bongo-preferred-player-types))
-      (while (and list (null best-player-type))
-        (let* ((player-type (bongo-alist-get bongo-player-types
-                                             (caar list)))
+(defun bongo-best-backend-for-file (file-name)
+  "Return a backend that can play the file FILE-NAME, or nil.
+First search `bongo-preferred-backends', then `bongo-backends'."
+  (let ((best-backend nil))
+    (let ((list bongo-preferred-backends))
+      (while (and list (null best-backend))
+        (let* ((backend (bongo-alist-get bongo-backends (caar list)))
                (matcher (or (cdar list)
-                            (bongo-alist-get player-type
-                                             'default-matcher))))
+                            (bongo-alist-get backend 'default-matcher))))
           (when (bongo-file-name-matches-p file-name matcher)
-            (setq best-player-type player-type)))
+            (setq best-backend backend)))
         (setq list (cdr list))))
-    (unless best-player-type
-      (let ((list bongo-player-types))
-        (while (and list (null best-player-type))
+    (unless best-backend
+      (let ((list bongo-backends))
+        (while (and list (null best-backend))
           (let ((matcher (bongo-alist-get (car list) 'default-matcher)))
             (if (bongo-file-name-matches-p file-name matcher)
-                (setq best-player-type (car list))
+                (setq best-backend (car list))
               (setq list (cdr list)))))))
-    best-player-type))
+    best-backend))
 
 
 
@@ -1158,36 +1156,36 @@ You should not call this function directly."
       (run-hook-with-args 'bongo-player-finished-functions player)
       (bongo-perform-next-action))))
 
-(defun bongo-play (file-name &optional player-type-name)
+(defun bongo-play (file-name &optional backend-name)
   "Start playing FILE-NAME and return the new player.
 In Bongo mode, first stop the currently active player, if any.
 This function calls `bongo-start-player'."
   (when (eq major-mode 'bongo-mode)
     (when bongo-player
       (bongo-player-stop bongo-player)))
-  (let ((player (bongo-start-player file-name player-type-name)))
+  (let ((player (bongo-start-player file-name backend-name)))
     (prog1 player
       (when (eq major-mode 'bongo-mode)
         (setq bongo-player player)))))
 
-(defun bongo-start-player (file-name &optional player-type-name)
+(defun bongo-start-player (file-name &optional backend-name)
   "Start and return a new player for FILE-NAME.
-If you don't specify PLAYER-TYPE-NAME, Bongo will try to find
+If you don't specify BACKEND-NAME, Bongo will try to find
 the best player for FILE-NAME.
+
 This function runs `bongo-player-started-functions'."
-  (let ((player-type (if player-type-name
-                         (bongo-alist-get bongo-player-types
-                                          player-type-name)
-                       (bongo-best-player-type-for-file file-name))))
-    (when (null player-type)
+  (let ((backend (if backend-name
+                     (bongo-alist-get bongo-backends backend-name)
+                   (bongo-best-backend-for-file file-name))))
+    (when (null backend)
       (error "Don't know how to play `%s'" file-name))
-    (let ((player (funcall (bongo-alist-get player-type 'constructor)
+    (let ((player (funcall (bongo-alist-get backend 'constructor)
                            file-name)))
       (prog1 player
         (run-hook-with-args 'bongo-player-started-functions player)))))
 
-(defun bongo-player-type (player)
-  "Return the player type of PLAYER (`mpg123', `mplayer', etc.)."
+(defun bongo-player-backend-name (player)
+  "Return the name of PLAYER's backend (`mpg123', `mplayer', etc.)."
   (car player))
 
 (defun bongo-player-get (player property)
@@ -1261,17 +1259,17 @@ If PLAYER does not support seeking, signal an error."
 (defun bongo-default-player-pause/resume (player)
   "Signal an error explaining that PLAYER does not support pausing."
   (error "Pausing is not supported for %s"
-         (bongo-player-type player)))
+         (bongo-player-backend-name player)))
 
 (defun bongo-default-player-seek-by (player n)
   "Signal an error explaining that PLAYER does not support seeking."
   (error "Seeking is not supported for %s"
-         (bongo-player-type player)))
+         (bongo-player-backend-name player)))
 
 (defun bongo-default-player-seek-to (player n)
   "Signal an error explaining that PLAYER does not support seeking."
   (error "Seeking is not supported for %s"
-         (bongo-player-type player)))
+         (bongo-player-backend-name player)))
 
 (defun bongo-default-player-process-sentinel (process string)
   "If PROCESS has exited or been killed, run the appropriate hooks."
