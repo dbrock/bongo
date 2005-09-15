@@ -57,8 +57,8 @@ Therefore, if you change this list, you probably also need to change
   :type '(repeat symbol)
   :group 'bongo)
 
-(defcustom bongo-default-buffer-name "*Bongo Playlist*"
-  "The name of the default Bongo playlist buffer."
+(defcustom bongo-default-buffer-name "*Playlist*"
+  "The name of the default Bongo buffer."
   :type 'string
   :group 'bongo)
 
