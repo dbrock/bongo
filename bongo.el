@@ -1032,7 +1032,7 @@ Otherwise, signal an error."
         match)))
    (t (error "Bad file name matcher: %s" matcher))))
 
-;;; XXX: These functions needs to be refactored.
+;;; XXX: These functions need to be refactored.
 
 (defun bongo-track-file-name-regexp ()
   "Return a regexp matching the names of playable files.
