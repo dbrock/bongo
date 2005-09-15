@@ -990,7 +990,7 @@ Entries are of the form (BACKEND-NAME . MATCHER).
 
 BACKEND-NAME is the key for an entry in `bongo-backends'.
 MATCHER, if non-nil, overrides the default matcher for the backend;
-see `bongo-file-name-matches-p' for more information."
+  see `bongo-file-name-matches-p' for more information."
   :type `(repeat
           (cons :tag "Preference"
                 (choice :tag "Backend"
@@ -2044,7 +2044,8 @@ instead, use high-level functions such as `save-buffer'."
   "Execute the forms in BODY in some Bongo buffer.
 If the current buffer is a Bongo buffer, don't switch buffers.
 Otherwise, switch to the default Bongo buffer.
-If no Bongo buffer exists at all, a default one will be created."
+
+See the function `bongo-default-buffer'."
   (declare (indent 0) (debug t))
   `(save-current-buffer
      (unless (eq major-mode 'bongo-mode)
@@ -2053,12 +2054,13 @@ If no Bongo buffer exists at all, a default one will be created."
 
 (defvar bongo-default-buffer nil
   "The default Bongo buffer, or nil.
-When executed from a buffer that is not in Bongo mode,
-all Bongo commands will operate on this buffer instead.
+Bongo commands will operate on this buffer when executed from
+buffers that are not in Bongo mode.
+
 This variable overrides `bongo-default-buffer-name'.")
 
 (defun bongo-default-buffer ()
-  "Return the default Bongo buffer, creating it if necessary.
+  "Return the default Bongo buffer.
 If the variable `bongo-default-buffer' is non-nil, return that.
 Otherwise, return the buffer named `bongo-default-buffer-name',
 creating it if necessary."
