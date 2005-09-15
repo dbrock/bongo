@@ -1130,7 +1130,7 @@ First search `bongo-preferred-backends', then `bongo-backends'."
 
 (defun bongo-player-succeeded (player)
   "Run the hooks appropriate for when PLAYER has succeeded."
-  (when (bongo-player-buffer player)
+  (when (buffer-live-p (bongo-player-buffer player))
     (with-current-buffer (bongo-player-buffer player)
       (run-hook-with-args 'bongo-player-succeeded-functions player)
       (bongo-player-finished player))))
@@ -1140,7 +1140,7 @@ First search `bongo-preferred-backends', then `bongo-backends'."
   (let ((process (bongo-player-process player)))
     (message "Process `%s' exited abnormally with code %d"
              (process-name process) (process-exit-status process)))
-  (when (bongo-player-buffer player)
+  (when (buffer-live-p (bongo-player-buffer player))
     (with-current-buffer (bongo-player-buffer player)
       (run-hook-with-args 'bongo-player-failed-functions player)
       (bongo-player-finished player))))
@@ -1150,7 +1150,7 @@ First search `bongo-preferred-backends', then `bongo-backends'."
   (let ((process (bongo-player-process player)))
     (message "Process `%s' received fatal signal %s"
              (process-name process) (process-exit-status process)))
-  (when (bongo-player-buffer player)
+  (when (buffer-live-p (bongo-player-buffer player))
     (with-current-buffer (bongo-player-buffer player)
       (run-hook-with-args 'bongo-player-killed-functions player)
       (bongo-player-finished player))))
@@ -1159,7 +1159,7 @@ First search `bongo-preferred-backends', then `bongo-backends'."
   "Run the hooks appropriate for when PLAYER has finished.
 Then perform the next action according to `bongo-next-action'.
 You should not call this function directly."
-  (when (bongo-player-buffer player)
+  (when (buffer-live-p (bongo-player-buffer player))
     (with-current-buffer (bongo-player-buffer player)
       (run-hook-with-args 'bongo-player-finished-functions player)
       (bongo-perform-next-action))))
