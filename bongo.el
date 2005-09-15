@@ -68,39 +68,44 @@ Therefore, if you change this list, you probably also need to change
   "Faces used by Bongo."
   :group 'bongo)
 
+(defface bongo-comment
+  '((t (:inherit font-lock-comment-face)))
+  "Face used for comments in Bongo buffers."
+  :group 'bongo-faces)
+
 (defface bongo-artist
   '((t (:inherit font-lock-keyword-face)))
-  "Face used for artist names."
+  "Face used for Bongo artist names."
   :group 'bongo-faces)
 
 (defface bongo-album
   '((t (:inherit default)))
-  "Face used for albums (year, title, and punctuation)."
+  "Face used for Bongo albums (year, title, and punctuation)."
   :group 'bongo-faces)
 
 (defface bongo-album-title
   '((t (:inherit (font-lock-type-face bongo-album))))
-  "Face used for album titles."
+  "Face used for Bongo album titles."
   :group 'bongo-faces)
 
 (defface bongo-album-year
   '((t (:inherit bongo-album)))
-  "Face used for album years."
+  "Face used for Bongo album years."
   :group 'bongo-faces)
 
 (defface bongo-track
   '((t (:inherit default)))
-  "Face used for tracks (index, title, and punctuation)."
+  "Face used for Bongo tracks (index, title, and punctuation)."
   :group 'bongo-faces)
 
 (defface bongo-track-title
   '((t (:inherit (font-lock-function-name-face bongo-track))))
-  "Face used for track titles."
+  "Face used for Bongo track titles."
   :group 'bongo-faces)
 
 (defface bongo-track-index
   '((t (:inherit bongo-track)))
-  "Face used for track indices."
+  "Face used for Bongo track indices."
   :group 'bongo-faces)
 
 
@@ -1940,6 +1945,16 @@ instead, use high-level functions such as `find-file'."
                   (error "Unexpected object: %s" object)))
             (end-of-file
              (delete-region start (point-max))))))
+      (save-restriction
+        (widen)
+        (goto-char beg)
+        (let ((case-fold-match t))
+          (when (and (bobp) (not (looking-at ".* -\\*- *Bongo *-\\*-")))
+            (insert-char #x20 (- fill-column (length "-*- Bongo -*-") 1))
+            (insert "-*- Bongo -*-\n")
+            (forward-line -1)
+            (put-text-property (point-at-bol) (point-at-eol)
+                               'face 'bongo-comment))))
       (point-max))))
 
 (defvar bongo-line-serializable-properties
@@ -1960,6 +1975,9 @@ instead, use high-level functions such as `save-buffer'."
     (save-restriction
       (narrow-to-region beg end)
       (bongo-ensure-final-newline)
+      (goto-char (point-min))
+      (when (re-search-forward " *-\\*- *Bongo *-\\*-\n?" nil t)
+        (replace-match ""))
       (goto-char (point-min))
       (insert bongo-magic-string "\n")
       (while (not (eobp))
