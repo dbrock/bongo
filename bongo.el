@@ -997,10 +997,10 @@ MATCHER, if non-nil, overrides the default matcher for the backend;
                         ,@(mapcar (lambda (x) `(const ,(car x)))
                                   bongo-backends)
                         symbol)
-                (choice :tag "Condition"
-                        (const :tag "Default constraint for backend" nil)
+                (choice :tag "When"
+                        (const :tag "Default condition for backend" nil)
                         (const :tag "Always preferred" t)
-                        (radio :tag "Custom constraint" :value ".*"
+                        (radio :tag "Custom condition" :value ".*"
                                (regexp :tag "File name pattern")
                                (repeat :tag "File name extensions" string)
                                (function :tag "File name predicate")))))
