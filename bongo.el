@@ -1632,10 +1632,16 @@ FIELDS defaults to the external fields of the current line."
 If FILE-NAME names a directory, call `bongo-insert-directory'."
   (interactive (list (expand-file-name
                       (read-file-name "Insert track: "
-                                      default-directory nil t))))
+                                      default-directory nil t
+                                      (when (eq major-mode 'dired-mode)
+                                        (dired-get-filename t))))))
   (if (file-directory-p file-name)
       (bongo-insert-directory file-name)
-    (bongo-insert-line 'bongo-file-name file-name)))
+    (bongo-insert-line 'bongo-file-name file-name)
+    (when (and (interactive-p) (not (eq major-mode 'bongo-mode)))
+      (message "Inserted track `%s'"
+               (bongo-format-infoset
+                (bongo-infoset-from-file-name file-name))))))
 
 (defun bongo-insert-directory (directory-name)
   "Insert a new track line for each file in DIRECTORY-NAME.
@@ -1643,14 +1649,22 @@ Only insert files that can be played by some backend, as determined
 by the file name (see `bongo-track-file-name-regexp').
 Do not examine subdirectories of DIRECTORY-NAME."
   (interactive (list (expand-file-name
-                      (read-directory-name "Insert directory: "
-                                           default-directory nil t))))
+                      (read-directory-name
+                       "Insert directory: " default-directory nil t
+                       (when (eq major-mode 'dired-mode)
+                         (when (file-directory-p (dired-get-filename))
+                           (dired-get-filename t)))))))
   (when (not (file-directory-p directory-name))
     (error "File is not a directory: %s" directory-name))
 ;;;   (when (file-exists-p (concat directory-name "/cover.jpg")))
-  (dolist (file-name (directory-files directory-name t
-                                      (bongo-track-file-name-regexp)))
-    (bongo-insert-file file-name)))
+  (let ((file-names (directory-files directory-name t
+                                     (bongo-track-file-name-regexp))))
+    (when (null file-names)
+      (error "Directory contains no playable files"))
+    (dolist (file-name file-names)
+      (bongo-insert-file file-name))
+    (when (and (interactive-p) (not (eq major-mode 'bongo-mode)))
+      (message "Inserted %d files" (length file-names)))))
 
 (defun bongo-insert-directory-tree (directory-name)
   "Insert a new track line for each file below DIRECTORY-NAME.
@@ -1660,18 +1674,28 @@ by the file name (see `bongo-track-file-name-regexp').
 This function descends each subdirectory of DIRECTORY-NAME recursively,
 using `bongo-gnu-find-program' to find the files."
   (interactive (list (expand-file-name
-                      (read-directory-name "Insert directory tree: "
-                                           default-directory nil t))))
-  (with-temp-buffer
-    (apply 'call-process bongo-gnu-find-program nil t nil
-           directory-name "-type" "f"
-           "-iregex" (bongo-track-file-name-regexp)
-           bongo-gnu-find-extra-arguments)
-    (sort-lines nil (point-min) (point-max))
-    (goto-char (point-min))
-    (while (not (eobp))
-      (bongo-insert-file (buffer-substring (point) (point-at-eol)))
-      (forward-line))))
+                      (read-directory-name
+                       "Insert directory tree: "
+                       default-directory nil t
+                       (when (eq major-mode 'dired-mode)
+                         (when (file-directory-p (dired-get-filename))
+                           (dired-get-filename t)))))))
+  (let ((file-count 0))
+    (with-temp-buffer
+      (apply 'call-process bongo-gnu-find-program nil t nil
+             directory-name "-type" "f"
+             "-iregex" (bongo-track-file-name-regexp)
+             bongo-gnu-find-extra-arguments)
+      (sort-lines nil (point-min) (point-max))
+      (goto-char (point-min))
+      (while (not (eobp))
+        (bongo-insert-file (buffer-substring (point) (point-at-eol)))
+        (setq file-count (1+ file-count))
+        (forward-line)))
+    (when (zerop file-count)
+      (error "Directory tree contains no playable files"))
+    (when (and (interactive-p) (not (eq major-mode 'bongo-mode)))
+      (message "Inserted %d files" file-count))))
 
 
 ;;;; Joining/splitting
