@@ -2004,7 +2004,7 @@ instead, use high-level functions such as `save-buffer'."
   (use-local-map bongo-mode-map)
   (setq buffer-read-only t)
   (setq major-mode 'bongo-mode)
-  (setq mode-name "Bongo-Playlist")
+  (setq mode-name "Bongo")
   (setq buffer-file-format '(bongo-playlist))
   (run-mode-hooks 'bongo-mode-hook))
 
