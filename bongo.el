@@ -1771,6 +1771,7 @@ With prefix argument, remove all indentation and headers."
     (with-bongo-buffer
       (message "Rendering playlist...")
       (goto-char (point-min))
+      (bongo-maybe-forward-object-line)
       (while (not (eobp))
         (cond
          ((and arg (bongo-header-line-p))
@@ -1860,7 +1861,8 @@ See `yank'."
         ;; These headers will stay if they are needed,
         ;; or disappear automatically otherwise.
         (goto-char end)
-        (bongo-insert-header)
+        (unless (bongo-last-object-line-p)
+          (bongo-insert-header))
         (goto-char beg)
         (bongo-insert-header)
         ;; In case the upper header does disappear,
