@@ -1549,6 +1549,13 @@ Interactive mplayer processes support pausing and seeking."
 ;;;   "Return non-nil if there is an active player for this buffer."
 ;;;   (not (null bongo-player)))
 
+(defun bongo-mouse-play-line (event)
+  "Start playing the track that was clicked on."
+  (interactive "e")
+  (let ((posn (event-end event)))
+    (with-current-buffer (window-buffer (posn-window posn))
+      (bongo-play-line (posn-point posn)))))
+
 (defun bongo-play-line (&optional point)
   "Start playing the track on the line at POINT.
 If there is no track on the line at POINT, signal an error."
@@ -2098,6 +2105,7 @@ instead, use high-level functions such as `save-buffer'."
   (let ((map (make-sparse-keymap)))
     (suppress-keymap map)
     (define-key map "\C-m" 'bongo-play-line)
+    (define-key map [mouse-2] 'bongo-mouse-play-line)
     (define-key map "q" 'bongo-quit)
     (define-key map "g" 'bongo-redisplay)
     (define-key map "j" 'bongo-join)
