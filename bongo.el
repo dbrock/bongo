@@ -2070,14 +2070,15 @@ instead, use high-level functions such as `save-buffer'."
 
 (defmacro with-bongo-buffer (&rest body)
   "Execute the forms in BODY in some Bongo buffer.
-If the current buffer is a Bongo buffer, don't switch buffers.
-Otherwise, switch to the default Bongo buffer.
+The value returned is the value of the last form in BODY.
 
-See the function `bongo-default-buffer'."
+If the current buffer is a Bongo buffer, don't switch buffers.
+Otherwise, switch to the default Bongo buffer.  (See the
+function `bongo-default-buffer'.)"
   (declare (indent 0) (debug t))
-  `(save-current-buffer
-     (unless (eq major-mode 'bongo-mode)
-       (set-buffer (bongo-default-buffer)))
+  `(with-current-buffer
+       (if (bongo-buffer-p) (current-buffer)
+         (bongo-default-buffer))
      ,@body))
 
 (defvar bongo-default-buffer nil
@@ -2085,19 +2086,33 @@ See the function `bongo-default-buffer'."
 Bongo commands will operate on this buffer when executed from
 buffers that are not in Bongo mode.
 
-This variable overrides `bongo-default-buffer-name'.")
+This variable overrides `bongo-default-buffer-name'.
+See the function `bongo-default-buffer'.")
+
+(defun bongo-buffer-p (buffer)
+  "Return non-nil if BUFFER is in Bongo mode.
+If BUFFER is nil, test the current buffer instead."
+  (with-current-buffer (or buffer (current-buffer))
+    (eq 'bongo-mode major-mode)))
 
 (defun bongo-default-buffer ()
   "Return the default Bongo buffer.
+
 If the variable `bongo-default-buffer' is non-nil, return that.
-Otherwise, return the buffer named `bongo-default-buffer-name',
-creating it if necessary."
+Otherwise, return the most recently selected Bongo buffer.
+If there is no buffer in Bongo mode, create one.  The name of
+the new buffer will be the value of `bongo-default-buffer-name'."
   (or bongo-default-buffer
-      (get-buffer bongo-default-buffer-name)
-      (save-excursion
-        (set-buffer (get-buffer-create bongo-default-buffer-name))
-        (bongo-mode)
-        (current-buffer))))
+      (let (result (list (buffer-list)))
+        (while (and list (not result))
+          (when (bongo-buffer-p (car list))
+            (setq result (car list)))
+          (setq list (cdr list)))
+        result)
+      (let ((buffer (get-buffer-create bongo-default-buffer-name)))
+        (prog1 buffer
+          (with-current-buffer buffer
+            (bongo-mode))))))
 
 (defun bongo ()
   "Switch to the default Bongo buffer.
