@@ -2085,7 +2085,7 @@ instead, use high-level functions such as `save-buffer'."
 (defun bongo-quit ()
   "Quit Bongo by selecting some other buffer."
   (interactive)
-  (bury-buffer))
+  (switch-to-buffer (other-buffer (current-buffer))))
 
 (defun bongo-mode ()
   "Major mode for Bongo buffers."
@@ -2107,6 +2107,7 @@ instead, use high-level functions such as `save-buffer'."
     (define-key map "\C-m" 'bongo-play-line)
     (define-key map [mouse-2] 'bongo-mouse-play-line)
     (define-key map "q" 'bongo-quit)
+    (define-key map "Q" 'bury-buffer)
     (define-key map "g" 'bongo-redisplay)
     (define-key map "j" 'bongo-join)
     (define-key map "J" 'bongo-split)
