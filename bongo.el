@@ -445,6 +445,16 @@ If no track line is found after the starting line, return nil."
 (defalias 'bongo-point-at-next-track-line
   #'bongo-point-before-next-track-line)
 
+(defun bongo-point-before-previous-track-line (&optional point)
+  "Return the character position of the previous track line.
+If POINT is non-nil, start before that line; otherwise,
+  start before the current line.
+If no track line is found before the starting line, return nil."
+  (bongo-point-before-previous-line-satisfying 'bongo-track-line-p point))
+
+(defalias 'bongo-point-at-previous-track-line
+  #'bongo-point-before-previous-track-line)
+
 (defun bongo-point-after-section (&optional point)
   "Return the point after the section with its header on POINT."
   (unless (bongo-header-line-p point)
@@ -1565,7 +1575,19 @@ Interactive mplayer processes support pausing and seeking."
     (let ((position (bongo-point-at-next-track-line
                      (bongo-active-track-position))))
       (if (null position)
-          (error "No more tracks")
+          (error "No next track")
+        (bongo-play-line position)))))
+
+(defun bongo-play-previous (&optional non-immediate-p)
+  (interactive "p")
+  (when (null (bongo-active-track-position))
+    (error "No active track"))
+  (if non-immediate-p
+      (setq bongo-next-action 'bongo-play-previous)
+    (let ((position (bongo-point-at-previous-track-line
+                     (bongo-active-track-position))))
+      (if (null position)
+          (error "No previous track")
         (bongo-play-line position)))))
 
 (defun bongo-tracks-exist-p ()
