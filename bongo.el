@@ -1548,21 +1548,25 @@ Interactive mplayer processes support pausing and seeking."
     (let ((player (bongo-play (bongo-line-file-name point))))
       (bongo-line-set-property 'bongo-player player point))))
 
-(defun bongo-replay-current ()
+(defun bongo-replay-current (&optional non-immediate-p)
   (interactive)
   (when (null (bongo-active-track-position))
     (error "No active track"))
-  (bongo-play-line (bongo-active-track-position)))
+  (if non-immediate-p
+      (setq bongo-next-action 'bongo-replay-current)
+    (bongo-play-line (bongo-active-track-position))))
 
-(defun bongo-play-next ()
-  (interactive)
+(defun bongo-play-next (&optional non-immediate-p)
+  (interactive "p")
   (when (null (bongo-active-track-position))
     (error "No active track"))
-  (let ((position (bongo-point-at-next-track-line
-                   (bongo-active-track-position))))
-    (if (null position)
-        (error "No more tracks")
-      (bongo-play-line position))))
+  (if non-immediate-p
+      (setq bongo-next-action 'bongo-play-next)
+    (let ((position (bongo-point-at-next-track-line
+                     (bongo-active-track-position))))
+      (if (null position)
+          (error "No more tracks")
+        (bongo-play-line position)))))
 
 (defun bongo-tracks-exist-p ()
   (let (tracks-exist)
@@ -1574,21 +1578,25 @@ Interactive mplayer processes support pausing and seeking."
         (forward-line)))
     tracks-exist))
 
-(defun bongo-play-random ()
+(defun bongo-play-random (&optional non-immediate-p)
   (interactive)
   (unless (bongo-tracks-exist-p)
     (error "No tracks"))
-  (save-excursion
-    (goto-char (1+ (random (point-max))))
-    (while (not (bongo-track-line-p))
-      (goto-char (1+ (random (point-max)))))
-    (bongo-play-line)))
+  (if non-immediate-p
+      (setq bongo-next-action 'bongo-play-random)
+    (save-excursion
+      (goto-char (1+ (random (point-max))))
+      (while (not (bongo-track-line-p))
+        (goto-char (1+ (random (point-max)))))
+      (bongo-play-line))))
 
-(defun bongo-stop ()
+(defun bongo-stop (&optional non-immediate-p)
   (interactive)
-  (when bongo-player
-    (bongo-player-stop bongo-player))
-  (bongo-unset-active-track-position))
+  (if non-immediate-p
+      (setq bongo-next-action 'bongo-stop)
+    (when bongo-player
+      (bongo-player-stop bongo-player))
+    (bongo-unset-active-track-position)))
 
 (defun bongo-pause/resume ()
   (interactive)
