@@ -2159,7 +2159,7 @@ buffers that are not in Bongo mode.
 This variable overrides `bongo-default-buffer-name'.
 See the function `bongo-default-buffer'.")
 
-(defun bongo-buffer-p (buffer)
+(defun bongo-buffer-p (&optional buffer)
   "Return non-nil if BUFFER is in Bongo mode.
 If BUFFER is nil, test the current buffer instead."
   (with-current-buffer (or buffer (current-buffer))
