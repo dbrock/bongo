@@ -1639,7 +1639,7 @@ If there is no track on the line at POINT, signal an error."
   "Play the current track from the start.
 If NON-IMMEDIATE-P (prefix argument if interactive) is non-nil,
 set `bongo-next-action' to `bongo-replay-current' and then return."
-  (interactive)
+  (interactive "P")
   (when (null (bongo-active-track-position))
     (error "No active track"))
   (if non-immediate-p
@@ -1649,12 +1649,12 @@ set `bongo-next-action' to `bongo-replay-current' and then return."
 (defun bongo-play-next (&optional non-immediate-p)
   "Start playing the next track in the current Bongo buffer.
 If NON-IMMEDIATE-P (prefix argument if interactive) is non-nil,
-set `bongo-next-action' to `bongo-play-next' and then return."
-  (interactive "p")
+set `bongo-next-action' to `bongo-play-next-or-stop' and then return."
+  (interactive "P")
   (when (null (bongo-active-track-position))
     (error "No active track"))
   (if non-immediate-p
-      (setq bongo-next-action 'bongo-play-next)
+      (setq bongo-next-action 'bongo-play-next-or-stop)
     (let ((position (bongo-point-at-next-track-line
                      (bongo-active-track-position))))
       (if (null position)
@@ -1666,7 +1666,7 @@ set `bongo-next-action' to `bongo-play-next' and then return."
 If there is no next track, stop playback.
 If NON-IMMEDIATE-P (prefix argument if interactive) is non-nil,
 set `bongo-next-action' to `bongo-play-next-or-stop' and then return."
-  (interactive "p")
+  (interactive "P")
   (when (null (bongo-active-track-position))
     (error "No active track"))
   (if non-immediate-p
@@ -1680,7 +1680,7 @@ set `bongo-next-action' to `bongo-play-next-or-stop' and then return."
   "Start playing the previous track in the current Bongo buffer.
 If NON-IMMEDIATE-P (prefix argument if interactive) is non-nil,
 set `bongo-next-action' to `bongo-play-previous' and then return."
-  (interactive "p")
+  (interactive "P")
   (when (null (bongo-active-track-position))
     (error "No active track"))
   (if non-immediate-p
