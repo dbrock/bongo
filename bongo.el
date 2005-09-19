@@ -1640,26 +1640,28 @@ If there is no track on the line at POINT, signal an error."
 If NON-IMMEDIATE-P (prefix argument if interactive) is non-nil,
 set `bongo-next-action' to `bongo-replay-current' and then return."
   (interactive "P")
-  (when (null (bongo-active-track-position))
-    (error "No active track"))
-  (if non-immediate-p
-      (setq bongo-next-action 'bongo-replay-current)
-    (bongo-play-line (bongo-active-track-position))))
+  (with-bongo-buffer
+    (when (null (bongo-active-track-position))
+      (error "No active track"))
+    (if non-immediate-p
+        (setq bongo-next-action 'bongo-replay-current)
+      (bongo-play-line (bongo-active-track-position)))))
 
 (defun bongo-play-next (&optional non-immediate-p)
   "Start playing the next track in the current Bongo buffer.
 If NON-IMMEDIATE-P (prefix argument if interactive) is non-nil,
 set `bongo-next-action' to `bongo-play-next-or-stop' and then return."
   (interactive "P")
-  (when (null (bongo-active-track-position))
-    (error "No active track"))
-  (if non-immediate-p
-      (setq bongo-next-action 'bongo-play-next-or-stop)
-    (let ((position (bongo-point-at-next-track-line
-                     (bongo-active-track-position))))
-      (if (null position)
-          (error "No next track")
-        (bongo-play-line position)))))
+  (with-bongo-buffer
+    (when (null (bongo-active-track-position))
+      (error "No active track"))
+    (if non-immediate-p
+        (setq bongo-next-action 'bongo-play-next-or-stop)
+      (let ((position (bongo-point-at-next-track-line
+                       (bongo-active-track-position))))
+        (if (null position)
+            (error "No next track")
+          (bongo-play-line position))))))
 
 (defun bongo-play-next-or-stop (&optional non-immediate-p)
   "Maybe start playing the next track in the current Bongo buffer.
@@ -1667,29 +1669,31 @@ If there is no next track, stop playback.
 If NON-IMMEDIATE-P (prefix argument if interactive) is non-nil,
 set `bongo-next-action' to `bongo-play-next-or-stop' and then return."
   (interactive "P")
-  (when (null (bongo-active-track-position))
-    (error "No active track"))
-  (if non-immediate-p
-      (setq bongo-next-action 'bongo-play-next-or-stop)
-    (let ((position (bongo-point-at-next-track-line
-                     (bongo-active-track-position))))
-      (when position
-        (bongo-play-line position)))))
+  (with-bongo-buffer
+    (when (null (bongo-active-track-position))
+      (error "No active track"))
+    (if non-immediate-p
+        (setq bongo-next-action 'bongo-play-next-or-stop)
+      (let ((position (bongo-point-at-next-track-line
+                       (bongo-active-track-position))))
+        (when position
+          (bongo-play-line position))))))
 
 (defun bongo-play-previous (&optional non-immediate-p)
   "Start playing the previous track in the current Bongo buffer.
 If NON-IMMEDIATE-P (prefix argument if interactive) is non-nil,
 set `bongo-next-action' to `bongo-play-previous' and then return."
   (interactive "P")
-  (when (null (bongo-active-track-position))
-    (error "No active track"))
-  (if non-immediate-p
-      (setq bongo-next-action 'bongo-play-previous)
-    (let ((position (bongo-point-at-previous-track-line
-                     (bongo-active-track-position))))
-      (if (null position)
-          (error "No previous track")
-        (bongo-play-line position)))))
+  (with-bongo-buffer
+    (when (null (bongo-active-track-position))
+      (error "No active track"))
+    (if non-immediate-p
+        (setq bongo-next-action 'bongo-play-previous)
+      (let ((position (bongo-point-at-previous-track-line
+                       (bongo-active-track-position))))
+        (if (null position)
+            (error "No previous track")
+          (bongo-play-line position))))))
 
 (defun bongo-tracks-exist-p ()
   (let (tracks-exist)
@@ -1705,53 +1709,58 @@ set `bongo-next-action' to `bongo-play-previous' and then return."
   "Start playing a random track in the current Bongo buffer.
 If NON-IMMEDIATE-P (prefix argument if interactive) is non-nil,
 set `bongo-next-action' to `bongo-play-random' and then return."
-  (interactive)
-  (unless (bongo-tracks-exist-p)
-    (error "No tracks"))
-  (if non-immediate-p
-      (setq bongo-next-action 'bongo-play-random)
-    (save-excursion
-      (goto-char (1+ (random (point-max))))
-      (while (not (bongo-track-line-p))
-        (goto-char (1+ (random (point-max)))))
-      (bongo-play-line))))
+  (interactive "P")
+  (with-bongo-buffer
+    (unless (bongo-tracks-exist-p)
+      (error "No tracks"))
+    (if non-immediate-p
+        (setq bongo-next-action 'bongo-play-random)
+      (save-excursion
+        (goto-char (1+ (random (point-max))))
+        (while (not (bongo-track-line-p))
+          (goto-char (1+ (random (point-max)))))
+        (bongo-play-line)))))
 
 (defun bongo-stop (&optional non-immediate-p)
   "Permanently stop playback in the current Bongo buffer.
 If NON-IMMEDIATE-P (prefix argument if interactive) is non-nil,
 set `bongo-next-action' to `bongo-stop' and then return."
-  (interactive)
-  (if non-immediate-p
-      (setq bongo-next-action 'bongo-stop)
-    (when bongo-player
-      (bongo-player-stop bongo-player))
-    (bongo-unset-active-track-position)))
+  (interactive "P")
+  (with-bongo-buffer
+    (if non-immediate-p
+        (setq bongo-next-action 'bongo-stop)
+      (when bongo-player
+        (bongo-player-stop bongo-player))
+      (bongo-unset-active-track-position))))
 
 (defun bongo-pause/resume ()
   "Pause or resume playback in the current Bongo buffer.
 This functionality may not be available for all backends."
   (interactive)
-  (if bongo-player
-      (bongo-player-pause/resume bongo-player)
-    (error "No active player")))
+  (with-bongo-buffer
+    (if bongo-player
+        (bongo-player-pause/resume bongo-player)
+      (error "No active player"))))
 
 (defun bongo-seek-forward (&optional n)
   "Seek N units forward in the currently playing track.
 The time units are currently backend-specific.
 This functionality may not be available for all backends."
   (interactive "p")
-  (if bongo-player
-      (bongo-player-seek-by bongo-player n)
-    (error "No active player")))
+  (with-bongo-buffer
+    (if bongo-player
+        (bongo-player-seek-by bongo-player n)
+      (error "No active player"))))
 
 (defun bongo-seek-backward (&optional n)
   "Seek N units backward in the currently playing track.
 The time units are currently backend-specific.
 This functionality may not be available for all backends."
   (interactive "p")
-  (if bongo-player
-      (bongo-player-seek-by bongo-player (- n))
-    (error "No active player")))
+  (with-bongo-buffer
+    (if bongo-player
+        (bongo-player-seek-by bongo-player (- n))
+      (error "No active player"))))
 
 
 ;;;; Inserting
