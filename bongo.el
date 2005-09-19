@@ -1879,6 +1879,13 @@ With prefix argument, remove all indentation and headers."
           (bongo-forward-object-line))))
       (message "Rendering buffer...done"))))
 
+(defun bongo-recenter ()
+  "Move point to the currently playing track and recenter.
+If no track is currently playing, just call `recenter'."
+  (interactive)
+  (bongo-goto-point (bongo-active-track-position))
+  (recenter))
+
 
 ;;;; Killing/yanking
 
@@ -2109,6 +2116,7 @@ instead, use high-level functions such as `save-buffer'."
     (define-key map "q" 'bongo-quit)
     (define-key map "Q" 'bury-buffer)
     (define-key map "g" 'bongo-redisplay)
+    (define-key map "l" 'bongo-recenter)
     (define-key map "j" 'bongo-join)
     (define-key map "J" 'bongo-split)
     (define-key map "k" 'bongo-kill-line)
