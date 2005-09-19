@@ -1140,7 +1140,7 @@ The variable `bongo-renice-command' says what command to use."
   "The currently active player for this buffer, or nil.")
 (make-variable-buffer-local 'bongo-player)
 
-(defcustom bongo-player-started-hook nil
+(defcustom bongo-player-started-hook '(bongo-show)
   "Normal hook run when a Bongo player is started."
   :options '(bongo-show)
   :type 'hook
