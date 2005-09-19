@@ -1103,11 +1103,11 @@ First search `bongo-preferred-backends', then `bongo-backends'."
 
 
 
-(defcustom bongo-next-action 'bongo-play-next
+(defcustom bongo-next-action 'bongo-play-next-or-stop
   "The function to call after the current track finishes playing."
   :type '(choice
           (const :tag "Stop playback" bongo-stop)
-          (const :tag "Play the next track" bongo-play-next)
+          (const :tag "Play the next track" bongo-play-next-or-stop)
           (const :tag "Play the same track again" bongo-replay-current)
           (const :tag "Play the previous track" bongo-play-previous)
           (const :tag "Play a random track" bongo-play-random))
@@ -1590,6 +1590,21 @@ set `bongo-next-action' to `bongo-play-next' and then return."
                      (bongo-active-track-position))))
       (if (null position)
           (error "No next track")
+        (bongo-play-line position)))))
+
+(defun bongo-play-next-or-stop (&optional non-immediate-p)
+  "Maybe start playing the next track in the current Bongo buffer.
+If there is no next track, stop playback.
+If NON-IMMEDIATE-P (prefix argument if interactive) is non-nil,
+set `bongo-next-action' to `bongo-play-next-or-stop' and then return."
+  (interactive "p")
+  (when (null (bongo-active-track-position))
+    (error "No active track"))
+  (if non-immediate-p
+      (setq bongo-next-action 'bongo-play-next-or-stop)
+    (let ((position (bongo-point-at-next-track-line
+                     (bongo-active-track-position))))
+      (when position
         (bongo-play-line position)))))
 
 (defun bongo-play-previous (&optional non-immediate-p)
