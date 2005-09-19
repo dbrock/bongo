@@ -1123,8 +1123,8 @@ First search `bongo-preferred-backends', then `bongo-backends'."
 (defcustom bongo-renice-command "sudo renice"
   "The shell command to use in place of the `renice' program.
 It will get three arguments: the priority, \"-p\", and the PID."
-  :group 'bongo
-  :type 'string)
+  :type 'string
+  :group 'bongo)
 
 (defun bongo-renice (pid priority)
   "Alter the priority of PID (process ID) to PRIORITY.
@@ -1203,12 +1203,12 @@ This function calls `bongo-start-player'."
   "The desired scheduling priority of Bongo player processes.
 If set to a non-nil value, `bongo-renice' will be used to alter
 the scheduling priority after a player process is started."
-  :group 'bongo
   :type '(choice (const :tag "Default" nil)
                  (const :tag "Slightly higher (-5)" -5)
                  (const :tag "Much higher (-10)" -10)
                  (const :tag "Very much higher (-15)" -15)
-                 integer))
+                 integer)
+  :group 'bongo)
 
 (defun bongo-start-player (file-name &optional backend-name)
   "Start and return a new player for FILE-NAME.
@@ -1475,9 +1475,7 @@ Interactive mpg123 processes support pausing and seeking."
                    (interactive-flag . ,bongo-mpg123-interactive)
                    (pause/resume . bongo-mpg123-player-pause/resume)
                    (seek-by . bongo-mpg123-player-seek-by)
-                   (seek-to . bongo-mpg123-player-seek-to)
-                   (get-elapsed-time . bongo-mpg123-player-elapsed-time)
-                   (get-total-time . bongo-mpg123-player-total-time))))
+                   (seek-to . bongo-mpg123-player-seek-to))))
     (prog1 player
       (set-process-sentinel process 'bongo-default-player-process-sentinel)
       (bongo-process-put process 'bongo-player player)
