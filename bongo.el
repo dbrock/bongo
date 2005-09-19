@@ -1120,6 +1120,19 @@ First search `bongo-preferred-backends', then `bongo-backends'."
   (when bongo-next-action
     (funcall bongo-next-action)))
 
+(defcustom bongo-renice-command "sudo renice"
+  "The shell command to use in place of the `renice' program.
+It will get three arguments: the priority, \"-p\", and the PID."
+  :group 'bongo
+  :type 'string)
+
+(defun bongo-renice (pid priority)
+  "Alter the priority of PID (process ID) to PRIORITY.
+The variable `bongo-renice-command' says what command to use."
+  (call-process shell-file-name nil nil nil shell-command-switch
+                (format "%s %d -p %d" bongo-renice-command
+                        priority pid)))
+
 
 ;;;; Players
 
@@ -1186,6 +1199,17 @@ This function calls `bongo-start-player'."
       (when (eq major-mode 'bongo-mode)
         (setq bongo-player player)))))
 
+(defcustom bongo-player-process-priority nil
+  "The desired scheduling priority of Bongo player processes.
+If set to a non-nil value, `bongo-renice' will be used to alter
+the scheduling priority after a player process is started."
+  :group 'bongo
+  :type '(choice (const :tag "Default" nil)
+                 (const :tag "Slightly higher (-5)" -5)
+                 (const :tag "Much higher (-10)" -10)
+                 (const :tag "Very much higher (-15)" -15)
+                 integer))
+
 (defun bongo-start-player (file-name &optional backend-name)
   "Start and return a new player for FILE-NAME.
 If you don't specify BACKEND-NAME, Bongo will try to find
@@ -1197,8 +1221,13 @@ This function runs `bongo-player-started-functions'."
                    (bongo-best-backend-for-file file-name))))
     (when (null backend)
       (error "Don't know how to play `%s'" file-name))
-    (let ((player (funcall (bongo-alist-get backend 'constructor)
-                           file-name)))
+    (let* ((player (funcall (bongo-alist-get backend 'constructor)
+                            file-name))
+           (process (bongo-player-process player)))
+      (when (and process bongo-player-process-priority
+                 (eq 'run (process-status process)))
+        (bongo-renice (process-id process)
+                      bongo-player-process-priority))
       (prog1 player
         (run-hook-with-args 'bongo-player-started-functions player)))))
 
