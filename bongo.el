@@ -1267,6 +1267,20 @@ If PLAYER does not support seeking, signal an error."
 If PLAYER does not support seeking, signal an error."
   (bongo-player-call player 'seek-to n))
 
+(defun bongo-player-elapsed-time (player)
+  "Return the number of seconds PLAYER has played so far.
+If the player backend cannot report this, return nil."
+  (or (bongo-player-get player 'elapsed-time)
+      (when (bongo-player-get player 'get-elapsed-time)
+        (bongo-player-call player 'get-elapsed-time))))
+
+(defun bongo-player-total-time (player)
+  "Return the total number of seconds PLAYER has and will use.
+If the player backend cannot report this, return nil."
+  (or (bongo-player-get player 'total-time)
+      (when (bongo-player-get player 'get-total-time)
+        (bongo-player-call player 'get-total-time))))
+
 
 ;;;; Default implementations of player features
 
@@ -1347,7 +1361,7 @@ Setting this to nil disables the pause and seek functionality."
 (defcustom bongo-mpg123-update-granularity
   (when (bongo-mpg123-is-mpg321-p) 30)
   "The number of frames to skip between each update from mpg321.
-This corresponds to the mpg321-specific option `--skip-printing-frames'.
+This corresponds to the mpg321-specific option --skip-printing-frames.
 If your mpg123 does not support that option, set this variable to nil."
   :type '(choice (const :tag "None (lowest)" nil) integer)
   :group 'bongo-mpg123)
@@ -1365,11 +1379,18 @@ These will come at the end or right before the file name."
   :group 'bongo-mpg123)
 
 (defun bongo-mpg123-process-filter (process string)
-  (cond
-   ((string-match "^@P 0$" string)
-    (bongo-player-succeeded (bongo-process-get process 'bongo-player))
-    (set-process-sentinel process nil)
-    (delete-process process))))
+  (let ((player (bongo-process-get process 'bongo-player)))
+    (cond
+     ((string-match "^@P 0$" string)
+      (bongo-player-succeeded player)
+      (set-process-sentinel process nil)
+      (delete-process process))
+     ((string-match "^@F .+ .+ \\(.+\\) \\(.+\\)$" string)
+      (let* ((elapsed-time (string-to-number (match-string 1 string)))
+             (total-time (+ elapsed-time (string-to-number
+                                          (match-string 2 string)))))
+        (bongo-player-put player 'elapsed-time elapsed-time)
+        (bongo-player-put player 'total-time total-time))))))
 
 (defun bongo-mpg123-player-interactive-p (player)
   "Return non-nil if PLAYER's process is interactive.
@@ -1395,6 +1416,12 @@ Interactive mpg123 processes support pausing and seeking."
                (* bongo-mpg123-seek-increment (abs delta))))
     (error "This mpg123 process does not support seeking")))
 
+(defun bongo-mpg123-player-get-elapsed-time (player)
+  (bongo-player-get player 'elapsed-time))
+
+(defun bongo-mpg123-player-get-total-time (player)
+  (bongo-player-get player 'total-time))
+
 (defun bongo-start-mpg123-player (file-name)
   (let* ((process-connection-type nil)
          (arguments (append
@@ -1419,7 +1446,9 @@ Interactive mpg123 processes support pausing and seeking."
                    (interactive-flag . ,bongo-mpg123-interactive)
                    (pause/resume . bongo-mpg123-player-pause/resume)
                    (seek-by . bongo-mpg123-player-seek-by)
-                   (seek-to . bongo-mpg123-player-seek-to))))
+                   (seek-to . bongo-mpg123-player-seek-to)
+                   (get-elapsed-time . bongo-mpg123-player-elapsed-time)
+                   (get-total-time . bongo-mpg123-player-total-time))))
     (prog1 player
       (set-process-sentinel process 'bongo-default-player-process-sentinel)
       (bongo-process-put process 'bongo-player player)
@@ -1939,19 +1968,41 @@ See `kill-region'."
       (bongo-kill-line)))
   (move-marker end nil))
 
+(defun bongo-format-seconds (n)
+  "Return a user-friendly string representing N seconds.
+If N < 3600, the string will look like \"mm:ss\".
+Otherwise, it will look like \"hhh:mm:ss\", the first field
+being arbitrarily long."
+  (setq n (floor n))
+  (let ((hours (/ n 3600))
+        (minutes (% (/ n 60) 60))
+        (seconds (% n 60)))
+    (let ((result (format "%02d:%02d" minutes seconds)))
+      (unless (zerop hours)
+        (setq result (format "%d:%s" hours result)))
+      result)))
+
 (defun bongo-show (&optional arg)
   "Display what Bongo is playing in the minibuffer.
 With prefix argument, insert the description at point."
   (interactive "P")
-  (let (string)
+  (let (player infoset)
     (with-bongo-buffer
+      (setq player bongo-player)
       (let ((position (bongo-active-track-position)))
         (when (null position)
           (error "No track is currently playing"))
-        (setq string (bongo-format-infoset
-                      (bongo-line-infoset position)))))
-    (if arg (insert string)
-      (message string))))
+        (setq infoset (bongo-line-infoset position))))
+    (let ((elapsed-time (when player (bongo-player-elapsed-time player)))
+          (total-time (when player (bongo-player-total-time player)))
+          (description (bongo-format-infoset infoset)))
+      (let ((string (if (not (and elapsed-time total-time))
+                        description
+                      (format "%s [%s/%s]" description
+                              (bongo-format-seconds elapsed-time)
+                              (bongo-format-seconds total-time)))))
+        (if arg (insert string)
+          (message string))))))
 
 (defun bongo-yank (&optional arg)
   "In Bongo, reinsert the last sequence of killed lines.
