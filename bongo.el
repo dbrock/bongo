@@ -1140,6 +1140,12 @@ The variable `bongo-renice-command' says what command to use."
   "The currently active player for this buffer, or nil.")
 (make-variable-buffer-local 'bongo-player)
 
+(defcustom bongo-player-started-hook nil
+  "Normal hook run when a Bongo player is started."
+  :options '(bongo-show)
+  :type 'hook
+  :group 'bongo)
+
 (defvar bongo-player-started-functions nil
   "Abnormal hook run when a player is started.")
 (defvar bongo-player-succeeded-functions nil
@@ -1229,7 +1235,8 @@ This function runs `bongo-player-started-functions'."
         (bongo-renice (process-id process)
                       bongo-player-process-priority))
       (prog1 player
-        (run-hook-with-args 'bongo-player-started-functions player)))))
+        (run-hook-with-args 'bongo-player-started-functions player)
+        (run-hooks 'bongo-player-started-hook)))))
 
 (defun bongo-player-backend-name (player)
   "Return the name of PLAYER's backend (`mpg123', `mplayer', etc.)."
