@@ -1196,14 +1196,19 @@ You should not call this function directly."
 (defun bongo-play (file-name &optional backend-name)
   "Start playing FILE-NAME and return the new player.
 In Bongo mode, first stop the currently active player, if any.
-This function calls `bongo-start-player'."
+
+BACKEND-NAME specifies which backend to use; if it is nil,
+Bongo will try to find the best player for FILE-NAME.
+
+This function runs `bongo-player-started-hook'."
   (when (eq major-mode 'bongo-mode)
     (when bongo-player
       (bongo-player-stop bongo-player)))
   (let ((player (bongo-start-player file-name backend-name)))
     (prog1 player
       (when (eq major-mode 'bongo-mode)
-        (setq bongo-player player)))))
+        (setq bongo-player player))
+      (run-hooks 'bongo-player-started-hook))))
 
 (defcustom bongo-player-process-priority nil
   "The desired scheduling priority of Bongo player processes.
@@ -1217,11 +1222,13 @@ the scheduling priority after a player process is started."
   :group 'bongo)
 
 (defun bongo-start-player (file-name &optional backend-name)
-  "Start and return a new player for FILE-NAME.
-If you don't specify BACKEND-NAME, Bongo will try to find
-the best player for FILE-NAME.
+  "Start and return a new Bongo player for FILE-NAME.
 
-This function runs `bongo-player-started-functions'."
+BACKEND-NAME specifies which backend to use; if it is nil,
+Bongo will try to find the best player for FILE-NAME.
+
+This function runs `bongo-player-started-functions'.
+See also `bongo-play'."
   (let ((backend (if backend-name
                      (bongo-alist-get bongo-backends backend-name)
                    (bongo-best-backend-for-file file-name))))
@@ -1230,13 +1237,12 @@ This function runs `bongo-player-started-functions'."
     (let* ((player (funcall (bongo-alist-get backend 'constructor)
                             file-name))
            (process (bongo-player-process player)))
-      (when (and process bongo-player-process-priority
-                 (eq 'run (process-status process)))
-        (bongo-renice (process-id process)
-                      bongo-player-process-priority))
       (prog1 player
-        (run-hook-with-args 'bongo-player-started-functions player)
-        (run-hooks 'bongo-player-started-hook)))))
+        (when (and process bongo-player-process-priority
+                   (eq 'run (process-status process)))
+          (bongo-renice (process-id process)
+                        bongo-player-process-priority))
+        (run-hook-with-args 'bongo-player-started-functions player)))))
 
 (defun bongo-player-backend-name (player)
   "Return the name of PLAYER's backend (`mpg123', `mplayer', etc.)."
