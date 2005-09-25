@@ -183,7 +183,7 @@ This is used by `bongo-default-infoset-from-file-name'."
   :group 'bongo)
 
 (defcustom bongo-file-name-album-year-regexp
-  "^\\([0-9]{4}\\|'?[0-9]{2}\\)$"
+  "^\\([0-9]\\{4\\}\\|'?[0-9]\\{2\\}\\)$"
   "Regexp matching album years.
 This is used by `bongo-default-infoset-from-file-name'."
   :type 'regexp
