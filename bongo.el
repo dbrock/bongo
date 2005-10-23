@@ -2223,7 +2223,9 @@ instead, use high-level functions such as `save-buffer'."
 (defun bongo-mode ()
   "Major mode for Bongo buffers."
   (interactive)
-  (let ((arrow-position overlay-arrow-position))
+  (let ((arrow-position
+         (when (local-variable-p 'overlay-arrow-position)
+           overlay-arrow-position)))
     (kill-all-local-variables)
     (set (make-local-variable 'overlay-arrow-position)
          (or arrow-position (make-marker))))
