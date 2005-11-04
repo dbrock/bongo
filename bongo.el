@@ -24,7 +24,7 @@
 ;;; Code:
 
 (defgroup bongo nil
-  "Buffer-oriented media player"
+  "Buffer-oriented media player."
   :prefix "bongo-"
   :group 'multimedia
   :group 'applications)
