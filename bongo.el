@@ -625,6 +625,19 @@ This will be nil for header lines and non-nil for track lines."
   "Return non-nil if the line at POINT is a track line."
   (not (null (bongo-line-file-name point))))
 
+(defun bongo-track-lines-exist-p ()
+  "Return non-nil if the buffer contains any track lines.
+This function does not care about the visibility of the lines."
+  (let (track-lines-exist)
+    (let ((line-move-ignore-invisible nil))
+      (save-excursion
+        (goto-char (point-min))
+        (while (and (not (eobp)) (not track-lines-exist))
+          (when (bongo-track-line-p)
+            (setq track-lines-exist t))
+          (forward-line))))
+    track-lines-exist))
+
 (defun bongo-header-line-p (&optional point)
   "Return non-nil if the line at POINT is a header line."
   (bongo-line-get-property 'bongo-header point))
@@ -1771,24 +1784,14 @@ just set `bongo-next-action' to `bongo-play-previous' and return."
       (setq bongo-next-action 'bongo-play-previous)
       (message "Switched to reverse sequential playback"))))
 
-(defun bongo-tracks-exist-p ()
-  (let (tracks-exist)
-    (save-excursion
-      (goto-char (point-min))
-      (while (and (not (eobp)) (not tracks-exist))
-        (when (bongo-track-line-p)
-          (setq tracks-exist t))
-        (forward-line)))
-    tracks-exist))
-
 (defun bongo-play-random (&optional next-action-flag)
   "Start playing a random track in the current Bongo buffer.
 If NEXT-ACTION-FLAG (prefix argument if interactive) is non-nil,
 just set `bongo-next-action' to `bongo-play-random' and return."
   (interactive "P")
   (with-bongo-buffer
-    (unless (bongo-tracks-exist-p)
-      (error "No tracks"))
+    (unless (bongo-track-lines-exist-p)
+      (error "Buffer contains no tracks"))
     (if (null next-action-flag)
         (let ((line-move-ignore-invisible nil))
           (save-excursion
