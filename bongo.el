@@ -604,7 +604,7 @@ This will be nil for header lines and non-nil for track lines."
 
 (defun bongo-header-line-p (&optional point)
   "Return non-nil if the line at POINT is a header line."
-  (bongo-line-get-property 'bongo-header-p point))
+  (bongo-line-get-property 'bongo-header point))
 
 (defun bongo-object-line-p (&optional point)
   "Return non-nil if the line at POINT is an object line.
@@ -757,7 +757,7 @@ Actually only look at the terminating newline."
   (get-text-property (bongo-point-at-eol point) name))
 
 (defvar bongo-line-semantic-properties
-  (list 'bongo-file-name 'bongo-header-p
+  (list 'bongo-file-name 'bongo-header
         'bongo-fields 'bongo-external-fields
         'bongo-player)
   "The list of semantic text properties used in Bongo buffers.
@@ -1793,7 +1793,7 @@ Point is left immediately after the new line."
 (defun bongo-insert-header (&optional fields)
   "Insert a new header line with internal FIELDS.
 FIELDS defaults to the external fields of the current line."
-  (bongo-insert-line 'bongo-header-p t 'bongo-fields
+  (bongo-insert-line 'bongo-header t 'bongo-fields
                      (or fields (bongo-line-external-fields))))
 
 (defun bongo-insert-file (file-name)
@@ -1981,16 +1981,16 @@ If called interactively, SKIP is always non-nil."
   (let ((inhibit-read-only t)
         (indentation (bongo-line-indentation))
         (infoset (bongo-line-internal-infoset))
-        (header-p (bongo-header-line-p))
+        (header (bongo-header-line-p))
         (properties (bongo-line-get-semantic-properties)))
     (save-excursion
       (bongo-clear-line)
       (dotimes (_ indentation) (insert bongo-indentation-string))
       (let ((content (bongo-format-infoset infoset)))
-        (insert (if (not header-p) content
+        (insert (if (not header) content
                   (bongo-format-header content))))
       (bongo-line-set-properties properties)
-;;;       (bongo-line-set-property 'face (if header-p 'bongo-header
+;;;       (bongo-line-set-property 'face (if header 'bongo-header
 ;;;                                        'bongo-track))
       )))
 
@@ -2217,7 +2217,7 @@ instead, use high-level functions such as `find-file'."
       (point-max))))
 
 (defvar bongo-line-serializable-properties
-  (list 'face 'bongo-file-name 'bongo-header-p
+  (list 'face 'bongo-file-name 'bongo-header
         'bongo-fields 'bongo-external-fields)
   "List of serializable text properties used in Bongo buffers.
 When a bongo Buffer is written to a file, only serializable text
