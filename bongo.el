@@ -2426,6 +2426,7 @@ instead, use high-level functions such as `save-buffer'."
     (define-key map "s" 'bongo-stop)
     (define-key map "p" 'bongo-play-previous)
     (define-key map "n" 'bongo-play-next)
+    (define-key map "R" 'bongo-replay-current)
     (define-key map "r" 'bongo-play-random)
     (define-key map "N" 'bongo-perform-next-action)
     (define-key map "f" 'bongo-seek-forward)
