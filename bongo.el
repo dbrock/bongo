@@ -302,6 +302,12 @@ Separate the obtained formatted field values by `bongo-field-separator'."
 POINT may be a number, a marker or nil."
   (when point (goto-char point)))
 
+(defun bongo-skip-invisible ()
+  "Move point to the next visible character.
+If point is already on a visible character, do nothing."
+  (while (and (not (eobp)) (line-move-invisible-p (point)))
+    (goto-char (next-char-property-change (point)))))
+
 (defun bongo-point-at-bol (&optional point)
   "Return the first character position of the line at POINT."
   (save-excursion (bongo-goto-point point) (point-at-bol)))
