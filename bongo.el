@@ -1707,66 +1707,69 @@ If there is no track on the line at POINT, signal an error."
         (let ((player (bongo-play (bongo-line-file-name))))
           (bongo-line-set-property 'bongo-player player))))))
 
-(defun bongo-replay-current (&optional non-immediate-p)
+(defun bongo-replay-current (&optional next-action-flag)
   "Play the current track from the start.
-If NON-IMMEDIATE-P (prefix argument if interactive) is non-nil,
-set `bongo-next-action' to `bongo-replay-current' and then return."
+If NEXT-ACTION-FLAG (prefix argument if interactive) is non-nil,
+just set `bongo-next-action' to `bongo-replay-current' and return."
   (interactive "P")
   (with-bongo-buffer
-    (when (null (bongo-active-track-position))
-      (error "No active track"))
-    (if non-immediate-p
-        (setq bongo-next-action 'bongo-replay-current)
-      (bongo-play-line (bongo-active-track-position)))))
+    (if (null next-action-flag)
+        (let ((position (bongo-active-track-position)))
+          (if position (bongo-play-line position)
+            (error "No active track")))
+      (setq bongo-next-action 'bongo-replay-current)
+      (message "Switched to repeating playback"))))
 
-(defun bongo-play-next (&optional non-immediate-p)
+(defun bongo-play-next (&optional next-action-flag)
   "Start playing the next track in the current Bongo buffer.
-If NON-IMMEDIATE-P (prefix argument if interactive) is non-nil,
-set `bongo-next-action' to `bongo-play-next-or-stop' and then return."
+If NEXT-ACTION-FLAG (prefix argument if interactive) is non-nil,
+just set `bongo-next-action' to `bongo-play-next-or-stop' and return."
   (interactive "P")
   (with-bongo-buffer
-    (when (null (bongo-active-track-position))
-      (error "No active track"))
-    (if non-immediate-p
-        (setq bongo-next-action 'bongo-play-next-or-stop)
-      (let ((line-move-ignore-invisible nil))
-        (let ((position (bongo-point-at-next-track-line
-                         (bongo-active-track-position))))
-          (if (null position)
-              (error "No next track")
-            (bongo-play-line position)))))))
+    (if (null next-action-flag)
+        (let ((line-move-ignore-invisible nil)
+              (position (bongo-active-track-position)))
+          (when (null position)
+            (error "No active track"))
+          (setq position (bongo-point-at-next-track-line position))
+          (when (null position)
+            (error "No next track"))
+          (bongo-play-line position))
+      (setq bongo-next-action 'bongo-play-next-or-stop)
+      (message "Switched to sequential playback"))))
 
-(defun bongo-play-next-or-stop (&optional non-immediate-p)
+(defun bongo-play-next-or-stop (&optional next-action-flag)
   "Maybe start playing the next track in the current Bongo buffer.
 If there is no next track, stop playback.
-If NON-IMMEDIATE-P (prefix argument if interactive) is non-nil,
-set `bongo-next-action' to `bongo-play-next-or-stop' and then return."
+If NEXT-ACTION-FLAG (prefix argument if interactive) is non-nil,
+just set `bongo-next-action' to `bongo-play-next-or-stop' and return."
   (interactive "P")
   (with-bongo-buffer
     (when (null (bongo-active-track-position))
       (error "No active track"))
-    (if non-immediate-p
-        (setq bongo-next-action 'bongo-play-next-or-stop)
-      (let ((position (bongo-point-at-next-track-line
-                       (bongo-active-track-position))))
-        (when position
-          (bongo-play-line position))))))
+    (if (null next-action-flag)
+        (let ((position (bongo-point-at-next-track-line
+                         (bongo-active-track-position))))
+          (when position
+            (bongo-play-line position)))
+      (setq bongo-next-action 'bongo-play-next-or-stop)
+      (message "Switched to sequential playback"))))
 
-(defun bongo-play-previous (&optional non-immediate-p)
+(defun bongo-play-previous (&optional next-action-flag)
   "Start playing the previous track in the current Bongo buffer.
-If NON-IMMEDIATE-P (prefix argument if interactive) is non-nil,
-set `bongo-next-action' to `bongo-play-previous' and then return."
+If NEXT-ACTION-FLAG (prefix argument if interactive) is non-nil,
+just set `bongo-next-action' to `bongo-play-previous' and return."
   (interactive "P")
   (with-bongo-buffer
     (when (null (bongo-active-track-position))
       (error "No active track"))
-    (if non-immediate-p
-        (setq bongo-next-action 'bongo-play-previous)
-      (let ((position (bongo-point-at-previous-track-line
-                       (bongo-active-track-position))))
-        (if (null position)
-            (error "No previous track")
-          (bongo-play-line position))))))
+    (if (null next-action-flag)
+        (let ((position (bongo-point-at-previous-track-line
+                         (bongo-active-track-position))))
+          (if position (bongo-play-line position)
+            (error "No previous track")))
+      (setq bongo-next-action 'bongo-play-previous)
+      (message "Switched to reverse sequential playback"))))
 
 (defun bongo-tracks-exist-p ()
   (let (tracks-exist)
@@ -1778,32 +1781,35 @@ set `bongo-next-action' to `bongo-play-previous' and then return."
         (forward-line)))
     tracks-exist))
 
-(defun bongo-play-random (&optional non-immediate-p)
+(defun bongo-play-random (&optional next-action-flag)
   "Start playing a random track in the current Bongo buffer.
-If NON-IMMEDIATE-P (prefix argument if interactive) is non-nil,
-set `bongo-next-action' to `bongo-play-random' and then return."
+If NEXT-ACTION-FLAG (prefix argument if interactive) is non-nil,
+just set `bongo-next-action' to `bongo-play-random' and return."
   (interactive "P")
   (with-bongo-buffer
     (unless (bongo-tracks-exist-p)
       (error "No tracks"))
-    (if non-immediate-p
-        (setq bongo-next-action 'bongo-play-random)
-      (let ((line-move-ignore-invisible nil))
-        (save-excursion
-          (goto-char (1+ (random (point-max))))
-          (bongo-play-line))))))
+    (if (null next-action-flag)
+        (let ((line-move-ignore-invisible nil))
+          (save-excursion
+            (goto-char (1+ (random (point-max))))
+            (bongo-play-line)))
+      (setq bongo-next-action 'bongo-play-random)
+      (message "Switched to random playback"))))
 
-(defun bongo-stop (&optional non-immediate-p)
+(defun bongo-stop (&optional next-action-flag)
   "Permanently stop playback in the current Bongo buffer.
-If NON-IMMEDIATE-P (prefix argument if interactive) is non-nil,
-set `bongo-next-action' to `bongo-stop' and then return."
+If NEXT-ACTION-FLAG (prefix argument if interactive) is non-nil,
+just set `bongo-next-action' to `bongo-stop' and return."
   (interactive "P")
   (with-bongo-buffer
-    (if non-immediate-p
-        (setq bongo-next-action 'bongo-stop)
-      (when bongo-player
-        (bongo-player-stop bongo-player))
-      (bongo-unset-active-track-position))))
+    (if (null next-action-flag)
+        (progn
+          (when bongo-player
+            (bongo-player-stop bongo-player))
+          (bongo-unset-active-track-position))
+      (setq bongo-next-action 'bongo-stop)
+      (message "Will stop playback after the current track"))))
 
 (defun bongo-pause/resume ()
   "Pause or resume playback in the current Bongo buffer.
