@@ -1694,11 +1694,18 @@ If neither a track nor a header was clicked on, do nothing."
   "Start playing the track on the line at POINT.
 If there is no track on the line at POINT, signal an error."
   (interactive)
-  (if (not (bongo-track-line-p point))
-      (error "No track at point")
-    (bongo-set-active-track-position point)
-    (let ((player (bongo-play (bongo-line-file-name point))))
-      (bongo-line-set-property 'bongo-player player point))))
+  (save-excursion
+    (bongo-goto-point point)
+    (when line-move-ignore-invisible
+      (bongo-skip-invisible))
+    (let ((line-move-ignore-invisible nil))
+      (when (not (bongo-track-line-p))
+        (bongo-goto-point (bongo-point-at-next-track-line)))
+      (if (not (bongo-track-line-p))
+          (error "No track at point")
+        (bongo-set-active-track-position)
+        (let ((player (bongo-play (bongo-line-file-name))))
+          (bongo-line-set-property 'bongo-player player))))))
 
 (defun bongo-replay-current (&optional non-immediate-p)
   "Play the current track from the start.
