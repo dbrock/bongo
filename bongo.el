@@ -1999,7 +1999,8 @@ If point is not on a header line, signal an error."
   (interactive)
   (unless (bongo-header-line-p)
     (error "Not on a header line"))
-  (bongo-skip-invisible)
+  (when line-move-ignore-invisible
+    (bongo-skip-invisible))
   (if (bongo-collapsed-header-line-p)
       (bongo-expand)
     (bongo-collapse)))
