@@ -1946,7 +1946,8 @@ If point is neither on a header line nor in a section,
   and SKIP is nil, signal an error.
 If called interactively, SKIP is always non-nil."
   (interactive "p")
-  (bongo-skip-invisible)
+  (when line-move-ignore-invisible
+    (bongo-skip-invisible))
   (unless (bongo-header-line-p)
     (bongo-backward-up-section))
   (bongo-line-set-property 'bongo-collapsed t)
@@ -1969,7 +1970,8 @@ If point is not on a header line or the section below the header line
   is not collapsed, and SKIP is nil, signal an error.
 If called interactively, SKIP is always non-nil."
   (interactive "p")
-  (bongo-skip-invisible)
+  (when line-move-ignore-invisible
+    (bongo-skip-invisible))
   (unless (bongo-header-line-p)
     (error "Not on a header line"))
   (unless (bongo-collapsed-header-line-p)
