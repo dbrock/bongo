@@ -1788,11 +1788,10 @@ set `bongo-next-action' to `bongo-play-random' and then return."
       (error "No tracks"))
     (if non-immediate-p
         (setq bongo-next-action 'bongo-play-random)
-      (save-excursion
-        (goto-char (1+ (random (point-max))))
-        (while (not (bongo-track-line-p))
-          (goto-char (1+ (random (point-max)))))
-        (bongo-play-line)))))
+      (let ((line-move-ignore-invisible nil))
+        (save-excursion
+          (goto-char (1+ (random (point-max))))
+          (bongo-play-line))))))
 
 (defun bongo-stop (&optional non-immediate-p)
   "Permanently stop playback in the current Bongo buffer.
