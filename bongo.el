@@ -124,8 +124,14 @@ Therefore, if you change this list, you probably also need to change
   :type '(repeat string)
   :group 'bongo)
 
-(defcustom bongo-header-format "[%s]"
-  "Template for displaying header lines.
+(defcustom bongo-expanded-header-format "[%s]"
+  "Template for displaying header lines for expanded sections.
+%s means the header line content."
+  :type 'string
+  :group 'bongo)
+
+(defcustom bongo-collapsed-header-format "[%s ...]"
+  "Template for displaying header lines for collapsed sections.
 %s means the header line content."
   :type 'string
   :group 'bongo)
@@ -195,10 +201,15 @@ This is used by `bongo-default-infoset-from-file-name'."
   :type 'regexp
   :group 'bongo)
 
-(defun bongo-format-header (content)
+(defun bongo-format-header (content collapsed-flag)
   "Decorate CONTENT so as to make it look like a header.
-This function uses `bongo-header-format'."
-  (format bongo-header-format content))
+If COLLAPSED-FLAG is non-nil, assume the section is collapsed.
+
+This function uses `bongo-expanded-header-format'
+and `bongo-collapsed-header-format'."
+  (format (if collapsed-flag
+              bongo-collapsed-header-format
+            bongo-expanded-header-format) content))
 
 (defun bongo-format-infoset (infoset)
   "Represent INFOSET as a user-friendly string.
@@ -309,12 +320,24 @@ If point is already on a visible character, do nothing."
     (goto-char (next-char-property-change (point)))))
 
 (defun bongo-point-at-bol (&optional point)
-  "Return the first character position of the line at POINT."
-  (save-excursion (bongo-goto-point point) (point-at-bol)))
+  "Return the first character position of the line at POINT.
+If `line-move-ignore-invisible' is non-nil, ignore invisible text."
+  (save-excursion
+    (bongo-goto-point point)
+    (if (not line-move-ignore-invisible)
+        (point-at-bol)
+      (move-beginning-of-line nil)
+      (point))))
 
 (defun bongo-point-at-eol (&optional point)
-  "Return the last character position of the line at POINT."
-  (save-excursion (bongo-goto-point point) (point-at-eol)))
+  "Return the last character position of the line at POINT.
+If `line-move-ignore-invisible' is non-nil, ignore invisible text."
+  (save-excursion
+    (bongo-goto-point point)
+    (if (not line-move-ignore-invisible)
+        (point-at-eol)
+      (move-end-of-line nil)
+      (point))))
 
 (defun bongo-first-line-p (&optional point)
   "Return non-nil if POINT is on the first line."
@@ -618,6 +641,12 @@ to exist for long enough to be visible to the user."
   (and (bongo-header-line-p point)
        (null (bongo-line-internal-fields point))))
 
+(defun bongo-collapsed-header-line-p (&optional point)
+  "Return non-nil if the line at POINT is a collapsed header line.
+Collapsed header lines are header lines whose sections are collapsed."
+  (and (bongo-header-line-p point)
+       (bongo-line-get-property 'bongo-collapsed point)))
+
 
 ;;;; General convenience routines
 
@@ -757,7 +786,7 @@ Actually only look at the terminating newline."
   (get-text-property (bongo-point-at-eol point) name))
 
 (defvar bongo-line-semantic-properties
-  (list 'bongo-file-name 'bongo-header
+  (list 'bongo-file-name 'bongo-header 'bongo-collapsed
         'bongo-fields 'bongo-external-fields
         'bongo-player)
   "The list of semantic text properties used in Bongo buffers.
@@ -1668,11 +1697,12 @@ set `bongo-next-action' to `bongo-play-next-or-stop' and then return."
       (error "No active track"))
     (if non-immediate-p
         (setq bongo-next-action 'bongo-play-next-or-stop)
-      (let ((position (bongo-point-at-next-track-line
-                       (bongo-active-track-position))))
-        (if (null position)
-            (error "No next track")
-          (bongo-play-line position))))))
+      (let ((line-move-ignore-invisible nil))
+        (let ((position (bongo-point-at-next-track-line
+                         (bongo-active-track-position))))
+          (if (null position)
+              (error "No next track")
+            (bongo-play-line position)))))))
 
 (defun bongo-play-next-or-stop (&optional non-immediate-p)
   "Maybe start playing the next track in the current Bongo buffer.
@@ -1867,7 +1897,78 @@ using `bongo-gnu-find-program' to find the files."
       (message "Inserted %d files" file-count))))
 
 
-;;;; Joining/splitting
+;;;; Collapsing and expanding
+
+(defun bongo-collapse (&optional skip)
+  "Collapse the section below the header line at point.
+If point is not on a header line, collapse the section at point.
+
+If SKIP is nil, leave point at the header line.
+If SKIP is non-nil, leave point at the first object line after the section.
+If point is neither on a header line nor in a section,
+  and SKIP is nil, signal an error.
+If called interactively, SKIP is always non-nil."
+  (interactive "p")
+  (bongo-skip-invisible)
+  (unless (bongo-header-line-p)
+    (bongo-backward-up-section))
+  (bongo-line-set-property 'bongo-collapsed t)
+  (bongo-redisplay-line)
+  (let ((end (bongo-point-after-section)))
+    (forward-line 1)
+    (let ((inhibit-read-only t))
+      (put-text-property (point) end 'invisible t))
+    (if (not skip)
+        (forward-line -1)
+      (goto-char end)
+      (bongo-maybe-forward-object-line))))
+
+(defun bongo-expand (&optional skip)
+  "Expand the section below the header line at point.
+
+If SKIP is nil, leave point at the header line.
+If SKIP is non-nil, leave point at the first object line after the section.
+If point is not on a header line or the section below the header line
+  is not collapsed, and SKIP is nil, signal an error.
+If called interactively, SKIP is always non-nil."
+  (interactive "p")
+  (bongo-skip-invisible)
+  (unless (bongo-header-line-p)
+    (error "Not on a header line"))
+  (unless (bongo-collapsed-header-line-p)
+    (error "This section is not collapsed"))
+  (bongo-line-remove-property 'bongo-collapsed)
+  (bongo-redisplay-line)
+  (let ((start (point))
+        (inhibit-read-only t)
+        (line-move-ignore-invisible nil))
+    (put-text-property (bongo-point-after-line)
+                       (bongo-point-after-section)
+                       'invisible nil)
+    (let ((indentation (bongo-line-indentation)))
+      (bongo-forward-object-line)
+      (while (and (> (bongo-line-indentation) indentation)
+                  (not (eobp)))
+        (if (bongo-collapsed-header-line-p)
+            (bongo-collapse t)
+          (bongo-forward-object-line))))
+    (when (not skip)
+      (goto-char start))))
+
+(defun bongo-toggle-collapsed ()
+  "Collapse or expand the section below the header line at point.
+If the section is expanded, collapse it; if it is collapsed, expand it.
+If point is not on a header line, signal an error."
+  (interactive)
+  (unless (bongo-header-line-p)
+    (error "Not on a header line"))
+  (bongo-skip-invisible)
+  (if (bongo-collapsed-header-line-p)
+      (bongo-expand)
+    (bongo-collapse)))
+
+
+;;;; Joining and splitting
 
 (defun bongo-join-region (beg end &optional fields)
   "Join all tracks between BEG and END by externalizing FIELDS.
@@ -1982,13 +2083,14 @@ If called interactively, SKIP is always non-nil."
         (indentation (bongo-line-indentation))
         (infoset (bongo-line-internal-infoset))
         (header (bongo-header-line-p))
+        (collapsed (bongo-collapsed-header-line-p))
         (properties (bongo-line-get-semantic-properties)))
     (save-excursion
       (bongo-clear-line)
       (dotimes (_ indentation) (insert bongo-indentation-string))
       (let ((content (bongo-format-infoset infoset)))
         (insert (if (not header) content
-                  (bongo-format-header content))))
+                  (bongo-format-header content collapsed))))
       (bongo-line-set-properties properties)
 ;;;       (bongo-line-set-property 'face (if header 'bongo-header
 ;;;                                        'bongo-track))
@@ -2217,7 +2319,7 @@ instead, use high-level functions such as `find-file'."
       (point-max))))
 
 (defvar bongo-line-serializable-properties
-  (list 'face 'bongo-file-name 'bongo-header
+  (list 'face 'bongo-file-name 'bongo-header 'bongo-collapsed
         'bongo-fields 'bongo-external-fields)
   "List of serializable text properties used in Bongo buffers.
 When a bongo Buffer is written to a file, only serializable text
@@ -2280,6 +2382,8 @@ instead, use high-level functions such as `save-buffer'."
     (define-key map "l" 'bongo-recenter)
     (define-key map "j" 'bongo-join)
     (define-key map "J" 'bongo-split)
+    (define-key map "c" 'bongo-collapse)
+    (define-key map "C" 'bongo-expand)
     (define-key map "k" 'bongo-kill-line)
     (substitute-key-definition
      'kill-line 'bongo-kill-line map global-map)
