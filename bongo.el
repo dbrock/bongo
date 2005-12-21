@@ -1870,9 +1870,11 @@ using `bongo-gnu-find-program' to find the files."
 ;;;; Joining/splitting
 
 (defun bongo-join-region (beg end &optional fields)
-  "Externalize all fields that are common between BEG and END.
-This function creates a new header if necessary.
-If the lines cannot be joined, an error is signaled."
+  "Join all tracks between BEG and END by externalizing FIELDS.
+If FIELDS is nil, externalize all common fields between BEG and END.
+If there are no common fields, or the fields are already external,
+  or the region contains less than two lines, signal an error.
+This function creates a new header if necessary."
   (interactive "r")
   (when (null fields)
     (unless (setq fields (bongo-region-common-fields beg end))
@@ -1898,14 +1900,26 @@ If the lines cannot be joined, an error is signaled."
     (goto-char beg)
     (bongo-insert-header)))
 
-(defun bongo-join ()
-  (interactive)
+(defun bongo-join (&optional skip)
+  "Join the fields around point or in the region.
+If Transient Mark mode is enabled, delegate to `bongo-join-region'.
+Otherwise, find all common fields at point, and join all tracks around
+point that share those fields.  (See `bongo-common-fields-at-point'.)
+
+If SKIP is nil, leave point at the newly created header line.
+If SKIP is non-nil, leave point at the first object line after
+  the newly created section.
+If there are no common fields at point and SKIP is nil, signal an error.
+If called interactively, SKIP is always non-nil."
+  (interactive "p")
   (if (and transient-mark-mode mark-active)
       (bongo-join-region (region-beginning) (region-end))
     (let ((fields (bongo-common-fields-at-point)))
       (if (null fields)
-          (unless (bongo-last-object-line-p)
-            (bongo-forward-object-line))
+          (if (not skip)
+              (error "No common fields at point")
+            (unless (bongo-last-object-line-p)
+              (bongo-forward-object-line)))
         (let ((values (bongo-line-field-values fields))
               (before (bongo-point-before-line))
               (after (bongo-point-after-line)))
@@ -1919,12 +1933,20 @@ If the lines cannot be joined, an error is signaled."
               (setq after (bongo-point-after-line))))
           (setq after (move-marker (make-marker) after))
           (bongo-join-region before after fields)
-          (goto-char after)
+          (when skip (goto-char after))
           (move-marker after nil)
           (bongo-maybe-forward-object-line))))))
 
-(defun bongo-split ()
-  (interactive)
+(defun bongo-split (&optional skip)
+  "Split the section below the header line at point.
+If point is not on a header line, split the section at point.
+
+If SKIP is nil, leave point at the first object in the section.
+If SKIP is non-nil, leave point at the first object after the section.
+If point is neither on a header line nor in a section,
+  and SKIP is nil, signal an error.
+If called interactively, SKIP is always non-nil."
+  (interactive "p")
   (when (not (bongo-object-line-p))
     (bongo-backward-object-line))
   (when (not (bongo-object-line-p))
@@ -1932,19 +1954,24 @@ If the lines cannot be joined, an error is signaled."
   (when (and (bongo-track-line-p) (bongo-line-indented-p))
     (bongo-backward-up-section))
   (if (bongo-track-line-p)
-      (unless (bongo-last-object-line-p)
-        (bongo-forward-object-line))
+      (if (not skip)
+          (error "No section here")
+        (unless (bongo-last-object-line-p)
+          (bongo-forward-object-line)))
     (let ((fields (bongo-line-internal-fields))
           (end (move-marker (make-marker) (bongo-point-after-section))))
       (bongo-delete-line)
-      (while (< (point) end)
-        (let ((previous (point)))
-          (bongo-forward-section)
-          (bongo-line-set-external-fields
-           (set-difference (bongo-line-external-fields previous) fields)
-           previous)))
-      (move-marker end nil)
-      (bongo-maybe-forward-object-line))))
+      (let ((start (point)))
+        (while (< (point) end)
+          (let ((previous (point)))
+            (bongo-forward-section)
+            (bongo-line-set-external-fields
+             (set-difference (bongo-line-external-fields previous) fields)
+             previous)))
+        (move-marker end nil)
+        (when (not skip)
+          (goto-char start))
+        (bongo-maybe-forward-object-line)))))
 
 
 ;;;; Displaying
