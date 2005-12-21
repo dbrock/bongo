@@ -1632,6 +1632,31 @@ Interactive mplayer processes support pausing and seeking."
       (bongo-process-put process 'bongo-player player))))
 
 
+;;;; DWIM commands
+
+(defun bongo-dwim ()
+  "Do something to the object at point.
+If point is on a track, play it.
+If point is on a header, collapse or expand the section below.
+If point is neither on a track nor a header, do nothing."
+  (interactive)
+  (cond
+   ((bongo-track-line-p) (bongo-play-line))
+   ((bongo-header-line-p) (bongo-toggle-collapsed))))
+
+(defun bongo-mouse-dwim (event)
+  "Do something to the object that was clicked on.
+If a track was clicked on, play it.
+If a header was clicked on, collapse or expand the section below.
+If neither a track nor a header was clicked on, do nothing."
+  (interactive "e")
+  (let ((posn (event-end event)))
+    (with-current-buffer (window-buffer (posn-window posn))
+      (save-excursion
+        (goto-char (posn-point posn))
+        (bongo-dwim)))))
+
+
 ;;;; Controlling playback
 
 (defun bongo-active-track-position ()
@@ -2374,8 +2399,8 @@ instead, use high-level functions such as `save-buffer'."
 (defvar bongo-mode-map
   (let ((map (make-sparse-keymap)))
     (suppress-keymap map)
-    (define-key map "\C-m" 'bongo-play-line)
-    (define-key map [mouse-2] 'bongo-mouse-play-line)
+    (define-key map "\C-m" 'bongo-dwim)
+    (define-key map [mouse-2] 'bongo-mouse-dwim)
     (define-key map "q" 'bongo-quit)
     (define-key map "Q" 'bury-buffer)
     (define-key map "g" 'bongo-redisplay)
