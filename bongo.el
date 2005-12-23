@@ -2172,11 +2172,9 @@ If no track is currently playing, just call `recenter'."
 
 ;;;; Killing/yanking
 
-(defun bongo-kill-line (&optional arg)
-  "In Bongo, kill the current line.
-With prefix argument, kill that many lines from point.
-See `kill-line'."
-  (interactive "P")
+(defun bongo-kill-line ()
+  "In Bongo, kill the current line."
+  (interactive)
   (let ((inhibit-read-only t))
     (cond
      ((bongo-track-line-p)
@@ -2184,12 +2182,12 @@ See `kill-line'."
         (bongo-unset-active-track-position))
       (let ((kill-whole-line t))
         (beginning-of-line)
-        (kill-line arg)))
+        (kill-line)))
      ((bongo-header-line-p)
       (kill-region (bongo-point-before-line)
                    (bongo-point-after-section)))
      (t
-      (kill-line arg)))
+      (kill-line)))
 ;;;     (when (bongo-redundant-header-at-point-p)
 ;;;       (bongo-delete-line))
     ))
