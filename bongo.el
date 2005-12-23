@@ -2174,6 +2174,7 @@ If no track is currently playing, just call `recenter'."
 
 (defun bongo-kill-line ()
   "In Bongo, kill the current line.
+If the current line is a header line, copy the whole section.
 See also `bongo-copy-line-as-kill'."
   (interactive)
   (let ((inhibit-read-only t))
@@ -2195,6 +2196,7 @@ See also `bongo-copy-line-as-kill'."
 
 (defun bongo-copy-line-as-kill ()
   "In Bongo, save the current line as if killed, but don't kill it.
+If the current line is a header line, copy the whole section.
 See also `bongo-kill-line'."
   (interactive)
   (copy-region-as-kill (bongo-point-before-line)
@@ -2204,6 +2206,7 @@ See also `bongo-kill-line'."
 
 (defun bongo-kill-region (&optional beg end)
   "In Bongo, kill the lines between point and mark.
+If the region ends inside a section, kill the whole section.
 See `kill-region'."
   (interactive "r")
   (setq end (move-marker (make-marker) end))
