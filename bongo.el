@@ -2169,6 +2169,42 @@ If no track is currently playing, just call `recenter'."
   (bongo-goto-point (bongo-active-track-position))
   (recenter))
 
+(defun bongo-format-seconds (n)
+  "Return a user-friendly string representing N seconds.
+If N < 3600, the string will look like \"mm:ss\".
+Otherwise, it will look like \"hhh:mm:ss\", the first field
+being arbitrarily long."
+  (setq n (floor n))
+  (let ((hours (/ n 3600))
+        (minutes (% (/ n 60) 60))
+        (seconds (% n 60)))
+    (let ((result (format "%02d:%02d" minutes seconds)))
+      (unless (zerop hours)
+        (setq result (format "%d:%s" hours result)))
+      result)))
+
+(defun bongo-show (&optional arg)
+  "Display what Bongo is playing in the minibuffer.
+With prefix argument, insert the description at point."
+  (interactive "P")
+  (let (player infoset)
+    (with-bongo-buffer
+      (setq player bongo-player)
+      (let ((position (bongo-active-track-position)))
+        (when (null position)
+          (error "No track is currently playing"))
+        (setq infoset (bongo-line-infoset position))))
+    (let ((elapsed-time (when player (bongo-player-elapsed-time player)))
+          (total-time (when player (bongo-player-total-time player)))
+          (description (bongo-format-infoset infoset)))
+      (let ((string (if (not (and elapsed-time total-time))
+                        description
+                      (format "%s [%s/%s]" description
+                              (bongo-format-seconds elapsed-time)
+                              (bongo-format-seconds total-time)))))
+        (if arg (insert string)
+          (message string))))))
+
 
 ;;;; Killing/yanking
 
@@ -2217,42 +2253,6 @@ See `kill-region'."
       (append-next-kill)
       (bongo-kill-line)))
   (move-marker end nil))
-
-(defun bongo-format-seconds (n)
-  "Return a user-friendly string representing N seconds.
-If N < 3600, the string will look like \"mm:ss\".
-Otherwise, it will look like \"hhh:mm:ss\", the first field
-being arbitrarily long."
-  (setq n (floor n))
-  (let ((hours (/ n 3600))
-        (minutes (% (/ n 60) 60))
-        (seconds (% n 60)))
-    (let ((result (format "%02d:%02d" minutes seconds)))
-      (unless (zerop hours)
-        (setq result (format "%d:%s" hours result)))
-      result)))
-
-(defun bongo-show (&optional arg)
-  "Display what Bongo is playing in the minibuffer.
-With prefix argument, insert the description at point."
-  (interactive "P")
-  (let (player infoset)
-    (with-bongo-buffer
-      (setq player bongo-player)
-      (let ((position (bongo-active-track-position)))
-        (when (null position)
-          (error "No track is currently playing"))
-        (setq infoset (bongo-line-infoset position))))
-    (let ((elapsed-time (when player (bongo-player-elapsed-time player)))
-          (total-time (when player (bongo-player-total-time player)))
-          (description (bongo-format-infoset infoset)))
-      (let ((string (if (not (and elapsed-time total-time))
-                        description
-                      (format "%s [%s/%s]" description
-                              (bongo-format-seconds elapsed-time)
-                              (bongo-format-seconds total-time)))))
-        (if arg (insert string)
-          (message string))))))
 
 (defun bongo-yank (&optional arg)
   "In Bongo, reinsert the last sequence of killed lines.
