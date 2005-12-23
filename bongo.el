@@ -2173,7 +2173,8 @@ If no track is currently playing, just call `recenter'."
 ;;;; Killing/yanking
 
 (defun bongo-kill-line ()
-  "In Bongo, kill the current line."
+  "In Bongo, kill the current line.
+See also `bongo-copy-line-as-kill'."
   (interactive)
   (let ((inhibit-read-only t))
     (cond
@@ -2191,6 +2192,15 @@ If no track is currently playing, just call `recenter'."
 ;;;     (when (bongo-redundant-header-at-point-p)
 ;;;       (bongo-delete-line))
     ))
+
+(defun bongo-copy-line-as-kill ()
+  "In Bongo, save the current line as if killed, but don't kill it.
+See also `bongo-kill-line'."
+  (interactive)
+  (copy-region-as-kill (bongo-point-before-line)
+                       (if (bongo-header-line-p)
+                           (bongo-point-after-section)
+                         (bongo-point-after-line))))
 
 (defun bongo-kill-region (&optional beg end)
   "In Bongo, kill the lines between point and mark.
