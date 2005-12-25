@@ -2184,6 +2184,24 @@ If no track is currently playing, just call `recenter'."
   (bongo-goto-point (bongo-active-track-position))
   (recenter))
 
+(defun bongo-parse-time (time)
+  "Return the total number of seconds of TIME, or nil.
+If TIME is a string of the form [[H:]M:]S[.F], where H, M, S and F
+  may each be any number of digits, return 3600H + 60M + S.F.
+If TIME is any other string, return nil."
+  (when (string-match
+         (concat "^\\(?:\\(?:\\([0-9]+\\):\\)?\\([0-9]+\\):\\)?"
+                 "\\([0-9]+\\(?:\\.[0-9]+\\)?\\)$") time)
+    (let ((hours (match-string 1 time))
+          (minutes (match-string 2 time))
+          (seconds (match-string 3 time)))
+      (+ (if (null hours) 0
+           (* 3600 (string-to-number hours)))
+         (if (null minutes) 0
+           (* 60 (string-to-number minutes)))
+         (if (null seconds) 0
+           (string-to-number seconds))))))
+
 (defun bongo-format-seconds (n)
   "Return a user-friendly string representing N seconds.
 If N < 3600, the string will look like \"mm:ss\".
