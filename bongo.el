@@ -894,7 +894,7 @@ the region share the same value for the field."
 ;;      strictly hierarchical.
 (defun bongo-region-common-fields (beg end)
   "Return the names of all fields that are common between BEG and END.
-See `bongo-region-common-field-name-p'."
+See `bongo-region-field-common-p'."
   (let ((fields (reverse bongo-fields))
         (common-fields nil))
     (while fields
