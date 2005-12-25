@@ -772,28 +772,30 @@ Key comparisons are done with `eq'."
       (setq plist (cddr plist)))
     new-plist))
 
-(if (and (fboundp 'process-put) (fboundp 'process-get))
-    (progn
-      (defalias 'bongo-process-get #'process-get)
-      (defalias 'bongo-process-put #'process-put))
+
+;;;; Fallback implementations of `process-{get,put}'.
 
-  (defvar bongo-process-alist nil)
+(defvar bongo-process-alist nil)
 
-  (defun bongo-process-plist (process)
-    (bongo-alist-get bongo-process-alist process))
+(defun bongo-process-plist (process)
+  (bongo-alist-get bongo-process-alist process))
 
-  (defun bongo-process-set-plist (process plist)
-    (bongo-alist-put 'bongo-process-alist process plist))
+(defun bongo-process-set-plist (process plist)
+  (bongo-alist-put 'bongo-process-alist process plist))
 
-  (defun bongo-process-get (process property)
-    "Return the value of PROPERTY for PROCESS."
-    (plist-get (bongo-process-plist process) property))
+(defun bongo-process-get (process property)
+  "Return the value of PROPERTY for PROCESS."
+  (plist-get (bongo-process-plist process) property))
 
-  (defun bongo-process-put (process property value)
-    "Change the value of PROPERTY for PROCESS to VALUE."
-    (bongo-set-process-plist
-     process (plist-put (bongo-process-plist process)
-                        property value))))
+(defun bongo-process-put (process property value)
+  "Change the value of PROPERTY for PROCESS to VALUE."
+  (bongo-process-set-plist
+   process (plist-put (bongo-process-plist process)
+                      property value)))
+
+(when (and (fboundp 'process-put) (fboundp 'process-get))
+  (defalias 'bongo-process-get #'process-get)
+  (defalias 'bongo-process-put #'process-put))
 
 
 ;;;; Line-oriented convenience routines
