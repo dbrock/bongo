@@ -1081,7 +1081,7 @@ If the first outer header is too specific, split it in two."
         (bongo-backward-up-section)
         (let ((proposal (bongo-line-external-fields-proposal)))
           (unless (bongo-set-equal-p current proposal)
-            (bongo-insert-header external-fields)
+            (bongo-insert-header current)
             (bongo-externalize-fields)))))))
 
 (defun bongo-externalize-fields ()
