@@ -2430,10 +2430,15 @@ instead, use high-level functions such as `save-buffer'."
   (interactive)
   (let ((arrow-position
          (when (local-variable-p 'overlay-arrow-position)
-           overlay-arrow-position)))
+           overlay-arrow-position))
+        (player
+         (when (local-variable-p 'bongo-player)
+           bongo-player)))
     (kill-all-local-variables)
     (set (make-local-variable 'overlay-arrow-position)
-         (or arrow-position (make-marker))))
+         (or arrow-position (make-marker)))
+    (when player
+      (setq bongo-player player)))
   (use-local-map bongo-mode-map)
   (setq buffer-read-only t)
   (setq major-mode 'bongo-mode)
