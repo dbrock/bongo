@@ -698,6 +698,11 @@ Return the final value of TEST.
 The order of the elements is not significant."
   (null (set-exclusive-or a b)))
 
+(defun bongo-set-contains-p (a b)
+  "Return non-nil if all elements in B are also in A.
+The order of the elements is not significant."
+  (bongo-set-equal-p (union a b) a))
+
 (defun bongo-alist-get (alist key)
   "Return the cdr of the element in ALIST whose car equals KEY.
 If no such element exists, return nil."
@@ -1021,14 +1026,13 @@ Redundant headers are headers whose internal fields are all externalizable."
   "Make sure that the current line has a suitable header.
 If the first outer header is too specific, split it in two."
   (when (bongo-line-indented-p)
-    (let ((external-fields (bongo-line-external-fields)))
+    (let ((current (bongo-line-external-fields)))
       (save-excursion
         (bongo-backward-up-section)
-        (unless (bongo-set-equal-p
-                 (bongo-line-external-fields-proposal)
-                 external-fields)
-          (bongo-insert-header external-fields)
-          (bongo-externalize-fields))))))
+        (let ((proposal (bongo-line-external-fields-proposal)))
+          (unless (bongo-set-equal-p current proposal)
+            (bongo-insert-header external-fields)
+            (bongo-externalize-fields)))))))
 
 (defun bongo-externalize-fields ()
   "Externalize as many fields of the current line as possible.
