@@ -1556,7 +1556,8 @@ Interactive mpg123 processes support pausing and seeking."
                    (interactive-flag . ,bongo-mpg123-interactive)
                    (pause/resume . bongo-mpg123-player-pause/resume)
                    (seek-by . bongo-mpg123-player-seek-by)
-                   (seek-to . bongo-mpg123-player-seek-to))))
+                   (seek-to . bongo-mpg123-player-seek-to)
+                   (seek-unit . frames))))
     (prog1 player
       (set-process-sentinel process 'bongo-default-player-process-sentinel)
       (bongo-process-put process 'bongo-player player)
@@ -1654,7 +1655,8 @@ Interactive mplayer processes support pausing and seeking."
                    (interactive-flag . ,bongo-mplayer-interactive)
                    (pause/resume . bongo-mplayer-player-pause/resume)
                    (seek-by . bongo-mplayer-player-seek-by)
-                   (seek-to . bongo-mplayer-player-seek-to))))
+                   (seek-to . bongo-mplayer-player-seek-to)
+                   (seek-unit . seconds))))
     (prog1 player
       (set-process-sentinel process 'bongo-default-player-process-sentinel)
       (bongo-process-put process 'bongo-player player))))
@@ -1840,7 +1842,7 @@ This functionality may not be available for all backends."
 
 (defun bongo-seek-forward (&optional n)
   "Seek N units forward in the currently playing track.
-The time units are currently backend-specific.
+The time unit is currently backend-specific.
 This functionality may not be available for all backends."
   (interactive "p")
   (with-bongo-buffer
@@ -1850,12 +1852,43 @@ This functionality may not be available for all backends."
 
 (defun bongo-seek-backward (&optional n)
   "Seek N units backward in the currently playing track.
-The time units are currently backend-specific.
+The time unit it currently backend-specific.
 This functionality may not be available for all backends."
   (interactive "p")
   (with-bongo-buffer
     (if bongo-player
         (bongo-player-seek-by bongo-player (- n))
+      (error "No active player"))))
+
+(defun bongo-seek-to (position)
+  "Seek to POSITION in the currently playing track.
+The time unit is currently backend-specific.
+This functionality may not be available for all backends."
+  (interactive
+   (with-bongo-buffer
+     (if bongo-player
+         (list
+          (let ((unit (bongo-player-get bongo-player 'seek-unit)))
+            (cond
+             ((null unit)
+              (error "This player does not support seeking"))
+             ((eq unit 'frames)
+              (read-number "Seek to (in frames): "))
+             ((eq unit 'seconds)
+              (let ((total-time (bongo-player-total-time bongo-player)))
+                (bongo-until
+                    (bongo-parse-time
+                     (read-string
+                      (if (null total-time)
+                          "Seek to (in seconds or MM:SS): "
+                        (format "Seek to (max %s): "
+                                (bongo-format-seconds total-time)))))
+                  (message "Please enter a number or HH:MM:SS.")
+                  (sit-for 2)))))))
+       (error "No active player"))))
+  (with-bongo-buffer
+    (if bongo-player
+        (bongo-player-seek-to bongo-player position)
       (error "No active player"))))
 
 
