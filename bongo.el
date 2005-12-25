@@ -1038,12 +1038,11 @@ If the first outer header is too specific, split it in two."
   "Externalize as many fields of the current line as possible.
 This function may create a new section header, but only by splitting an
 existing header into two (see `bongo-maybe-insert-intermediate-header')."
-  (with-bongo-buffer
-    (unless (zerop (bongo-line-proposed-indentation))
-      (let ((fields (bongo-line-externalizable-fields)))
-        (when (> (length fields) (bongo-line-indentation))
-          (bongo-line-set-external-fields fields)
-          (bongo-maybe-insert-intermediate-header))))))
+  (unless (zerop (bongo-line-proposed-indentation))
+    (let ((fields (bongo-line-externalizable-fields)))
+      (when (> (length fields) (bongo-line-indentation))
+        (bongo-line-set-external-fields fields)
+        (bongo-maybe-insert-intermediate-header)))))
 
 
 ;;;; Backends
