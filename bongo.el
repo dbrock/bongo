@@ -666,6 +666,21 @@ Collapsed header lines are header lines whose sections are collapsed."
 ;;; (defmacro nor (&rest conditions)
 ;;;   `(not (or ,@conditions)))
 
+(defmacro bongo-until (test &rest body)
+  "If TEST yields nil, evaluate BODY... and repeat.
+The order of execution is thus TEST, BODY..., TEST, BODY..., TEST,
+and so on, until TEST returns non-nil.
+Return the final value of TEST.
+
+\(fn TEST BODY...)"
+  (declare (indent 1) (debug t))
+  (let ((result (gensym)))
+    `(let (,result)
+       (while (unless (setq ,result ,test)
+                (prog1 t
+                  ,@body)))
+       ,result)))
+
 (defun bongo-shortest (a b)
   "Return the shorter of the lists A and B."
   (if (<= (length a) (length b)) a b))
