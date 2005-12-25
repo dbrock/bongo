@@ -62,6 +62,43 @@ Therefore, if you change this list, you probably also need to change
   :type 'string
   :group 'bongo)
 
+(defcustom bongo-automatically-insert-intermediate-headers nil
+  "Whether Bongo is allowed to insert intermediate headers.
+This is best explained by an example.  Say you have the following section,
+
+   [Frank Morton —— Frank Morton (2004)]
+       01. Pojken på Tallbacksvägen
+       02. Kanske det blir så att jag måste gå
+
+and you insert the following section immediately afterwards.
+
+   [Frank Morton —— Jag såg en film om en gammal man (2005)]
+       01. Det är så mysigt att vara två
+       02. Labyrinten
+
+If this variable is nil, the result will be as follows:
+
+   [Frank Morton —— Frank Morton (2004)]
+       01. Pojken på Tallbacksvägen
+       02. Kanske det blir så att jag måste gå
+   [Frank Morton —— Jag såg en film om en gammal man (2005)]
+       01. Det är så mysigt att vara två
+       02. Labyrinten
+
+On the other hand, if it is non-nil, the result will be as follows:
+
+   [Frank Morton]
+     [Frank Morton (2004)]
+       01. Pojken på Tallbacksvägen
+       02. Kanske det blir så att jag måste gå
+     [Jag såg en film om en gammal man (2005)]
+       01. Det är så mysigt att vara två
+       02. Labyrinten
+
+Notice that an intermediate header ``[Frank Morton]'' was inserted."
+  :type 'boolean
+  :group 'bongo)
+
 
 
 (defgroup bongo-faces nil
@@ -980,11 +1017,24 @@ If the line at POINT is the first line, return nil."
 (defun bongo-line-externalizable-fields (&optional point)
   "Return the externalizable fields of the line at POINT.
 That is, return the names of all internal fields of the line at POINT
-that could be made external without changing anything else."
-  (set-difference (intersection
-                   (bongo-line-proposed-external-fields point)
-                   (bongo-line-potential-external-fields point))
-                  (bongo-line-external-fields point)))
+  that could be made external without controversy.
+This function respects `bongo-automatically-insert-intermediate-headers',
+  in order to implement the correct semantics."
+  (if bongo-automatically-insert-intermediate-headers
+      (set-difference (intersection
+                       (bongo-line-proposed-external-fields point)
+                       (bongo-line-potential-external-fields point))
+                      (bongo-line-external-fields point))
+    (let ((potential (bongo-line-potential-external-fields point)))
+      (save-excursion
+        (bongo-backward-object-line)
+        (let (fields)
+          (while (and (null fields) (bongo-line-indented-p))
+            (bongo-backward-up-section)
+            (let ((proposal (bongo-line-external-fields-proposal)))
+              (when (bongo-set-contains-p potential proposal)
+                (setq fields proposal))))
+          fields)))))
 
 (defun bongo-line-redundant-header-p (&optional point)
   "Return non-nil if the line at POINT is a redundant header.
