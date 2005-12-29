@@ -2600,6 +2600,8 @@ instead, use high-level functions such as `save-buffer'."
          (or arrow-position (make-marker)))
     (when player
       (setq bongo-player player)))
+  (set (make-local-variable 'forward-sexp-function)
+       'bongo-forward-section)
   (use-local-map bongo-mode-map)
   (setq buffer-read-only t)
   (setq major-mode 'bongo-mode)
