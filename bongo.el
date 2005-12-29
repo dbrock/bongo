@@ -506,6 +506,40 @@ Return non-nil if point was moved to an object line."
     (prog1 (not (null position))
       (goto-char (or position (point-max))))))
 
+(defun bongo-backward-section (&optional n)
+  "Move backward across N balanced expressions.
+Here, a balanced expression is a track or a section."
+  (interactive "p")
+  (when (null n) (setq n 1))
+  (if (< n 0)
+      (bongo-forward-section (- n))
+    (when line-move-ignore-invisible
+      (bongo-skip-invisible))
+    (bongo-maybe-forward-object-line)
+    (while (and (> n 0) (not (bobp)))
+      (let ((original-indentation (bongo-line-indentation)))
+        (bongo-backward-object-line)
+        (when (> (bongo-line-indentation) original-indentation)
+          (bongo-backward-up-section)))
+      (setq n (- n 1)))))
+
+(defun bongo-forward-section (&optional n)
+  "Move forward across N balanced expressions.
+Here, a balanced expression is a track or a section.
+This function is a suitable value for `forward-sexp-function'."
+  (interactive "p")
+  (when (null n) (setq n 1))
+  (if (< n 0)
+      (bongo-backward-section (- n))
+    (when line-move-ignore-invisible
+      (bongo-skip-invisible))
+    (while (and (> n 0) (not (eobp)))
+      (bongo-maybe-forward-object-line)
+      (goto-char (if (bongo-header-line-p)
+                     (bongo-point-after-section)
+                   (bongo-point-after-line)))
+      (setq n (- n 1)))))
+
 (defun bongo-point-before-next-track-line (&optional point)
   "Return the character position of the next track line.
 If POINT is non-nil, start after that line; otherwise,
@@ -1045,15 +1079,31 @@ Redundant headers are headers whose internal fields are all externalizable."
        (bongo-set-equal-p (bongo-line-externalizable-fields point)
                           (bongo-line-internal-fields point))))
 
-(defun bongo-backward-up-section ()
-  (interactive)
-  (let ((indentation (bongo-line-indentation)))
-    (when (zerop indentation)
-      (error "Already at the top level"))
-    (bongo-backward-object-line)
-    (while (>= (bongo-line-indentation) indentation)
-      (unless (bongo-backward-object-line)
-        (error "Broken sectioning")))))
+(defun bongo-down-section (&optional n)
+  "Move to the first object line in the section.
+Otherwise signal an error."
+  (interactive "p")
+  (when (null n) (setq n 1))
+  (while (> n 0)
+    (if (bongo-header-line-p)
+        (bongo-forward-object-line)
+      (error "No section here"))
+    (setq n (- n 1))))
+
+(defun bongo-backward-up-section (&optional n)
+  "Move to the header line of this section.
+With N, repeat that many times."
+  (interactive "p")
+  (when (null n) (setq n 1))
+  (while (> n 0)
+    (let ((indentation (bongo-line-indentation)))
+      (when (zerop indentation)
+        (error "Already at the top level"))
+      (bongo-backward-object-line)
+      (while (>= (bongo-line-indentation) indentation)
+        (unless (bongo-backward-object-line)
+          (error "Broken sectioning"))))
+    (setq n (- n 1))))
 
 (defun bongo-maybe-forward-object-line ()
   (interactive)
@@ -1064,15 +1114,6 @@ Redundant headers are headers whose internal fields are all externalizable."
   (interactive)
   (if (bongo-object-line-p) t
     (bongo-backward-object-line)))
-
-(defun bongo-forward-section ()
-  (interactive)
-  (when (bongo-maybe-forward-object-line)
-    (cond
-     ((bongo-track-line-p)
-      (bongo-forward-object-line))
-     ((bongo-header-line-p)
-      (goto-char (bongo-point-after-section))))))
 
 (defun bongo-maybe-insert-intermediate-header ()
   "Make sure that the current line has a suitable header.
