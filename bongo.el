@@ -2361,7 +2361,8 @@ With prefix argument, insert the description at point."
   (let (player infoset)
     (with-bongo-buffer
       (setq player bongo-player)
-      (let ((position (bongo-active-track-position)))
+      (let ((position (bongo-active-track-position))
+            (line-move-ignore-invisible nil))
         (when (null position)
           (error "No track is currently playing"))
         (setq infoset (bongo-line-infoset position))))
