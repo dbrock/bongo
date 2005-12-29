@@ -2544,7 +2544,9 @@ instead, use high-level functions such as `save-buffer'."
   (switch-to-buffer (other-buffer (current-buffer))))
 
 (defun bongo-mode ()
-  "Major mode for Bongo buffers."
+  "Major mode for Bongo buffers.
+
+\\{bongo-mode-map}"
   (interactive)
   (let ((arrow-position
          (when (local-variable-p 'overlay-arrow-position)
