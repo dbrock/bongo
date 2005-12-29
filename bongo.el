@@ -2577,7 +2577,7 @@ instead, use high-level functions such as `save-buffer'."
     (define-key map "J" 'bongo-split)
     (define-key map "c" 'bongo-collapse)
     (define-key map "C" 'bongo-expand)
-    (define-key map "k" 'bongo-kill-line)
+    (define-key map "k" 'bongo-copy-line-as-kill)
     (substitute-key-definition
      'kill-line 'bongo-kill-line map global-map)
     (define-key map "w" 'bongo-kill-region)
