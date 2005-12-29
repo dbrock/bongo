@@ -2358,15 +2358,20 @@ See also `bongo-copy-line-as-kill'."
 ;;;       (bongo-delete-line))
     ))
 
-(defun bongo-copy-line-as-kill ()
+(defun bongo-copy-line-as-kill (&optional skip)
   "In Bongo, save the current line as if killed, but don't kill it.
 If the current line is a header line, copy the whole section.
+If SKIP is non-nil, then move point to the next object line.
 See also `bongo-kill-line'."
-  (interactive)
+  (interactive "p")
+  (when (eq last-command 'bongo-copy-line-as-kill)
+    (append-next-kill))
   (copy-region-as-kill (bongo-point-before-line)
                        (if (bongo-header-line-p)
                            (bongo-point-after-section)
-                         (bongo-point-after-line))))
+                         (bongo-point-after-line)))
+  (when skip
+    (bongo-forward-object-line)))
 
 (defun bongo-kill-region (&optional beg end)
   "In Bongo, kill the lines between point and mark.
