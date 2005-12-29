@@ -2204,7 +2204,8 @@ If called interactively, SKIP is always non-nil."
   (interactive "p")
   (if (and transient-mark-mode mark-active)
       (bongo-join-region (region-beginning) (region-end))
-    (bongo-skip-invisible)
+    (when line-move-ignore-invisible
+      (bongo-skip-invisible))
     (let* ((line-move-ignore-invisible nil)
            (fields (bongo-common-fields-at-point)))
       (if (null fields)
@@ -2252,8 +2253,9 @@ If called interactively, SKIP is always non-nil."
           (bongo-forward-object-line)))
     (when (bongo-collapsed-header-line-p)
       (bongo-expand))
+    (when line-move-ignore-invisible
+      (bongo-skip-invisible))
     (let ((line-move-ignore-invisible nil))
-      (bongo-skip-invisible)
       (let ((fields (bongo-line-internal-fields))
             (end (move-marker (make-marker) (bongo-point-after-section))))
         (bongo-delete-line)
@@ -2391,8 +2393,11 @@ See also `bongo-copy-line-as-kill'."
         (beginning-of-line)
         (kill-line)))
      ((bongo-header-line-p)
-      (kill-region (bongo-point-before-line)
-                   (bongo-point-after-section)))
+      (save-excursion
+        (beginning-of-line)
+        (when line-move-ignore-invisible
+          (bongo-skip-invisible))
+        (kill-region (point) (bongo-point-after-section))))
      (t
       (kill-line)))
 ;;;     (when (bongo-redundant-header-at-point-p)
@@ -2434,9 +2439,12 @@ See `yank'."
   (interactive "P")
   (let ((inhibit-read-only t))
     (beginning-of-line)
+    (when line-move-ignore-invisible
+      (bongo-skip-invisible))
     (yank arg)
     (let ((beg (region-beginning))
-          (end (move-marker (make-marker) (region-end))))
+          (end (move-marker (make-marker) (region-end)))
+          (line-move-ignore-invisible nil))
       (save-excursion
         (goto-char beg)
         (when (not (bongo-object-line-p))
