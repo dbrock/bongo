@@ -88,7 +88,6 @@ Notice that an intermediate header ``[Frank Morton]'' was inserted."
           (const :tag "Play the previous track" bongo-play-previous)
           (const :tag "Play a random track" bongo-play-random))
   :group 'bongo)
-
 (make-variable-buffer-local 'bongo-next-action)
 
 (defgroup bongo-file-names nil
@@ -1318,6 +1317,12 @@ First search `bongo-preferred-backends', then `bongo-backends'."
   :type 'hook
   :group 'bongo)
 
+(defcustom bongo-player-finished-hook nil
+  "Normal hook run when a Bongo player finishes."
+  :options '((lambda () (bongo-show) (sit-for 2)))
+  :type 'hook
+  :group 'bongo)
+
 (defvar bongo-player-started-functions nil
   "Abnormal hook run when a player is started.")
 (defvar bongo-player-succeeded-functions nil
@@ -1370,6 +1375,7 @@ You should not call this function directly."
   (when (buffer-live-p (bongo-player-buffer player))
     (with-current-buffer (bongo-player-buffer player)
       (run-hook-with-args 'bongo-player-finished-functions player)
+      (run-hooks 'bongo-player-finished-hook)
       (bongo-perform-next-action))))
 
 (defun bongo-play (file-name &optional backend-name)
