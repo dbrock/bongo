@@ -162,6 +162,21 @@ Notice that an intermediate header ``[Frank Morton]'' was inserted."
   :type '(repeat string)
   :group 'bongo)
 
+(defcustom bongo-insert-album-covers t
+  "If non-nil, put album cover images into playlists.
+This is done by `bongo-insert-directory' and by `bongo-insert-directory-tree'.
+See also `bongo-album-cover-file-names'."
+  :type 'boolean
+  :group 'bongo)
+
+(defcustom bongo-album-cover-file-names
+  '("cover.jpg" "cover.jpeg" "cover.png"
+    "front.jpg" "front.jpeg" "front.png")
+  "File names of images that should be considered album covers.
+See also `bongo-insert-album-covers'."
+  :type '(repeat string)
+  :group 'bongo)
+
 (defcustom bongo-expanded-header-format "[%s]"
   "Template for displaying header lines for expanded sections.
 %s means the header line content."
@@ -2029,10 +2044,38 @@ If FILE-NAME names a directory, call `bongo-insert-directory'."
                (bongo-format-infoset
                 (bongo-infoset-from-file-name file-name))))))
 
+(defun bongo-maybe-insert-album-cover (directory-name)
+  "Insert the album cover in DIRECTORY-NAME, if one exists.
+Album covers are files whose names are in `bongo-album-cover-file-names'."
+  (let ((cover-file-name nil)
+        (file-names bongo-album-cover-file-names))
+    (while (and file-names (null cover-file-name))
+      (let ((file-name (concat directory-name "/" (car file-names))))
+        (when (file-exists-p file-name)
+          (setq cover-file-name file-name))))
+    (when cover-file-name
+      (let ((file-type-entry
+             (assoc (downcase (file-name-extension cover-file-name))
+                    '(("png" . png) ("jpg" . jpeg) ("jpeg" . jpeg)))))
+        (when (null file-type-entry)
+          (error "Unrecognized file name extension: %s" cover-file-name))
+        (let ((cover-file-type (cdr file-type-entry))
+              (inhibit-read-only t))
+          (insert "\n")
+          (insert (propertize "(cover image)" 'display
+                              `(image :type ,cover-file-type
+                                      :file ,cover-file-name)))
+          (insert "\n"))))))
+
 (defun bongo-insert-directory (directory-name)
   "Insert a new track line for each file in DIRECTORY-NAME.
 Only insert files that can be played by some backend, as determined
 by the file name (see `bongo-track-file-name-regexp').
+
+If `bongo-insert-album-covers' is non-nil, then for each directory
+that contains a file whose name is in `bongo-album-cover-file-names',
+insert the image in that file before the directory contents.
+
 Do not examine subdirectories of DIRECTORY-NAME."
   (interactive (list (expand-file-name
                       (read-directory-name
@@ -2042,7 +2085,8 @@ Do not examine subdirectories of DIRECTORY-NAME."
                            (dired-get-filename t)))))))
   (when (not (file-directory-p directory-name))
     (error "File is not a directory: %s" directory-name))
-;;;   (when (file-exists-p (concat directory-name "/cover.jpg")))
+  (when bongo-insert-album-covers
+    (bongo-maybe-insert-album-cover directory-name))
   (let ((file-names (directory-files directory-name t
                                      (bongo-track-file-name-regexp))))
     (when (null file-names)
@@ -2053,6 +2097,35 @@ Do not examine subdirectories of DIRECTORY-NAME."
       (message "Inserted %d files" (length file-names)))))
 
 (defun bongo-insert-directory-tree (directory-name)
+  "Insert a new track line for each file below DIRECTORY-NAME.
+Only insert files that can be played by some backend, as determined
+by the file name (see `bongo-track-file-name-regexp').
+
+If `bongo-insert-album-covers' is non-nil, then for each directory
+that contains a file whose name is in `bongo-album-cover-file-names',
+insert the image in that file before the directory contents.
+
+This function descends each subdirectory of DIRECTORY-NAME recursively."
+  (interactive (list (expand-file-name
+                      (read-directory-name
+                       "Insert directory tree: "
+                       default-directory nil t
+                       (when (eq major-mode 'dired-mode)
+                         (when (file-directory-p (dired-get-filename))
+                           (dired-get-filename t)))))))
+  (when (not (file-directory-p directory-name))
+    (error "File is not a directory: %s" directory-name))
+  (when bongo-insert-album-covers
+    (bongo-maybe-insert-album-cover directory-name))
+  (let ((regexp (bongo-track-file-name-regexp))
+        (file-names (directory-files directory-name t "^[^.]")))
+    (dolist (file-name file-names)
+      (if (file-directory-p file-name)
+          (bongo-insert-directory-tree file-name)
+        (when (string-match regexp file-name)
+          (bongo-insert-file file-name))))))
+
+(defun bongo-insert-directory-tree-using-find (directory-name)
   "Insert a new track line for each file below DIRECTORY-NAME.
 Only insert files that can be played by some backend, as determined
 by the file name (see `bongo-track-file-name-regexp').
