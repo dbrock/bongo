@@ -1,5 +1,5 @@
 ;;; bongo.el --- buffer-oriented media player for Emacs
-;; Copyright (C) 2005  Daniel Brockman
+;; Copyright (C) 2005, 2006  Daniel Brockman
 ;; Copyright (C) 2005  Lars Öhrman
 
 ;; Author: Daniel Brockman <daniel@brockman.se>
@@ -566,12 +566,14 @@ If no track line is found before the starting line, return nil."
     (error "Point is not on a section header"))
   (save-excursion 
     (bongo-goto-point point)
-    (let ((indentation (bongo-line-indentation)))
+    (let ((indentation (bongo-line-indentation))
+          (after-last (bongo-point-after-line)))
       (bongo-forward-object-line)
       (while (and (> (bongo-line-indentation) indentation)
                   (not (eobp)))
+        (setq after-last (bongo-point-after-line))
         (bongo-forward-object-line))
-      (point))))
+      after-last)))
 
 (defun bongo-track-infoset (&optional point)
   "Return the infoset for the track at POINT.
