@@ -36,14 +36,14 @@
   :group 'bongo)
 
 (defcustom bongo-insert-album-covers t
-  "Whether to put album cover images into Bongo playlists.
+  "Whether to put album cover images into playlists.
 This is done by `bongo-insert-directory' and by `bongo-insert-directory-tree'.
 See also `bongo-album-cover-file-names'."
   :type 'boolean
   :group 'bongo)
 
-(defcustom bongo-automatically-insert-intermediate-headers nil
-  "Whether Bongo is allowed to insert intermediate headers.
+(defcustom bongo-insert-intermediate-headers nil
+  "Whether to automatically insert intermediate headers.
 This is best explained by an example.  Say you have the following section,
 
    [Frank Morton —— Frank Morton (2004)]
@@ -97,7 +97,6 @@ Notice that an intermediate header ``[Frank Morton]'' was inserted."
 
 (defcustom bongo-file-name-field-separator " - "
   "String used to split track file names into fields.
-
 For example, if your tracks are named like this,
 
    Frank Morton - 2004 - Frank Morton - 01 - Pojken på Tallbacksvägen
@@ -1095,9 +1094,9 @@ If the line at POINT is the first line, return nil."
   "Return the externalizable fields of the line at POINT.
 That is, return the names of all internal fields of the line at POINT
   that could be made external without controversy.
-This function respects `bongo-automatically-insert-intermediate-headers',
+This function respects `bongo-insert-intermediate-headers',
   in order to implement the correct semantics."
-  (if bongo-automatically-insert-intermediate-headers
+  (if bongo-insert-intermediate-headers
       (set-difference (intersection
                        (bongo-line-proposed-external-fields point)
                        (bongo-line-potential-external-fields point))
