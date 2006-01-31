@@ -30,37 +30,16 @@
   :group 'multimedia
   :group 'applications)
 
-(defcustom bongo-fields '(artist album track)
-  "The fields that will be used to describe tracks and headers.
-
-This list names the possible keys of a type of alist called an infoset.
-The value of a field may be some arbitrarily complex data structure,
-but the name of each field must be a simple symbol.
-
-By default, each field consists of another alist:
- * the `artist' field consists of a single mandatory `name' subfield;
- * the `album' field consists of both a mandatory `title' subfield
-   and an optional `year' subfield; and finally,
- * the `track' field consists of a mandatory `title' subfield
-   and an optional `index' subfield.
-
-Currently, this list needs to be completely ordered, starting with
-the most general field and ending with the most specific field.
-This restriction may be relaxed in the future to either allow partially
-ordered field lists, or to abandon the hard-coded ordering completely.
-
-The meaning and content of the fields are defined implicitly by the
-functions that use and operate on fields and infosets (sets of fields).
-Therefore, if you change this list, you probably also need to change
- (a) either `bongo-infoset-formatting-function' or
-     `bongo-field-formatting-function', and
- (b) `bongo-infoset-from-file-name-function'."
-  :type '(repeat symbol)
-  :group 'bongo)
-
 (defcustom bongo-default-buffer-name "*Playlist*"
   "The name of the default Bongo buffer."
   :type 'string
+  :group 'bongo)
+
+(defcustom bongo-insert-album-covers t
+  "Whether to put album cover images into Bongo playlists.
+This is done by `bongo-insert-directory' and by `bongo-insert-directory-tree'.
+See also `bongo-album-cover-file-names'."
+  :type 'boolean
   :group 'bongo)
 
 (defcustom bongo-automatically-insert-intermediate-headers nil
@@ -100,7 +79,157 @@ Notice that an intermediate header ``[Frank Morton]'' was inserted."
   :type 'boolean
   :group 'bongo)
 
-
+(defcustom bongo-next-action 'bongo-play-next-or-stop
+  "The function to call after the current track finishes playing."
+  :type '(choice
+          (const :tag "Stop playback" bongo-stop)
+          (const :tag "Play the next track" bongo-play-next-or-stop)
+          (const :tag "Play the same track again" bongo-replay-current)
+          (const :tag "Play the previous track" bongo-play-previous)
+          (const :tag "Play a random track" bongo-play-random))
+  :group 'bongo)
+
+(make-variable-buffer-local 'bongo-next-action)
+
+(defgroup bongo-file-names nil
+  "File names and file name parsing in Bongo."
+  :group 'bongo)
+
+(defcustom bongo-file-name-field-separator " - "
+  "String used to split track file names into fields.
+
+For example, if your tracks are named like this,
+
+   Frank Morton - 2004 - Frank Morton - 01 - Pojken på Tallbacksvägen
+
+and your file name field separator is \" - \" (which is the default),
+then the fields are \"Frank Morton\", \"2004\", \"Frank Morton\", \"01\",
+and \"Pojken på Tallbacksvägen\".
+
+When the the fields of a track's file name have been extracted,
+they are used to build an infoset.
+
+This is used by `bongo-default-infoset-from-file-name'."
+  :type 'string
+  :group 'bongo-file-names)
+
+(defcustom bongo-file-name-album-year-regexp
+  "^\\([0-9]\\{4\\}\\|'?[0-9]\\{2\\}\\)$"
+  "Regexp matching album years.
+This is used by `bongo-default-infoset-from-file-name'."
+  :type 'regexp
+  :group 'bongo-file-names)
+
+(defcustom bongo-file-name-track-index-regexp "^[0-9]+$"
+  "Regexp matching track indices.
+This is used by `bongo-default-infoset-from-file-name'."
+  :type 'regexp
+  :group 'bongo-file-names)
+
+(defcustom bongo-album-cover-file-names
+  '("cover.jpg" "cover.jpeg" "cover.png"
+    "front.jpg" "front.jpeg" "front.png")
+  "File names of images that should be considered album covers.
+See also `bongo-insert-album-covers'."
+  :type '(repeat string)
+  :group 'bongo-file-names)
+
+(defgroup bongo-display nil
+  "Playlist display in Bongo."
+  :group 'bongo)
+
+(defcustom bongo-field-separator " —— "
+  "String used to separate field values.
+This is used by the function `bongo-default-format-field'."
+  :type '(choice (const :tag " —— (Unicode dashes)" " —— ")
+                 (const :tag " -- (ASCII dashes)" " -- ")
+                 string)
+  :group 'bongo-display)
+
+(defcustom bongo-album-format "%t (%y)"
+  "Template for displaying albums in Bongo.
+This is used by the function `bongo-default-format-field'.
+%t means the album title.
+%y means the album year."
+  :type 'string
+  :group 'bongo-display)
+
+(defcustom bongo-track-format "%i. %t"
+  "Template for displaying tracks in Bongo.
+This is used by the function `bongo-default-format-field'.
+%t means the track title.
+%i means the track index."
+  :type 'string
+  :group 'bongo-display)
+
+(defcustom bongo-expanded-header-format "[%s]"
+  "Template for displaying header lines for expanded sections.
+%s means the header line content."
+  :type 'string
+  :group 'bongo-display)
+
+(defcustom bongo-collapsed-header-format "[%s ...]"
+  "Template for displaying header lines for collapsed sections.
+%s means the header line content."
+  :type 'string
+  :group 'bongo-display)
+
+(defcustom bongo-indentation-string "  "
+  "String prefixed to lines once for each level of indentation."
+  :type 'string
+  :group 'bongo-display)
+
+(defgroup bongo-infosets nil
+  "Structured track information in Bongo."
+  :group 'bongo)
+
+(defcustom bongo-fields '(artist album track)
+  "The fields that will be used to describe tracks and headers.
+
+This list names the possible keys of a type of alist called an infoset.
+The value of a field may be some arbitrarily complex data structure,
+but the name of each field must be a simple symbol.
+
+By default, each field consists of another alist:
+ * the `artist' field consists of a single mandatory `name' subfield;
+ * the `album' field consists of both a mandatory `title' subfield
+   and an optional `year' subfield; and finally,
+ * the `track' field consists of a mandatory `title' subfield
+   and an optional `index' subfield.
+
+Currently, this list needs to be completely ordered, starting with
+the most general field and ending with the most specific field.
+This restriction may be relaxed in the future to either allow partially
+ordered field lists, or to abandon the hard-coded ordering completely.
+
+The meaning and content of the fields are defined implicitly by the
+functions that use and operate on fields and infosets (sets of fields).
+Therefore, if you change this list, you probably also need to change
+ (a) either `bongo-infoset-formatting-function' or
+     `bongo-field-formatting-function', and
+ (b) `bongo-infoset-from-file-name-function'."
+  :type '(repeat symbol)
+  :group 'bongo-infosets)
+
+(defcustom bongo-infoset-from-file-name-function
+  'bongo-default-infoset-from-file-name
+  "Function used to convert file names into infosets."
+  :type 'function
+  :group 'bongo-file-names
+  :group 'bongo-infosets)
+
+(defcustom bongo-infoset-formatting-function 'bongo-default-format-infoset
+  "Function used to convert an infoset into a string."
+  :type 'function
+  :group 'bongo-display
+  :group 'bongo-infosets)
+
+(defcustom bongo-field-formatting-function 'bongo-default-format-field
+  "Function used to convert an info field into a string.
+This is used by the function `bongo-default-format-infoset'."
+  :type 'function
+  :group 'bongo-display
+  :group 'bongo-infosets)
 
 (defgroup bongo-faces nil
   "Faces used by Bongo."
@@ -147,112 +276,6 @@ Notice that an intermediate header ``[Frank Morton]'' was inserted."
   :group 'bongo-faces)
 
 
-
-(defcustom bongo-gnu-find-program "find"
-  "The name of the GNU find executable."
-  :type 'string
-  :group 'bongo)
-
-(defcustom bongo-gnu-find-extra-arguments
-  (when (and (executable-find bongo-gnu-find-program)
-             (equal 0 (call-process bongo-gnu-find-program nil nil nil
-                                    "-regextype" "emacs" "-prune")))
-    '("-regextype" "emacs"))
-  "Extra arguments to pass to GNU find."
-  :type '(repeat string)
-  :group 'bongo)
-
-(defcustom bongo-insert-album-covers t
-  "If non-nil, put album cover images into playlists.
-This is done by `bongo-insert-directory' and by `bongo-insert-directory-tree'.
-See also `bongo-album-cover-file-names'."
-  :type 'boolean
-  :group 'bongo)
-
-(defcustom bongo-album-cover-file-names
-  '("cover.jpg" "cover.jpeg" "cover.png"
-    "front.jpg" "front.jpeg" "front.png")
-  "File names of images that should be considered album covers.
-See also `bongo-insert-album-covers'."
-  :type '(repeat string)
-  :group 'bongo)
-
-(defcustom bongo-expanded-header-format "[%s]"
-  "Template for displaying header lines for expanded sections.
-%s means the header line content."
-  :type 'string
-  :group 'bongo)
-
-(defcustom bongo-collapsed-header-format "[%s ...]"
-  "Template for displaying header lines for collapsed sections.
-%s means the header line content."
-  :type 'string
-  :group 'bongo)
-
-(defcustom bongo-indentation-string "  "
-  "String prefixed to lines once for each level of indentation."
-  :type 'string
-  :group 'bongo)
-
-(defcustom bongo-infoset-formatting-function 'bongo-default-format-infoset
-  "Function used to convert an info set into a string."
-  :type 'function
-  :group 'bongo)
-
-(defcustom bongo-field-formatting-function 'bongo-default-format-field
-  "Function used to convert an info field into a string.
-This is used by the function `bongo-default-format-infoset'."
-  :type 'function
-  :group 'bongo)
-
-(defcustom bongo-field-separator " —— "
-  "String used to separate field values.
-This is used by the function `bongo-default-format-field'."
-  :type '(choice (const :tag " —— (Unicode dashes)" " —— ")
-                 (const :tag " -- (ASCII dashes)" " -- ")
-                 string)
-  :group 'bongo)
-
-(defcustom bongo-album-format "%t (%y)"
-  "Template for displaying albums in Bongo.
-This is used by the function `bongo-default-format-field'.
-%t means the album title.
-%y means the album year."
-  :type 'string
-  :group 'bongo)
-
-(defcustom bongo-track-format "%i. %t"
-  "Template for displaying tracks in Bongo.
-This is used by the function `bongo-default-format-field'.
-%t means the track title.
-%i means the track index."
-  :type 'string
-  :group 'bongo)
-
-(defcustom bongo-infoset-from-file-name-function
-  'bongo-default-infoset-from-file-name
-  "Function used to convert file names into infosets."
-  :type 'function
-  :group 'bongo)
-
-(defcustom bongo-file-name-field-separator " - "
-  "String used to split file names into fields.
-This is used by `bongo-default-infoset-from-file-name'."
-  :type 'string
-  :group 'bongo)
-
-(defcustom bongo-file-name-album-year-regexp
-  "^\\([0-9]\\{4\\}\\|'?[0-9]\\{2\\}\\)$"
-  "Regexp matching album years.
-This is used by `bongo-default-infoset-from-file-name'."
-  :type 'regexp
-  :group 'bongo)
-
-(defcustom bongo-file-name-track-index-regexp "^[0-9]+$"
-  "Regexp matching track indices.
-This is used by `bongo-default-infoset-from-file-name'."
-  :type 'regexp
-  :group 'bongo)
 
 (defun bongo-format-header (content collapsed-flag)
   "Decorate CONTENT so as to make it look like a header.
@@ -1284,38 +1307,6 @@ First search `bongo-preferred-backends', then `bongo-backends'."
     best-backend))
 
 
-
-(defcustom bongo-next-action 'bongo-play-next-or-stop
-  "The function to call after the current track finishes playing."
-  :type '(choice
-          (const :tag "Stop playback" bongo-stop)
-          (const :tag "Play the next track" bongo-play-next-or-stop)
-          (const :tag "Play the same track again" bongo-replay-current)
-          (const :tag "Play the previous track" bongo-play-previous)
-          (const :tag "Play a random track" bongo-play-random))
-  :group 'bongo)
-
-(make-variable-buffer-local 'bongo-next-action)
-
-(defun bongo-perform-next-action ()
-  (interactive)
-  (when bongo-next-action
-    (funcall bongo-next-action)))
-
-(defcustom bongo-renice-command "sudo renice"
-  "The shell command to use in place of the `renice' program.
-It will get three arguments: the priority, \"-p\", and the PID."
-  :type 'string
-  :group 'bongo)
-
-(defun bongo-renice (pid priority)
-  "Alter the priority of PID (process ID) to PRIORITY.
-The variable `bongo-renice-command' says what command to use."
-  (call-process shell-file-name nil nil nil shell-command-switch
-                (format "%s %d -p %d" bongo-renice-command
-                        priority pid)))
-
-
 ;;;; Players
 
 (defvar bongo-player nil
@@ -1366,6 +1357,13 @@ The variable `bongo-renice-command' says what command to use."
       (run-hook-with-args 'bongo-player-killed-functions player)
       (bongo-player-finished player))))
 
+(defun bongo-perform-next-action ()
+  "Perform the next Bongo action, if any.
+The next action is specified by `bongo-next-action'."
+  (interactive)
+  (when bongo-next-action
+    (funcall bongo-next-action)))
+
 (defun bongo-player-finished (player)
   "Run the hooks appropriate for when PLAYER has finished.
 Then perform the next action according to `bongo-next-action'.
@@ -1402,6 +1400,19 @@ the scheduling priority after a player process is started."
                  (const :tag "Very much higher (-15)" -15)
                  integer)
   :group 'bongo)
+
+(defcustom bongo-renice-command "sudo renice"
+  "The shell command to use in place of the `renice' program.
+It will get three arguments: the priority, \"-p\", and the PID."
+  :type 'string
+  :group 'bongo)
+
+(defun bongo-renice (pid priority)
+  "Alter the priority of PID (process ID) to PRIORITY.
+The variable `bongo-renice-command' says what command to use."
+  (call-process shell-file-name nil nil nil shell-command-switch
+                (format "%s %d -p %d" bongo-renice-command
+                        priority pid)))
 
 (defun bongo-start-player (file-name &optional backend-name)
   "Start and return a new Bongo player for FILE-NAME.
@@ -1544,7 +1555,7 @@ If the player backend cannot report this, return nil."
 ;;;; The mpg123 backend
 
 (defgroup bongo-mpg123 nil
-  "The mpg123 backend."
+  "The mpg123 backend to Bongo."
   :group 'bongo)
 
 (defcustom bongo-mpg123-program-name "mpg123"
@@ -1684,7 +1695,7 @@ Interactive mpg123 processes support pausing and seeking."
 ;;;; The mplayer backend
 
 (defgroup bongo-mplayer nil
-  "The mplayer backend."
+  "The mplayer backend to Bongo."
   :group 'bongo)
 
 (defcustom bongo-mplayer-program-name "mplayer"
@@ -2124,6 +2135,20 @@ This function descends each subdirectory of DIRECTORY-NAME recursively."
           (bongo-insert-directory-tree file-name)
         (when (string-match regexp file-name)
           (bongo-insert-file file-name))))))
+
+(defcustom bongo-gnu-find-program "find"
+  "The name of the GNU find executable."
+  :type 'string
+  :group 'bongo)
+
+(defcustom bongo-gnu-find-extra-arguments
+  (when (and (executable-find bongo-gnu-find-program)
+             (equal 0 (call-process bongo-gnu-find-program nil nil nil
+                                    "-regextype" "emacs" "-prune")))
+    '("-regextype" "emacs"))
+  "Extra arguments to pass to GNU find."
+  :type '(repeat string)
+  :group 'bongo)
 
 (defun bongo-insert-directory-tree-using-find (directory-name)
   "Insert a new track line for each file below DIRECTORY-NAME.
