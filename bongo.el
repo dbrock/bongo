@@ -5,6 +5,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
+;; Updated: January 31, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -2717,3 +2718,10 @@ See `bongo-default-buffer'."
   (switch-to-buffer (bongo-default-buffer)))
 
 (provide 'bongo)
+
+;;; Local Variables:
+;;; coding: utf-8
+;;; time-stamp-format: "%:b %:d, %:y"
+;;; time-stamp-start: ";; Updated: "
+;;; time-stamp-end: "$"
+;;; End:
