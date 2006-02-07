@@ -2068,7 +2068,8 @@ Album covers are files whose names are in `bongo-album-cover-file-names'."
     (while (and file-names (null cover-file-name))
       (let ((file-name (concat directory-name "/" (car file-names))))
         (when (file-exists-p file-name)
-          (setq cover-file-name file-name))))
+          (setq cover-file-name file-name)))
+      (setq file-names (cdr file-names)))
     (when cover-file-name
       (let ((file-type-entry
              (assoc (downcase (file-name-extension cover-file-name))
