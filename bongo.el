@@ -302,6 +302,7 @@ Separate the obtained formatted field values by `bongo-field-separator'."
   (funcall bongo-field-formatting-function field))
 
 (defun bongo-default-format-field (field)
+  (require 'format-spec)
   (let ((type (car field))
         (data (cdr field)))
     (cond
