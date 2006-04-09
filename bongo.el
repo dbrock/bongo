@@ -1815,14 +1815,17 @@ If point is neither on a track nor a header, do nothing."
   (interactive "P")
   (cond
    ((bongo-track-line-p)
-    (if bongo-dwim-prefer-enqueuing
-        (if (or (null (bongo-active-track-position))
-                (= (point-at-bol) (bongo-active-track-position))
-                (and (marker-position bongo-queued-track-marker)
-                     (= (point-at-bol) bongo-queued-track-marker)))
-            (bongo-play-line)
-          (bongo-play-line (point) t))
-      (bongo-play-line (point) prefix-argument)))
+    (if (not bongo-dwim-prefer-enqueuing)
+        (bongo-play-line (point) prefix-argument)
+      (cond
+       ((and (marker-position bongo-queued-track-marker)
+             (= (point-at-bol) bongo-queued-track-marker))
+        (bongo-play-line (point) prefix-argument))
+       ((or (null (bongo-active-track-position))
+            (= (point-at-bol) (bongo-active-track-position)))
+        (bongo-play-line))
+       (t
+        (bongo-play-line (point) t)))))
    ((bongo-header-line-p) (bongo-toggle-collapsed))))
 
 (defun bongo-mouse-dwim (event)
