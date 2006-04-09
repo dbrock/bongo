@@ -2542,7 +2542,8 @@ With prefix argument, remove all indentation and headers."
   "Move point to the currently playing track and recenter.
 If no track is currently playing, just call `recenter'."
   (interactive)
-  (bongo-goto-point (bongo-active-track-position))
+  (bongo-goto-point (or (bongo-active-track-position)
+                        (marker-position bongo-queued-track-marker)))
   (recenter))
 
 (defun bongo-parse-time (time)
