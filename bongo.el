@@ -5,7 +5,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: February 24, 2006
+;; Updated: April 9, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -33,6 +33,14 @@
 (defcustom bongo-default-buffer-name "*Playlist*"
   "The name of the default Bongo buffer."
   :type 'string
+  :group 'bongo)
+
+(defcustom bongo-dwim-prefer-enqueuing t
+  "If non-nil, `bongo-dwim' (\\<bongo-mode-map>\\[bongo-dwim]) \
+prefers enqueuing tracks.
+Otherwise, `bongo-dwim' always starts playing tracks immediately,
+abruptly stopping whatever is currently playing."
+  :type 'boolean
   :group 'bongo)
 
 (defcustom bongo-insert-album-covers t
@@ -89,6 +97,10 @@ Notice that an intermediate header ``[Frank Morton]'' was inserted."
           (const :tag "Play a random track" bongo-play-random))
   :group 'bongo)
 (make-variable-buffer-local 'bongo-next-action)
+
+(defvar bongo-stored-next-action nil
+  "The old value of `bongo-next-action'.
+This variable is used by `bongo-play-queued'.")
 
 (defgroup bongo-file-names nil
   "File names and file name parsing in Bongo."
@@ -1795,14 +1807,22 @@ Interactive mplayer processes support pausing and seeking."
 
 ;;;; DWIM commands
 
-(defun bongo-dwim ()
+(defun bongo-dwim (&optional prefix-argument)
   "Do something to the object at point.
 If point is on a track, play it.
 If point is on a header, collapse or expand the section below.
 If point is neither on a track nor a header, do nothing."
-  (interactive)
+  (interactive "P")
   (cond
-   ((bongo-track-line-p) (bongo-play-line))
+   ((bongo-track-line-p)
+    (if bongo-dwim-prefer-enqueuing
+        (if (or (null (bongo-active-track-position))
+                (= (point-at-bol) (bongo-active-track-position))
+                (and (marker-position bongo-queued-track-marker)
+                     (= (point-at-bol) bongo-queued-track-marker)))
+            (bongo-play-line)
+          (bongo-play-line (point) t))
+      (bongo-play-line (point) prefix-argument)))
    ((bongo-header-line-p) (bongo-toggle-collapsed))))
 
 (defun bongo-mouse-dwim (event)
@@ -1851,10 +1871,58 @@ If neither a track nor a header was clicked on, do nothing."
     (with-current-buffer (window-buffer (posn-window posn))
       (bongo-play-line (posn-point posn)))))
 
-(defun bongo-play-line (&optional point)
+(defvar bongo-queued-track-marker nil
+  "Marker pointing at the queued track, if any.
+This is used by `bongo-play-queued'.
+
+You can change the queued track using \
+\\[universal-argument] \\<bongo-mode-map>\\[bongo-dwim].
+See `bongo-play-line'.")
+(make-variable-buffer-local 'bongo-queued-track-marker)
+
+(defvar bongo-queued-track-arrow-marker nil
+  "Overlay arrow marker following `bongo-queued-track-marker'.
+See also `overlay-arrow-variable-list'.")
+(make-variable-buffer-local 'bongo-queued-track-arrow-marker)
+
+(defcustom bongo-queued-track-arrow-type 'blinking-arrow
+  "Type of overlay arrow used to indicate the queued track.
+If nil, don't indicate the queued track using an overlay arrow.
+If `arrow', use a static arrow.  If `blinking-arrow', use a
+blinking arrow (see `bongo-queued-track-arrow-blink-frequency').
+See `bongo-queued-track-arrow-marker'."
+  :type '(choice (const :tag "None" nil)
+                 (const :tag "Arrow" arrow)
+                 (const :tag "Blinking arrow" blinking-arrow))
+  :group 'bongo-display)
+
+(defcustom bongo-queued-track-arrow-blink-frequency 2
+  "Frequency (in Hertz) with which to blink the queued track arrow.
+See `bongo-queued-track-arrow-type'.")
+
+(defvar bongo-queued-track-arrow-timer nil
+  "The timer that updates the blinking queued track arrow, or nil.
+See `bongo-queued-track-arrow-type'.")
+(make-variable-buffer-local 'bongo-queued-track-arrow-timer)
+
+(defun bongo-unset-queued-track ()
+  "Make `bongo-queued-track-marker' point nowhere.
+In addition, set `bongo-next-action' to the value of
+`bongo-stored-next-action' and set the latter to nil."
+  (when bongo-queued-track-arrow-timer
+    (cancel-timer bongo-queued-track-arrow-timer)
+    (setq bongo-queued-track-arrow-timer nil))
+  (move-marker bongo-queued-track-marker nil)
+  (move-marker bongo-queued-track-arrow-marker nil)
+  (setq bongo-next-action bongo-stored-next-action
+        bongo-stored-next-action nil))
+
+(defun bongo-play-line (&optional point queue-track-flag)
   "Start playing the track on the line at POINT.
+If QUEUE-TRACK-FLAG (prefix argument if interactive) is non-nil,
+just set `bongo-queued-track-marker' to POINT and return.
 If there is no track on the line at POINT, signal an error."
-  (interactive)
+  (interactive "d\nP")
   (save-excursion
     (bongo-goto-point point)
     (when line-move-ignore-invisible
@@ -1862,11 +1930,50 @@ If there is no track on the line at POINT, signal an error."
     (let ((line-move-ignore-invisible nil))
       (when (not (bongo-track-line-p))
         (bongo-goto-point (bongo-point-at-next-track-line)))
-      (if (not (bongo-track-line-p))
-          (error "No track at point")
+      (cond
+       ((not (bongo-track-line-p))
+        (error "No track at point"))
+       ((null queue-track-flag)
         (bongo-set-active-track-position)
         (let ((player (bongo-play (bongo-line-file-name))))
-          (bongo-line-set-property 'bongo-player player))))))
+          (bongo-line-set-property 'bongo-player player)))
+       ((and (marker-position bongo-queued-track-marker)
+             (= bongo-queued-track-marker (point)))
+        (bongo-unset-queued-track)
+        (when (null bongo-queued-track-arrow-type)
+          (message "Unset queued track")))
+       (t
+        (move-marker bongo-queued-track-marker (point-at-bol))
+        (unless (eq bongo-next-action 'bongo-play-queued)
+          (setq bongo-stored-next-action bongo-next-action
+                bongo-next-action 'bongo-play-queued))
+        (if (null bongo-queued-track-arrow-type)
+            (message "Queued track: %s" (bongo-format-infoset
+                                         (bongo-line-infoset)))
+          (move-marker bongo-queued-track-arrow-marker
+                       bongo-queued-track-marker)
+          (when (eq bongo-queued-track-arrow-type 'blinking-arrow)
+            (when bongo-queued-track-arrow-timer
+              (cancel-timer bongo-queued-track-arrow-timer))
+            (setq bongo-queued-track-arrow-timer
+                  (run-at-time
+                   (/ 1.0 bongo-queued-track-arrow-blink-frequency)
+                   (/ 1.0 bongo-queued-track-arrow-blink-frequency)
+                   'bongo-blink-queued-track-arrow)))))))))
+
+(defun bongo-blink-queued-track-arrow ()
+  "Blink the overlay arrow indicating the queued track.
+See `bongo-queued-track-arrow-marker'."
+  (if (marker-position bongo-queued-track-arrow-marker)
+      (move-marker bongo-queued-track-arrow-marker nil)
+    (move-marker bongo-queued-track-arrow-marker
+                 bongo-queued-track-marker)))
+
+(defun bongo-play-queued ()
+  "Play the track at `bongo-queued-track-marker'.
+Then call `bongo-unset-queued-track'."
+  (bongo-play-line bongo-queued-track-marker)
+  (bongo-unset-queued-track))
 
 (defun bongo-replay-current (&optional next-action-flag)
   "Play the current track from the start.
@@ -2709,16 +2816,25 @@ instead, use high-level functions such as `save-buffer'."
   (let ((arrow-position
          (when (local-variable-p 'overlay-arrow-position)
            overlay-arrow-position))
+        (queued-track-marker
+         (when (local-variable-p 'bongo-queued-track-marker)
+           bongo-queued-track-marker))
         (player
          (when (local-variable-p 'bongo-player)
            bongo-player)))
     (kill-all-local-variables)
     (set (make-local-variable 'overlay-arrow-position)
          (or arrow-position (make-marker)))
+    (set (make-local-variable 'bongo-queued-track-marker)
+         (or queued-track-marker (make-marker)))
     (when player
       (setq bongo-player player)))
+  (set (make-local-variable 'bongo-queued-track-arrow-marker)
+       (make-marker))
   (set (make-local-variable 'forward-sexp-function)
        'bongo-forward-section)
+  (add-to-list 'overlay-arrow-variable-list
+               'bongo-queued-track-arrow-marker)
   (use-local-map bongo-mode-map)
   (setq buffer-read-only t)
   (setq major-mode 'bongo-mode)
