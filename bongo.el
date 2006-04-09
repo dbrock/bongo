@@ -2068,7 +2068,12 @@ just set `bongo-next-action' to `bongo-stop' and return."
         (progn
           (when bongo-player
             (bongo-player-stop bongo-player))
-          (bongo-unset-active-track-position))
+          (when (bongo-active-track-position)
+            (unless (and (marker-position bongo-queued-track-marker)
+                         (= bongo-queued-track-marker
+                            (bongo-active-track-position)))
+              (bongo-play-line (bongo-active-track-position) t))
+            (bongo-unset-active-track-position)))
       (setq bongo-next-action 'bongo-stop)
       (message "Will stop playback after the current track"))))
 
