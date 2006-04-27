@@ -5,7 +5,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: April 26, 2006
+;; Updated: April 27, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -30,6 +30,166 @@
   :group 'multimedia
   :group 'applications)
 
+(defvar bongo-shipped-backends
+  `((mpg123
+     (matcher "mp3" "mp2")
+     (constructor . bongo-start-mpg123-player))
+    (mplayer
+     (matcher "ogg" "mp3" "wav" "wma" "rm"
+              "mpg" "mpeg" "avi" "mov" "asf" "wmv")
+     (constructor . bongo-start-mplayer-player))
+    (ogg123
+     (matcher "ogg")
+     (constructor
+      (program-name . "ogg123")
+      (arguments file-name)))
+    (timidity
+     (matcher "mid" "midi")
+     (constructor
+      (program-name . "timidity")
+      (arguments "--quiet" file-name))))
+  "List of player backends shipped with Bongo.
+Entries are of the same form as for `bongo-custom-backends'.")
+
+(defcustom bongo-enabled-backends nil
+  "List of names of enabled Bongo player backends.
+See `bongo-shipped-backends' for the available backends.
+Custom backends are always enabled (see `bongo-custom-backends')."
+  ;; XXX: This variable is not really a hook, but you can't
+  ;;      use the `:options' keyword with '(repeat symbol)
+  ;;      for some reason and this is an okay workaround.
+  :type 'hook
+  :options (mapcar 'car bongo-shipped-backends)
+  :group 'bongo)
+
+(defcustom bongo-custom-backends nil
+  "List of user-defined Bongo player backends.
+Entries are of the following form:
+   (NAME (matcher . MATCHER)
+         (constructor . CONSTRUCTOR))
+
+MATCHER can be t, nil, a string, a list, or a symbol;
+  see `bongo-file-name-matches-p' for more information.
+CONSTRUCTOR is a function that recieves one argument, FILE-NAME.
+  It should immediately start a player for FILE-NAME.
+
+For simple backends that do not merit a custom constructor,
+you may be able use the following form instead:
+   (NAME (matcher . MATCHER)
+         (constructor
+          (program-name PROGRAM-NAME)
+          (arguments ARGUMENT... file-name ARGUMENT...)))
+
+For example, to add support for TiMidity++, you could use this:
+   (setq bongo-custom-backends
+         '(timidity (matcher \"mid\" \"midi\")
+                    (constructor (program-name \"timidity\")
+                                 (arguments \"--quiet\" file-name))))"
+  :type `(repeat
+          (cons :tag "Backend"
+                :value (timidity-example
+                        (matcher "mid" "midi")
+                        (constructor
+                         (program-name . "timidity")
+                         (arguments "--quiet" file-name)))
+                (symbol :tag "Name")
+                (alist
+                 :format "%v"
+                 :key-type symbol
+                 :options
+                 (((const :tag "Matcher" matcher)
+                   (choice
+                    (const :tag "Always match" t)
+                    (const :tag "Never match" nil)
+                    (repeat :tag "File extension" string)
+                    (regexp :tag "File name (regular expression)")
+                    (function :tag "Custom predicate")))
+                  ((const :tag "Constructor" constructor)
+                   (choice
+                    (alist
+                     :tag "Simple constructor"
+                     :key-type symbol
+                     :options
+                     (((const :tag "Program name" program-name) string)
+                      ((const :tag "Argument list" arguments)
+                       (choice (const :tag "Just the file name" (file-name))
+                               (repeat :tag "Some strings and the file name"
+                                (choice string
+                                        (const :tag "The file name"
+                                               file-name)))))))
+                    function))))))
+  :group 'bongo)
+
+(defun bongo-backends (&optional include-disabled)
+  "Return an alist of available and enabled Bongo backends.
+If INCLUDE-DISABLED is non-nil, also include disabled backends.
+
+The return value is always the entirety of `bongo-custom-backends'
+followed by some subset of `bongo-shipped-backends'."
+  (append bongo-custom-backends
+          (mapcan (lambda (x)
+                    (when (memq (car x) bongo-enabled-backends)
+                      (list x)))
+                  bongo-shipped-backends)))
+
+(defcustom bongo-preferred-backends nil
+  "List of preferred Bongo player backends.
+Entries are of the form (BACKEND-NAME . MATCHER).
+
+For example, if you want to use the `mplayer' backend for all tracks
+regardless of file name, you could use the following setting:
+
+   (setq bongo-preferred-backends '((mplayer . t)))
+
+BACKEND-NAME is the key for an entry in `bongo-custom-backends'
+  or `bongo-shipped-backends'.
+MATCHER, if non-nil, overrides the default matcher for the backend;
+  see `bongo-file-name-matches-p' for more information."
+  :type `(repeat
+          (cons :format "%t\n%d%v"
+                :tag "Preference:"
+                :doc "Please note that recently added backends \
+may not appear in the list."
+                (choice :tag "Backend"
+                        ,@(mapcar (lambda (x) `(const ,(car x)))
+                                  (bongo-backends t))
+                        (symbol :tag "Other backend"))
+                (choice :tag "When"
+                        (const :tag "Default condition for backend" nil)
+                        (const :tag "Always preferred" t)
+                        (radio :tag "Custom condition" :value ".*"
+                               (regexp :tag "File name pattern")
+                               (repeat :tag "File name extensions" string)
+                               (function :tag "File name predicate")))))
+  :group 'bongo)
+
+(defcustom bongo-prefer-library-buffers t
+  "If non-nil, prefer library buffers over playlist buffers.
+This affects what kind of buffer is created by `\\[bongo]' when there
+are no existing Bongo buffers.
+
+Regardless of this setting, you can a specific type of Bongo buffer
+using `\\[bongo-library]' or `\\[bongo-playlist]'.  To create a new one,
+simply create a new buffer and then switch to a Bongo mode using
+`\\[bongo-library-mode]' or `\\[bongo-playlist-mode]'.
+
+If you set this variable to nil, you can happily use Bongo without ever
+seeing a library buffer (that is, unless you create one yourself)."
+  :type 'boolean
+  :group 'bongo)
+
+(defcustom bongo-avoid-interrupting-playback nil
+  "If non-nil, Bongo will not interrupt playback unless forced.
+This affects playlist commands like `bongo-play-random'; to avoid
+interrupting playback, they will merely change the playback order.
+
+Most such commands take a prefix argument, which forces them to
+interrupt playback if they normally wouldn't, or asks them not to
+if they normally would.  (That is, the prefix argument makes the
+command act as if this variable was temporarily toggled.)"
+  :type 'boolean
+  :group 'bongo)
+
 (defcustom bongo-default-playlist-buffer-name "*Bongo Playlist*"
   "The name of the default Bongo playlist buffer."
   :type 'string
@@ -38,59 +198,6 @@
 (defcustom bongo-default-library-buffer-name "*Bongo Library*"
   "The name of the default Bongo library buffer."
   :type 'string
-  :group 'bongo)
-
-(defcustom bongo-avoid-interrupting-playback nil
-  "If non-nil, Bongo will not interrupt playback unless forced.
-This affects playlist commands like `bongo-play-random'; to avoid
-interrupting playback, they will merely change the playback order."
-  :type 'boolean
-  :group 'bongo)
-
-(defcustom bongo-insert-album-covers t
-  "Whether to put album cover images into playlists.
-This is done by `bongo-insert-directory' and by
-  `bongo-insert-directory-tree'.
-See also `bongo-album-cover-file-names'."
-  :type 'boolean
-  :group 'bongo)
-
-(defcustom bongo-insert-intermediate-headers nil
-  "Whether to automatically insert intermediate headers.
-This is best explained by an example.  Say you have the
-following section,
-
-   [Frank Morton —— Frank Morton (2004)]
-       01. Pojken på Tallbacksvägen
-       02. Kanske det blir så att jag måste gå
-
-and you insert the following section immediately afterwards.
-
-   [Frank Morton —— Jag såg en film om en gammal man (2005)]
-       01. Det är så mysigt att vara två
-       02. Labyrinten
-
-If this variable is nil, the result will be as follows:
-
-   [Frank Morton —— Frank Morton (2004)]
-       01. Pojken på Tallbacksvägen
-       02. Kanske det blir så att jag måste gå
-   [Frank Morton —— Jag såg en film om en gammal man (2005)]
-       01. Det är så mysigt att vara två
-       02. Labyrinten
-
-On the other hand, if it is non-nil, the result will be as follows:
-
-   [Frank Morton]
-     [Frank Morton (2004)]
-       01. Pojken på Tallbacksvägen
-       02. Kanske det blir så att jag måste gå
-     [Jag såg en film om en gammal man (2005)]
-       01. Det är så mysigt att vara två
-       02. Labyrinten
-
-Notice that an intermediate header ``[Frank Morton]'' was inserted."
-  :type 'boolean
   :group 'bongo)
 
 (defcustom bongo-next-action 'bongo-play-next-or-stop
@@ -164,6 +271,52 @@ This is used by the function `bongo-default-format-field'."
   :type '(choice (const :tag " —— (Unicode dashes)" " —— ")
                  (const :tag " -- (ASCII dashes)" " -- ")
                  string)
+  :group 'bongo-display)
+
+(defcustom bongo-insert-album-covers t
+  "Whether to put album cover images into playlists.
+This is done by `bongo-insert-directory' and by
+  `bongo-insert-directory-tree'.
+See also `bongo-album-cover-file-names'."
+  :type 'boolean
+  :group 'bongo-display)
+
+(defcustom bongo-insert-intermediate-headers nil
+  "Whether to automatically insert intermediate headers.
+This is best explained by an example.  Say you have the
+following section,
+
+   [Frank Morton —— Frank Morton (2004)]
+       01. Pojken på Tallbacksvägen
+       02. Kanske det blir så att jag måste gå
+
+and you insert the following section immediately afterwards.
+
+   [Frank Morton —— Jag såg en film om en gammal man (2005)]
+       01. Det är så mysigt att vara två
+       02. Labyrinten
+
+If this variable is nil, the result will be as follows:
+
+   [Frank Morton —— Frank Morton (2004)]
+       01. Pojken på Tallbacksvägen
+       02. Kanske det blir så att jag måste gå
+   [Frank Morton —— Jag såg en film om en gammal man (2005)]
+       01. Det är så mysigt att vara två
+       02. Labyrinten
+
+On the other hand, if it is non-nil, the result will be as follows:
+
+   [Frank Morton]
+     [Frank Morton (2004)]
+       01. Pojken på Tallbacksvägen
+       02. Kanske det blir så att jag måste gå
+     [Jag såg en film om en gammal man (2005)]
+       01. Det är så mysigt att vara två
+       02. Labyrinten
+
+Notice that an intermediate header ``[Frank Morton]'' was inserted."
+  :type 'boolean
   :group 'bongo-display)
 
 (defcustom bongo-album-format "%t (%y)"
@@ -1203,45 +1356,30 @@ existing header into two (see `bongo-maybe-insert-intermediate-header')."
 
 ;;;; Backends
 
-(defvar bongo-backends
-  `((mpg123
-     (default-matcher . ("mp3" "mp2"))
-     (constructor . bongo-start-mpg123-player))
-    (mplayer
-     (default-matcher . ("mp3" "ogg" "wav" "wma"
-                         "avi" "mpg" "asf" "wmv"))
-     (constructor . bongo-start-mplayer-player)))
-  "List of available Bongo player backends.
-Entries are of the following form:
-  (NAME (default-matcher . MATCHER)
-        (constructor . CONSTRUCTOR)).
+(defun bongo-get-backend (name)
+  "Return the backend whose name is NAME."
+  (or (assoc bongo-custom-backends name)
+      (assoc bongo-shipped-backends name)))
 
-CONSTRUCTOR is a function that recieves one argument, FILE-NAME.
-  It should immediately start a player for FILE-NAME.
-MATCHER can be t, nil, a string, a list, or a symbol;
-  see `bongo-file-name-matches-p' for more information.")
+(defun bongo-backend-name (backend)
+  "Return the name of BACKEND (`mpg123', `mplayer', etc.)."
+  (car backend))
 
-(defcustom bongo-preferred-backends nil
-  "List of preferred Bongo player backends.
-Entries are of the form (BACKEND-NAME . MATCHER).
+(defun bongo-backend-get (backend property)
+  "Return the value of BACKEND's PROPERTY."
+  (bongo-alist-get (cdr backend) property))
 
-BACKEND-NAME is the key for an entry in `bongo-backends'.
-MATCHER, if non-nil, overrides the default matcher for the backend;
-  see `bongo-file-name-matches-p' for more information."
-  :type `(repeat
-          (cons :tag "Preference"
-                (choice :tag "Backend"
-                        ,@(mapcar (lambda (x) `(const ,(car x)))
-                                  bongo-backends)
-                        symbol)
-                (choice :tag "When"
-                        (const :tag "Default condition for backend" nil)
-                        (const :tag "Always preferred" t)
-                        (radio :tag "Custom condition" :value ".*"
-                               (regexp :tag "File name pattern")
-                               (repeat :tag "File name extensions" string)
-                               (function :tag "File name predicate")))))
-  :group 'bongo)
+(defun bongo-backend-put (backend property value)
+  "Set BACKEND's PROPERTY to VALUE."
+  (bongo-alist-put (cdr backend) property value))
+
+(defun bongo-backend-matcher (backend)
+  "Return BACKEND's matcher."
+  (bongo-backend-get backend 'matcher))
+
+(defun bongo-backend-constructor (backend)
+  "Return BACKEND's constructor."
+  (bongo-backend-get backend 'constructor))
 
 (defun bongo-file-name-matches-p (file-name matcher)
   "Return non-nil if FILE-NAME matches MATCHER.
@@ -1273,58 +1411,61 @@ Otherwise, signal an error."
 
 (defun bongo-track-file-name-regexp ()
   "Return a regexp matching the names of playable files.
-Walk `bongo-preferred-backends' and `bongo-backends',
-collecting file name regexps and file name extensions, and
-construct a regexp that matches all of the possibilities."
-  (let (extensions regexps)
-    (let ((list bongo-preferred-backends))
-      (while list
-        (let ((backend (bongo-alist-get bongo-backends (caar list))))
-          (when (null backend)
-            (error "No such backend: `%s'" (caar list)))
-          (let ((matcher (or (cdar list)
-                             (bongo-alist-get backend 'default-matcher))))
+Walk `bongo-preferred-backends', `bongo-custom-backends', and
+`bongo-shipped-backends' --- collecting file name regexps and file name
+extensions --- and construct a regexp that matches all of the possibilities."
+  (let ((available-backends (bongo-backends)))
+    (let ((extensions nil) (regexps nil))
+      (let ((list bongo-preferred-backends))
+        (while list
+          (let ((backend (assoc (caar list) available-backends)))
+            (when (null backend)
+              (error "No such backend: `%s'" (caar list)))
+            (let ((matcher (or (cdar list)
+                               (bongo-backend-matcher backend))))
+              (cond
+               ((stringp matcher)
+                (setq regexps (cons matcher regexps)))
+               ((listp matcher)
+                (setq extensions (append matcher extensions))))))
+          (setq list (cdr list))))
+      (let ((list available-backends))
+        (while list
+          (let ((matcher (bongo-backend-matcher (car list))))
             (cond
              ((stringp matcher)
               (setq regexps (cons matcher regexps)))
              ((listp matcher)
-              (setq extensions (append matcher extensions))))))
-        (setq list (cdr list))))
-    (let ((list bongo-backends))
-      (while list
-        (let ((matcher (bongo-alist-get (cdar list) 'default-matcher)))
-          (cond
-           ((stringp matcher)
-            (setq regexps (cons matcher regexps)))
-           ((listp matcher)
-            (setq extensions (append matcher extensions)))))
-        (setq list (cdr list))))
-    (when extensions
-      (let ((regexp (format ".*\\.%s$" (regexp-opt extensions t))))
-        (setq regexps (cons regexp regexps))))
-    (if (null regexps) "."
-      (mapconcat 'identity regexps "\\|"))))
+              (setq extensions (append matcher extensions)))))
+          (setq list (cdr list))))
+      (when extensions
+        (let ((regexp (format ".*\\.%s$" (regexp-opt extensions t))))
+          (setq regexps (cons regexp regexps))))
+      (if (null regexps) "."
+        (mapconcat 'identity regexps "\\|")))))
 
 (defun bongo-best-backend-for-file (file-name)
   "Return a backend that can play the file FILE-NAME, or nil.
-First search `bongo-preferred-backends', then `bongo-backends'."
-  (let ((best-backend nil))
+First search `bongo-preferred-backends', then `bongo-custom-backends',
+then `bongo-shipped-backends'."
+  (let ((available-backends (bongo-backends))
+        (best-backend nil))
     (let ((list bongo-preferred-backends))
       (while (and list (null best-backend))
-        (let ((backend (bongo-alist-get bongo-backends (caar list))))
+        (let ((backend (assoc (caar list) available-backends)))
           (when (null backend)
             (error "No such backend: `%s'" (caar list)))
           (let ((matcher (or (cdar list)
-                             (bongo-alist-get backend 'default-matcher))))
+                             (bongo-backend-matcher backend))))
             (when (bongo-file-name-matches-p file-name matcher)
               (setq best-backend backend))))
         (setq list (cdr list))))
     (unless best-backend
-      (let ((list bongo-backends))
+      (let ((list available-backends))
         (while (and list (null best-backend))
-          (let ((matcher (bongo-alist-get (cdar list) 'default-matcher)))
+          (let ((matcher (bongo-backend-matcher (car list))))
             (if (bongo-file-name-matches-p file-name matcher)
-                (setq best-backend (cdar list))
+                (setq best-backend (car list))
               (setq list (cdr list)))))))
     best-backend))
 
@@ -1453,12 +1594,18 @@ Bongo will try to find the best player for FILE-NAME.
 This function runs `bongo-player-started-functions'.
 See also `bongo-play'."
   (let ((backend (if backend-name
-                     (bongo-alist-get bongo-backends backend-name)
+                     (bongo-alist-get (bongo-backends) backend-name)
                    (bongo-best-backend-for-file file-name))))
     (when (null backend)
       (error "Don't know how to play `%s'" file-name))
-    (let* ((player (funcall (bongo-alist-get backend 'constructor)
-                            file-name))
+    (let* ((constructor (bongo-backend-constructor backend))
+           (player (cond
+                    ((symbolp constructor)
+                     (funcall constructor file-name))
+                    ((listp constructor)
+                     (bongo-start-simple-player backend file-name))
+                    (t (error "Invalid constructor for `%s' backend: %s"
+                              (bongo-backend-name backend) constructor))))
            (process (bongo-player-process player)))
       (prog1 player
         (when (and process bongo-player-process-priority
@@ -1470,6 +1617,10 @@ See also `bongo-play'."
 (defun bongo-player-backend-name (player)
   "Return the name of PLAYER's backend (`mpg123', `mplayer', etc.)."
   (car player))
+
+(defun bongo-player-backend (player)
+  "Return PLAYER's backend object."
+  (bongo-get-backend (bongo-player-backend-name player)))
 
 (defun bongo-player-get (player property)
   "Return the value of PLAYER's PROPERTY."
@@ -1580,6 +1731,37 @@ If the player backend cannot report this, return nil."
      ((eq status 'signal)
       (unless (bongo-player-explicitly-stopped-p player)
         (bongo-player-killed player))))))
+
+(defun bongo-start-simple-player (backend file-name)
+  "This function is used by `bongo-start-player'."
+  (let* ((process-connection-type nil)
+         (backend-name (bongo-backend-name backend))
+         (options (bongo-backend-constructor backend))
+         (program-name
+          (or (bongo-alist-get options 'program-name)
+              (error "\
+Missing option `program-name' in simple constructor \
+for `%s' backend: %s" backend-name options)))
+         (process
+          (apply 'start-process
+                 (format "bongo-%s" backend-name)
+                 nil program-name
+                 (mapcar (lambda (x)
+                           (cond
+                            ((stringp x) x)
+                            ((eq x 'file-name) file-name)
+                            (t (error "\
+Invalid argument specifier in `arguments' option of simple \
+constructor for `%s' backend" (car backend)))))
+                         (bongo-alist-get options 'arguments))))
+         (player `(,backend-name
+                   (process . ,process)
+                   (file-name . ,file-name)
+                   (buffer . ,(current-buffer))
+                   (stop . bongo-default-player-stop))))
+    (prog1 player
+      (set-process-sentinel process 'bongo-default-player-process-sentinel)
+      (bongo-process-put process 'bongo-player player))))
 
 
 ;;;; The mpg123 backend
@@ -3181,13 +3363,16 @@ If BUFFER is nil, test the current buffer instead."
     (eq 'bongo-playlist-mode major-mode)))
 
 (defun bongo-buffer ()
-  "Return a Bongo buffer.
-
+  "Return an interesting Bongo buffer, creating it if necessary.
 First try to find an existing Bongo buffer, using a strategy
 similar to `bongo-library-buffer' and `bongo-playlist-buffer'.
-If no Bongo buffer is found, create a new library buffer."
-  (or bongo-library-buffer
-      bongo-playlist-buffer
+If no Bongo buffer is found, create a new one.
+This function respects the value of `bongo-prefer-library-buffers'."
+  (or (if bongo-prefer-library-buffers
+          (or bongo-library-buffer
+              bongo-playlist-buffer)
+        (or bongo-playlist-buffer
+            bongo-library-buffer))
       (let (result (list (buffer-list)))
         (while (and list (not result))
           (when (bongo-buffer-p (car list))
@@ -3195,10 +3380,14 @@ If no Bongo buffer is found, create a new library buffer."
           (setq list (cdr list)))
         result)
       (let ((buffer (get-buffer-create
-                     bongo-default-library-buffer-name)))
+                     (if bongo-prefer-library-buffers
+                         bongo-default-library-buffer-name
+                       bongo-default-playlist-buffer-name))))
         (prog1 buffer
           (with-current-buffer buffer
-            (bongo-library-mode))))))
+            (if bongo-prefer-library-buffers
+              (bongo-library-mode)
+              (bongo-playlist-mode)))))))
 
 (defun bongo-playlist-buffer ()
   "Return a Bongo playlist buffer.
