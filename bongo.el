@@ -433,12 +433,12 @@ This is used by the function `bongo-default-format-infoset'."
   :group 'bongo)
 
 (defface bongo-comment
-  '((t (:inherit font-lock-comment-face)))
+  '((t (:inherit font-lock-comment)))
   "Face used for comments in Bongo buffers."
   :group 'bongo-faces)
 
 (defface bongo-artist
-  '((t (:inherit font-lock-keyword-face)))
+  '((t (:inherit font-lock-keyword)))
   "Face used for Bongo artist names."
   :group 'bongo-faces)
 
@@ -448,7 +448,7 @@ This is used by the function `bongo-default-format-infoset'."
   :group 'bongo-faces)
 
 (defface bongo-album-title
-  '((t (:inherit (font-lock-type-face bongo-album))))
+  '((t (:inherit (font-lock-type bongo-album))))
   "Face used for Bongo album titles."
   :group 'bongo-faces)
 
@@ -463,7 +463,7 @@ This is used by the function `bongo-default-format-infoset'."
   :group 'bongo-faces)
 
 (defface bongo-track-title
-  '((t (:inherit (font-lock-function-name-face bongo-track))))
+  '((t (:inherit (font-lock-function-name bongo-track))))
   "Face used for Bongo track titles."
   :group 'bongo-faces)
 
