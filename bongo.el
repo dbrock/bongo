@@ -2045,7 +2045,7 @@ If point is neither on a track nor on a header, do nothing."
                      (bongo-xor bongo-avoid-interrupting-playback
                                 prefix-argument))
           (let ((bongo-avoid-interrupting-playback nil))
-            (bongo-play-line position))))))
+            (bongo-play-line position prefix-argument))))))
    ((and (bongo-track-line-p) (bongo-playlist-buffer-p))
     (bongo-play-line (point) prefix-argument))
    ((bongo-header-line-p)
