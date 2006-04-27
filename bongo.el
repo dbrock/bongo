@@ -3213,6 +3213,7 @@ instead, use high-level functions such as `save-buffer'."
         (insert "\n")))))
 
 
+;;;; Typical user entry points
 
 (defun bongo-mode ()
   "Common parent major mode for Bongo buffers.
@@ -3458,7 +3459,8 @@ See the function `bongo-library-buffer'."
   (interactive)
   (switch-to-buffer (bongo-library-buffer)))
 
-(defvar bongo-stored-window-configuration nil)
+(defvar bongo-stored-window-configuration nil
+  "This is used by `bongo' and `bongo-quit'.")
 
 (defun bongo-quit ()
   "Quit Bongo by selecting another buffer.
