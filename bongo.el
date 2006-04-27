@@ -140,10 +140,12 @@ If INCLUDE-DISABLED is non-nil, also include disabled backends.
 The return value is always the entirety of `bongo-custom-backends'
 followed by some subset of `bongo-shipped-backends'."
   (append bongo-custom-backends
-          (mapcan (lambda (x)
+          (let (enabled-backends)
+            (mapc (lambda (x)
                     (when (memq (car x) bongo-enabled-backends)
-                      (list x)))
-                  bongo-shipped-backends)))
+                      (setq enabled-backends (cons x enabled-backends))))
+                  bongo-shipped-backends)
+            enabled-backends)))
 
 (defcustom bongo-preferred-backends nil
   "List of preferred Bongo player backends.
