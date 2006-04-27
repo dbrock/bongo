@@ -5,7 +5,7 @@
 # Author: Daniel Brockman <daniel@brockman.se>
 # URL: http://www.brockman.se/software/bongo/
 # Created: April 24, 2006
-# Updated: April 24, 2006
+# Updated: April 27, 2006
 
 # This file is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
@@ -21,6 +21,10 @@
 # License along with GNU Emacs; if not, write to the Free
 # Software Foundation, 51 Franklin Street, Fifth Floor,
 # Boston, MA 02110-1301, USA.
+#
+# To run this program, you need Ruby-taglib, available at
+# <http://www.hakubi.us/ruby-taglib/>, and Mahoro, available at
+# <http://mahoro.rubyforge.org/>.
 
 require "fileutils"
 require "find"
