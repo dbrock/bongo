@@ -2076,7 +2076,8 @@ See `bongo-dwim'."
 
 (defun bongo-active-track-position (&optional point)
   "Return the position of `bongo-active-track-marker'."
-  (marker-position bongo-active-track-marker))
+  (and bongo-active-track-marker
+       (marker-position bongo-active-track-marker)))
 
 (defun bongo-set-active-track (&optional point)
   "Make `bongo-active-track-marker' point to the line at POINT."
@@ -2104,6 +2105,11 @@ The functions `bongo-set-queued-track' and `bongo-unset-queued-track'
 If `bongo-avoid-interrupting-playback' is non-nil and a track is
   currently being played, `bongo-play-line' sets the queued track.")
 (make-variable-buffer-local 'bongo-queued-track-marker)
+
+(defun bongo-queued-track-position ()
+  "Return the position of `bongo-queued-track-marker', or nil."
+  (and bongo-queued-track-marker
+       (marker-position bongo-queued-track-marker)))
 
 (defvar bongo-queued-track-arrow-marker nil
   "Overlay arrow marker following `bongo-queued-track-marker'.
@@ -2139,7 +2145,7 @@ See `bongo-queued-track-marker'."
     (bongo-goto-point point)
     (when line-move-ignore-invisible
       (bongo-skip-invisible))
-    (equal (marker-position bongo-queued-track-marker)
+    (equal (bongo-queued-track-position)
            (point-at-bol))))
 
 (defun bongo-unset-queued-track ()
@@ -2228,7 +2234,8 @@ See `bongo-queued-track-arrow-marker'."
 (defun bongo-play-queued ()
   "Play the track at `bongo-queued-track-marker'.
 Then call `bongo-unset-queued-track'."
-  (bongo-play-line bongo-queued-track-marker)
+  (bongo-play-line (or (bongo-queued-track-position)
+                       (error "No queued track")))
   (bongo-unset-queued-track))
 
 (defun bongo-replay-current (&optional toggle-interrupt)
@@ -2864,7 +2871,7 @@ If no track is currently playing, just call `recenter'."
     (when window
       (select-window window)
       (bongo-goto-point (or (bongo-active-track-position)
-                            (marker-position bongo-queued-track-marker)))
+                            (bongo-queued-track-position)))
       (recenter)
       (select-window original-window))))
 
