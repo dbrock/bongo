@@ -5,7 +5,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: April 27, 2006
+;; Updated: April 28, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -205,6 +205,12 @@ interrupt playback if they normally wouldn't, or asks them not to
 if they normally would.  (That is, the prefix argument makes the
 command act as if this variable was temporarily toggled.)"
   :type 'boolean
+  :group 'bongo)
+
+(defcustom bongo-default-directory nil
+  "Default directory for Bongo buffers, or nil."
+  :type '(choice (const :tag "None in particular" nil)
+                 directory)
   :group 'bongo)
 
 (defcustom bongo-default-playlist-buffer-name "*Bongo Playlist*"
@@ -3302,6 +3308,8 @@ Do not use this mode directly.  Instead, use Bongo Playlist mode (see
   (setq major-mode 'bongo-mode)
   (setq mode-name "Bongo")
   (setq buffer-file-format '(bongo))
+  (when bongo-default-directory
+    (setq default-directory bongo-default-directory))
   (run-mode-hooks 'bongo-mode-hook))
 
 (defvar bongo-mode-map
