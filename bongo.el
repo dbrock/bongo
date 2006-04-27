@@ -52,17 +52,20 @@
 Entries are of the same form as for `bongo-custom-backends'.
 
 The `mplayer' and `mpg123' backends support pausing and seeking,
-while `ogg123' and `timidity' do not.  Furthermore, mpg123 usually
-has better seek granularity than mplayer.")
+while `ogg123' and `timidity' do not.  Furthermore, mpg123 can
+report the amount of time remaining, and usually has better seek
+granularity than mplayer.")
 
 (defcustom bongo-enabled-backends nil
   "List of names of enabled Bongo player backends.
 See `bongo-shipped-backends' for the available backends.
-Custom backends are always enabled (see `bongo-custom-backends').
+This is not the place to define your own backends; custom
+backends (see `bongo-custom-backends') are always enabled.
 
 The `mplayer' and `mpg123' backends support pausing and seeking,
-while `ogg123' and `timidity' do not.  Furthermore, mpg123 usually
-has better seek granularity than mplayer."
+while `ogg123' and `timidity' do not.  Furthermore, mpg123 can
+report the amount of time remaining, and usually has better seek
+granularity than mplayer."
   ;; XXX: This variable is not really a hook, but you can't
   ;;      use the `:options' keyword with '(repeat symbol)
   ;;      for some reason and this is an okay workaround.
@@ -1842,6 +1845,8 @@ These will come at the end or right before the file name."
   :type '(repeat string)
   :group 'bongo-mpg123)
 
+;;; XXX: What happens if a record is split between two calls
+;;;      to the process filter?
 (defun bongo-mpg123-process-filter (process string)
   (let ((player (bongo-process-get process 'bongo-player)))
     (cond
@@ -2898,7 +2903,8 @@ being arbitrarily long."
 (defun bongo-show (&optional insert-flag)
   "Display what Bongo is playing in the minibuffer.
 If INSERT-FLAG (prefix argument if interactive) is non-nil,
-  insert the description at point."
+  insert the description at point.
+Return the description string."
   (interactive "P")
   (let (player infoset)
     (with-bongo-playlist-buffer
@@ -2916,9 +2922,10 @@ If INSERT-FLAG (prefix argument if interactive) is non-nil,
                       (format "%s [%s/%s]" description
                               (bongo-format-seconds elapsed-time)
                               (bongo-format-seconds total-time)))))
-        (if insert-flag
-            (insert string)
-          (message string))))))
+        (prog1 string
+          (if insert-flag
+              (insert string)
+            (message string)))))))
 
 
 ;;;; Killing/yanking
