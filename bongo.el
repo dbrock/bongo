@@ -975,7 +975,7 @@ Collapsed header lines are header lines whose sections are collapsed."
 (defmacro bongo-until (test &rest body)
   "If TEST yields nil, evaluate BODY... and repeat.
 The order of execution is thus TEST, BODY..., TEST, BODY..., TEST,
-and so on, until TEST returns non-nil.
+  and so on, until TEST returns non-nil.
 Return the final value of TEST.
 
 \(fn TEST BODY...)"
@@ -999,37 +999,63 @@ Return the final value of TEST.
   "Return non-nil if the lists A and B have equal length."
   (= (length a) (length b)))
 
-(defun bongo-set-equal-p (a b)
-  "Return non-nil if A and B have equal elements.
-The order of the elements is not significant."
-  (null (set-exclusive-or a b)))
-
-(defun bongo-set-contains-p (a b)
-  "Return non-nil if all elements in B are also in A.
-The order of the elements is not significant."
-  (bongo-set-equal-p (union a b) a))
-
-(defun bongo-set-difference (a b)
-  "Return the items in A that are not also in B.
-Key comparisons are done with `eq'.
-Order is not preserved."
+(defun bongo-set-union (&rest sets)
+  "Return the set-theoretic union of the items in SETS.
+Comparisons are done with `eq'.  Order is *not* preserved."
   (let (result)
-    (mapc (lambda (x)
-            (unless (memq x b)
-              (setq result (cons x result))))
-          a)
+    (while sets
+      (let (set (car sets))
+        (while set
+          (unless (memq (car set) result)
+            (setq result (cons (car set) result)))
+          (setq set (cdr set))))
+      (setq sets (cdr sets)))
     result))
 
 (defun bongo-set-intersection (a b)
   "Return the items in A that are also in B.
-Key comparisons are done with `eq'.
-Order is not preserved."
+Comparisons are done with `eq'.  Order is preserved."
   (let (result)
-    (mapc (lambda (x)
-            (when (memq x b)
-              (setq result (cons x result))))
-          a)
+    (while a
+      (when (memq (car a) b)
+        (setq result (cons (car a) result)))
+      (setq a (cdr a)))
+    (nreverse result)))
+
+(defun bongo-set-exclusive-or (a b)
+  "Return the items that appear in either A or B but not both.
+Comparisons are done with `eq'.  Order is *not* preserved."
+  (let (result)
+    (let ((sets (list a b)))
+      (while sets
+        (let ((set (car sets)))
+          (while set
+            (when (bongo-xor (memq (car set) a)
+                             (memq (car set) b))
+              (setq result (cons (car set) result)))
+            (setq set (cdr set))))
+        (setq sets (cdr sets))))
     result))
+
+(defun bongo-set-difference (a b)
+  "Return the items in A that are not also in B.
+Comparisons are done with `eq'.  Order is preserved."
+  (let (result)
+    (while a
+      (unless (memq (car a) b)
+        (setq result (cons (car a) result)))
+      (setq a (cdr a)))
+    (nreverse result)))
+
+(defun bongo-set-equal-p (a b)
+  "Return non-nil if A and B have equal elements.
+Comparisons are done with `eq'.  Order is not significant."
+  (null (bongo-set-exclusive-or a b)))
+
+(defun bongo-subset-p (a b)
+  "Return non-nil if all elements in B are also in A.
+Comparisons are done with `eq'.  Element order is not significant."
+  (bongo-set-equal-p (bongo-set-union a b) a))
 
 (defun bongo-alist-get (alist key)
   "Return the cdr of the element in ALIST whose car equals KEY.
@@ -1049,19 +1075,23 @@ If ALIST is a symbol, operate on the vaule of that symbol instead."
 
 (defun bongo-filter-alist (keys alist)
   "Return a new list of each pair in ALIST whose car is in KEYS.
-Key comparisons are done with `eq'."
-  (remove-if-not (lambda (pair)
-                   (memq (car pair) keys)) alist))
+Key comparisons are done with `eq'.  Order is preserved."
+  (let (result)
+    (while alist
+      (when (memq (caar alist) keys)
+        (setq result (cons (car alist) result)))
+      (setq alist (cdr alist)))
+    (nreverse result)))
 
 (defun bongo-filter-plist (keys plist)
   "Return a new list of each property in PLIST whose name is in KEYS.
-Key comparisons are done with `eq'."
-  (let (new-plist)
+Key comparisons are done with `eq'.  Order is *not* preserved."
+  (let (result)
     (while plist
       (when (memq (car plist) keys)
-        (setq new-plist `(,(car plist) ,(cadr plist) ,@new-plist)))
+        (setq result `(,(car plist) ,(cadr plist) ,@result)))
       (setq plist (cddr plist)))
-    new-plist))
+    result))
 
 
 ;;;; Fallback implementations of `process-{get,put}'.
@@ -1325,7 +1355,7 @@ This function respects `bongo-insert-intermediate-headers',
           (while (and (null fields) (bongo-line-indented-p))
             (bongo-backward-up-section)
             (let ((proposal (bongo-line-external-fields-proposal)))
-              (when (bongo-set-contains-p potential proposal)
+              (when (bongo-subset-p potential proposal)
                 (setq fields proposal))))
           fields)))))
 
