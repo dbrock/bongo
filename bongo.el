@@ -3294,6 +3294,9 @@ instead, use high-level functions such as `save-buffer'."
 
 ;;;; Typical user entry points
 
+(defvar bongo-mode-hook nil
+  "Hook run when entering Bongo mode.")
+
 (defun bongo-mode ()
   "Common parent major mode for Bongo buffers.
 Do not use this mode directly.  Instead, use Bongo Playlist mode (see
@@ -3463,6 +3466,7 @@ If BUFFER is nil, test the current buffer instead."
 
 (defun bongo-buffer ()
   "Return an interesting Bongo buffer, creating it if necessary.
+
 First try to find an existing Bongo buffer, using a strategy
 similar to `bongo-library-buffer' and `bongo-playlist-buffer'.
 If no Bongo buffer is found, create a new one.
