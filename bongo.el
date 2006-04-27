@@ -49,17 +49,27 @@
       (program-name . "timidity")
       (arguments "--quiet" file-name))))
   "List of player backends shipped with Bongo.
-Entries are of the same form as for `bongo-custom-backends'.")
+Entries are of the same form as for `bongo-custom-backends'.
+
+The `mplayer' and `mpg123' backends support pausing and seeking,
+while `ogg123' and `timidity' do not.  Furthermore, mpg123 usually
+has better seek granularity than mplayer.")
 
 (defcustom bongo-enabled-backends nil
   "List of names of enabled Bongo player backends.
 See `bongo-shipped-backends' for the available backends.
-Custom backends are always enabled (see `bongo-custom-backends')."
+Custom backends are always enabled (see `bongo-custom-backends').
+
+The `mplayer' and `mpg123' backends support pausing and seeking,
+while `ogg123' and `timidity' do not.  Furthermore, mpg123 usually
+has better seek granularity than mplayer."
   ;; XXX: This variable is not really a hook, but you can't
   ;;      use the `:options' keyword with '(repeat symbol)
   ;;      for some reason and this is an okay workaround.
   :type 'hook
   :options (mapcar 'car bongo-shipped-backends)
+  :link '(custom-group-link bongo-mplayer)
+  :link '(custom-group-link bongo-mpg123)
   :group 'bongo)
 
 (defcustom bongo-custom-backends nil
@@ -161,6 +171,8 @@ may not appear in the list."
                                (regexp :tag "File name pattern")
                                (repeat :tag "File name extensions" string)
                                (function :tag "File name predicate")))))
+  :link '(custom-group-link bongo-mplayer)
+  :link '(custom-group-link bongo-mpg123)
   :group 'bongo)
 
 (defcustom bongo-prefer-library-buffers t
@@ -262,11 +274,11 @@ See also `bongo-insert-album-covers'."
   :group 'bongo-file-names)
 
 (defgroup bongo-display nil
-  "Playlist display in Bongo."
+  "Display of Bongo playlist and library buffers."
   :group 'bongo)
 
 (defcustom bongo-field-separator " —— "
-  "String used to separate field values.
+  "String used to separate field values in track descriptions.
 This is used by the function `bongo-default-format-field'."
   :type '(choice (const :tag " —— (Unicode dashes)" " —— ")
                  (const :tag " -- (ASCII dashes)" " -- ")
@@ -279,6 +291,7 @@ This is done by `bongo-insert-directory' and by
   `bongo-insert-directory-tree'.
 See also `bongo-album-cover-file-names'."
   :type 'boolean
+  :link '(custom-group-link bongo-file-names)
   :group 'bongo-display)
 
 (defcustom bongo-insert-intermediate-headers nil
@@ -449,6 +462,7 @@ This is used by the function `bongo-default-format-infoset'."
   :group 'bongo-faces)
 
 
+;;;; Infoset- and field-related functions
 
 (defun bongo-format-header (content collapsed-flag)
   "Decorate CONTENT so as to make it look like a header.
@@ -1415,6 +1429,9 @@ Walk `bongo-preferred-backends', `bongo-custom-backends', and
 `bongo-shipped-backends' --- collecting file name regexps and file name
 extensions --- and construct a regexp that matches all of the possibilities."
   (let ((available-backends (bongo-backends)))
+    (when (null available-backends)
+      (error (concat "No backends are enabled; please customize "
+                     "`bongo-enabled-backends'")))
     (let ((extensions nil) (regexps nil))
       (let ((list bongo-preferred-backends))
         (while list
@@ -2972,11 +2989,11 @@ See `kill-region'."
         (bongo-forward-object-line))
       ;; These headers will stay if they are needed,
       ;; or disappear automatically otherwise.
+      (goto-char beg)
+      (bongo-insert-header)
       (goto-char end)
       (unless (bongo-last-object-line-p)
         (bongo-insert-header))
-      (goto-char beg)
-      (bongo-insert-header)
       ;; In case the upper header does disappear,
       ;; we need to merge backwards to connect.
       (when (not (bongo-object-line-p))
