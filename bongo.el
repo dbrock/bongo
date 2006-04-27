@@ -871,8 +871,8 @@ FIELDS should be a list of field names."
 
 (defun bongo-line-internal-fields (&optional point)
   "Return the names of the fields internal to the line at POINT."
-  (set-difference (bongo-line-fields point)
-                  (bongo-line-external-fields point)))
+  (bongo-set-difference (bongo-line-fields point)
+                        (bongo-line-external-fields point)))
 
 (defun bongo-line-indentation (&optional point)
   "Return the number of external fields of the line at POINT."
@@ -1008,6 +1008,28 @@ The order of the elements is not significant."
   "Return non-nil if all elements in B are also in A.
 The order of the elements is not significant."
   (bongo-set-equal-p (union a b) a))
+
+(defun bongo-set-difference (a b)
+  "Return the items in A that are not also in B.
+Key comparisons are done with `eq'.
+Order is not preserved."
+  (let (result)
+    (mapc (lambda (x)
+            (unless (memq x b)
+              (setq result (cons x result))))
+          a)
+    result))
+
+(defun bongo-set-intersection (a b)
+  "Return the items in A that are also in B.
+Key comparisons are done with `eq'.
+Order is not preserved."
+  (let (result)
+    (mapc (lambda (x)
+            (when (memq x b)
+              (setq result (cons x result))))
+          a)
+    result))
 
 (defun bongo-alist-get (alist key)
   "Return the cdr of the element in ALIST whose car equals KEY.
@@ -1292,10 +1314,10 @@ That is, return the names of all internal fields of the line at POINT
 This function respects `bongo-insert-intermediate-headers',
   in order to implement the correct semantics."
   (if bongo-insert-intermediate-headers
-      (set-difference (intersection
-                       (bongo-line-proposed-external-fields point)
-                       (bongo-line-potential-external-fields point))
-                      (bongo-line-external-fields point))
+      (bongo-set-difference (bongo-set-intersection
+                             (bongo-line-proposed-external-fields point)
+                             (bongo-line-potential-external-fields point))
+                            (bongo-line-external-fields point))
     (let ((potential (bongo-line-potential-external-fields point)))
       (save-excursion
         (bongo-backward-object-line)
@@ -2811,7 +2833,7 @@ If called interactively, SKIP is always non-nil."
           (while (< (point) end)
             (let* ((previous (point))
                    (old-external (bongo-line-external-fields))
-                   (new-external (set-difference old-external fields)))
+                   (new-external (bongo-set-difference old-external fields)))
               (bongo-forward-section)
               (bongo-line-set-external-fields new-external previous)))
           (move-marker end nil)
