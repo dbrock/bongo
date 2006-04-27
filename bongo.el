@@ -3516,8 +3516,9 @@ If OTHER-WINDOW (prefix argument if interactive) is non-nil,
   "Switch to a Bongo buffer.
 See the function `bongo-buffer'."
   (interactive "P")
-  (if bongo-stored-window-configuration
-      (set-window-configuration bongo-stored-window-configuration)
+  (when bongo-stored-window-configuration
+    (set-window-configuration bongo-stored-window-configuration))
+  (unless (bongo-buffer-p)
     (switch-to-buffer (bongo-buffer))))
 
 (provide 'bongo)
