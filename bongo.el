@@ -2854,9 +2854,14 @@ With prefix argument, remove all indentation and headers."
   "Move point to the currently playing track and recenter.
 If no track is currently playing, just call `recenter'."
   (interactive)
-  (bongo-goto-point (or (bongo-active-track-position)
-                        (marker-position bongo-queued-track-marker)))
-  (recenter))
+  (let ((original-window (selected-window))
+        (window (get-buffer-window (bongo-playlist-buffer) t)))
+    (when window
+      (select-window window)
+      (bongo-goto-point (or (bongo-active-track-position)
+                            (marker-position bongo-queued-track-marker)))
+      (recenter)
+      (select-window original-window))))
 
 (defun bongo-parse-time (time)
   "Return the total number of seconds of TIME, or nil.
@@ -3464,7 +3469,10 @@ See the function `bongo-library-buffer'."
 
 (defun bongo-quit ()
   "Quit Bongo by selecting another buffer.
-In addition, delete all windows except one."
+In addition, delete all windows except one.
+
+This function stores the current window configuration in
+`bongo-stored-window-configuration', which is used by \\[bongo]."
   (interactive)
   (setq bongo-stored-window-configuration
         (current-window-configuration))
