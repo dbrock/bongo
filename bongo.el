@@ -5,7 +5,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: April 28, 2006
+;; Updated: April 29, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -3305,6 +3305,17 @@ If point is on a section header, append the whole section."
   (interactive "d")
   (bongo-enqueue-line 'append skip))
 
+(defun bongo-rename-line (new-name &optional point)
+  "Rename the file corresponding to the track at POINT."
+  (interactive
+   (when (bongo-track-line-p)
+     (list (read-from-minibuffer "Rename track to: "
+                                 (bongo-line-file-name)))))
+  (with-point-at-bongo-track point
+    (rename-file (bongo-line-file-name) new-name)
+    (bongo-delete-line)
+    (bongo-insert-line 'bongo-file-name new-name)))
+
 
 ;;;; Serializing buffers
 
@@ -3487,6 +3498,7 @@ Do not use this mode directly.  Instead, use Bongo Playlist mode (see
     (define-key map "it" 'bongo-insert-directory-tree)
     (define-key map "e" 'bongo-append-enqueue-line)
     (define-key map "E" 'bongo-insert-enqueue-line)
+    (define-key map "r" 'bongo-rename-line)
     (when (require 'volume nil t)
       (define-key map "xv" 'volume))
     map)
