@@ -44,20 +44,20 @@
     (ogg123
      (matcher "ogg")
      (constructor
-      (program-name . "ogg123")
-      (arguments file-name)))
+      (program-name . bongo-ogg123-program-name)
+      (arguments bongo-ogg123-extra-arguments file-name)))
     (timidity
      (matcher "mid" "midi")
      (constructor
-      (program-name . "timidity")
-      (arguments "--quiet" file-name)))
+      (program-name . bongo-timidity-program-name)
+      (arguments bongo-timidity-extra-arguments file-name)))
     (mikmod
      (matcher ".669" ".amf" ".dsm" ".far" ".gdm" ".it"
               ".imf" ".mod" ".med" ".mtm" ".okt" ".s3m"
               ".stm" ".stx" ".ult" ".apun" ".xm" ".mod")
      (constructor
-      (program-name . "mikmod")
-      (arguments "-q" file-name))))
+      (program-name . bongo-mikmod-program-name)
+      (arguments bongo-mikmod-extra-arguments file-name))))
   "List of player backends shipped with Bongo.
 Entries are of the same form as for `bongo-custom-backends'.
 
@@ -83,24 +83,34 @@ seek granularity than mplayer.")
                          bongo-mplayer-program-name
                        "mplayer"))
                 '(mplayer))
-              (when (executable-find "ogg123")
+              (when (executable-find
+                     (if (boundp 'bongo-ogg123-program-name)
+                         bongo-ogg123-program-name
+                       "ogg123"))
                 '(ogg123)))
-          (when (executable-find "timidity")
+          (when (executable-find
+                 (if (boundp 'bongo-timidity-program-name)
+                     bongo-timidity-program-name
+                   "timidity"))
             '(timidity))
-          (when (executable-find "mikmod")
+          (when (executable-find
+                 (if (boundp 'bongo-mikmod-program-name)
+                     bongo-mikmod-program-name
+                   "mikmod"))
             '(mikmod)))
   "List of names of enabled Bongo player backends.
 See `bongo-shipped-backends' for the available backends.
 This is not the place to define your own backends; custom
-backends (see `bongo-custom-backends') are always enabled.
+backends (see `bongo-custom-backends') are always enabled
+and always preferred over these backends.
 
-The `mplayer' and `mpg123' backends support pausing and seeking,
-while `ogg123' and `timidity' do not.  Furthermore, mpg123 can
-report the amount of time remaining, and usually has better seek
-granularity than mplayer."
+The `mpg123' and `mplayer' backends support pausing and
+seeking, while the others do not.  Furthermore, mpg123 can
+report the amount of time remaining, and usually has better
+seek granularity than mplayer."
   ;; XXX: This variable is not really a hook, but you can't
   ;;      use the `:options' keyword with '(repeat symbol)
-  ;;      for some reason and this is an okay workaround.
+  ;;      for some reason --- this is a workaround.
   :type 'hook
   :options (mapcar 'car bongo-shipped-backends)
   :link '(custom-group-link bongo-mplayer)
@@ -123,13 +133,21 @@ you may be able use the following form instead:
    (NAME (matcher . MATCHER)
          (constructor
           (program-name PROGRAM-NAME)
-          (arguments ARGUMENT... file-name ARGUMENT...)))
+          (arguments ARGUMENT...)))
+PROGRAM-NAME may be a string or the name of a variable
+  whose value is a string.
+Each ARGUMENT may be a string or the name of a variable
+  whose value is either a string or a list of strings.
+The special ARGUMENT `file-name' is substituted for the
+  name of the file that is to be played.
 
-For example, to add support for TiMidity++, you could use this:
+For example, to add support for TiMidity, you could use this:
    (setq bongo-custom-backends
-         '(timidity (matcher \"mid\" \"midi\")
-                    (constructor (program-name \"timidity\")
-                                 (arguments \"--quiet\" file-name))))"
+         '(timidity
+           (matcher \"mid\" \"midi\")
+           (constructor
+            (program-name . \"timidity\")
+            (arguments \"--quiet\" file-name))))"
   :type `(repeat
           (cons :tag "Backend"
                 :value (timidity-example
@@ -179,6 +197,11 @@ followed by some subset of `bongo-shipped-backends'."
                   bongo-shipped-backends)
             enabled-backends)))
 
+;;; XXX: This variable may have outlived its usefulness,
+;;;      now that we have `bongo-enabled-backends'.
+;;;      However, it is still useful for customizing which
+;;;      files get handled by which backends.  Maybe we
+;;;      should invent a new way to do exactly this.
 (defcustom bongo-preferred-backends nil
   "List of preferred Bongo player backends.
 Entries are of the form (BACKEND-NAME . MATCHER).
@@ -286,7 +309,7 @@ create a hierarchy of nicely-named links to your files."
   "String used to split track file names into fields.
 For example, if your tracks are named like this,
 
-   Frank Morton - 2004 - Frank Morton - 01 - Pojken på Tallbacksvägen
+   Frank Morton - 2004 - Frank Morton - 01 - Pojken på Tallbacksvägen.ogg
 
 and your file name field separator is \" - \" (which is the default),
 then the fields are \"Frank Morton\", \"2004\", \"Frank Morton\", \"01\",
@@ -1840,42 +1863,12 @@ If the player backend cannot report this, return nil."
       (unless (bongo-player-explicitly-stopped-p player)
         (bongo-player-killed player))))))
 
-(defun bongo-start-simple-player (backend file-name)
-  "This function is used by `bongo-start-player'."
-  (let* ((process-connection-type nil)
-         (backend-name (bongo-backend-name backend))
-         (options (bongo-backend-constructor backend))
-         (program-name
-          (or (bongo-alist-get options 'program-name)
-              (error "\
-Missing option `program-name' in simple constructor \
-for `%s' backend: %s" backend-name options)))
-         (process
-          (apply 'start-process
-                 (format "bongo-%s" backend-name)
-                 nil program-name
-                 (mapcar (lambda (x)
-                           (cond
-                            ((stringp x) x)
-                            ((eq x 'file-name) file-name)
-                            (t (error "\
-Invalid argument specifier in `arguments' option of simple \
-constructor for `%s' backend" (car backend)))))
-                         (bongo-alist-get options 'arguments))))
-         (player `(,backend-name
-                   (process . ,process)
-                   (file-name . ,file-name)
-                   (buffer . ,(current-buffer))
-                   (stop . bongo-default-player-stop))))
-    (prog1 player
-      (set-process-sentinel process 'bongo-default-player-process-sentinel)
-      (bongo-process-put process 'bongo-player player))))
-
 
 ;;;; The mpg123 backend
 
 (defgroup bongo-mpg123 nil
   "The mpg123 backend to Bongo."
+  :prefix "bongo-mpg123-"
   :group 'bongo)
 
 (defcustom bongo-mpg123-program-name "mpg123"
@@ -2018,6 +2011,7 @@ Interactive mpg123 processes support pausing and seeking."
 
 (defgroup bongo-mplayer nil
   "The mplayer backend to Bongo."
+  :prefix "bongo-mplayer-"
   :group 'bongo)
 
 (defcustom bongo-mplayer-program-name "mplayer"
@@ -2104,6 +2098,94 @@ Interactive mplayer processes support pausing and seeking."
                    (seek-by . bongo-mplayer-player-seek-by)
                    (seek-to . bongo-mplayer-player-seek-to)
                    (seek-unit . seconds))))
+    (prog1 player
+      (set-process-sentinel process 'bongo-default-player-process-sentinel)
+      (bongo-process-put process 'bongo-player player))))
+
+
+;;;; Simple backends
+
+(defgroup bongo-ogg123 nil
+  "The ogg123 backend to Bongo."
+  :prefix "bongo-ogg123-"
+  :group 'bongo)
+
+(defcustom bongo-ogg123-program-name "ogg123"
+  "The name of the ogg123 executable."
+  :type 'string
+  :group 'bongo-ogg123)
+
+(defcustom bongo-ogg123-extra-arguments nil
+  "Extra command-line arguments to pass to ogg123.
+These will come before the file name."
+  :type '(repeat string)
+  :group 'bongo-ogg123)
+
+(defgroup bongo-timidity nil
+  "The TiMidity backend to Bongo."
+  :prefix "bongo-timidity-"
+  :group 'bongo)
+
+(defcustom bongo-timidity-program-name "timidity"
+  "The name of the timidity executable."
+  :type 'string
+  :group 'bongo-timidity)
+
+(defcustom bongo-timidity-extra-arguments '("--quiet")
+  "Extra command-line arguments to pass to timidity.
+These will come before the file name."
+  :type '(repeat string)
+  :group 'bongo-timidity)
+
+(defgroup bongo-mikmod nil
+  "The MikMod backend to Bongo."
+  :prefix "bongo-mikmod-"
+  :group 'bongo)
+
+(defcustom bongo-mikmod-program-name "mikmod"
+  "The name of the mikmod executable."
+  :type 'string
+  :group 'bongo-mikmod)
+
+(defcustom bongo-mikmod-extra-arguments '("-q")
+  "Extra command-line arguments to pass to mikmod.
+These will come before the file name."
+  :type '(repeat string)
+  :group 'bongo-mikmod)
+
+(defun bongo-start-simple-player (backend file-name)
+  "This function is used by `bongo-start-player'."
+  (let* ((process-connection-type nil)
+         (backend-name (bongo-backend-name backend))
+         (options (bongo-backend-constructor backend))
+         (program-name
+          (or (indirect-variable
+               (bongo-alist-get options 'program-name))
+              (error "\
+Missing option `program-name' in simple constructor \
+for `%s' backend: %s" backend-name options)))
+         (process
+          (apply 'start-process
+                 (format "bongo-%s" backend-name)
+                 nil program-name
+                 (nconc
+                  (mapcar
+                   (lambda (x)
+                     (cond
+                      ((stringp x) (list x))
+                      ((symbolp x)
+                       (let ((value (indirect-variable x)))
+                         (if (listp value) value (list value))))
+                      ((eq x 'file-name) (list file-name))
+                      (t (error "\
+Invalid argument specifier in `arguments' option of simple \
+constructor for `%s' backend" (car backend)))))
+                   (bongo-alist-get options 'arguments)))))
+         (player `(,backend-name
+                   (process . ,process)
+                   (file-name . ,file-name)
+                   (buffer . ,(current-buffer))
+                   (stop . bongo-default-player-stop))))
     (prog1 player
       (set-process-sentinel process 'bongo-default-player-process-sentinel)
       (bongo-process-put process 'bongo-player player))))
