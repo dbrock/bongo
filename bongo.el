@@ -59,7 +59,27 @@ while `ogg123' and `timidity' do not.  Furthermore, mpg123 can
 report the amount of time remaining, and usually has better seek
 granularity than mplayer.")
 
-(defcustom bongo-enabled-backends nil
+(defcustom bongo-enabled-backends
+  ;; This code is not meant to be really smart or anything;
+  ;; its purpose is to hazard a guess for a workable setup.
+  ;; Users can easily change this and related variables,
+  ;; but it's nice when things Just Work most of the time.
+  (append (when (executable-find
+                 (if (boundp 'bongo-mpg123-program-name)
+                     bongo-mpg123-program-name
+                   "mpg123"))
+            '(mpg123))
+          ;; Don't bother with ogg123 if mplayer
+          ;; is available.
+          (or (when (executable-find
+                     (if (boundp 'bongo-mplayer-program-name)
+                         bongo-mplayer-program-name
+                       "mplayer"))
+                '(mplayer))
+              (when (executable-find "ogg123")
+                '(ogg123)))
+          (when (executable-find "timidity")
+            '(timidity)))
   "List of names of enabled Bongo player backends.
 See `bongo-shipped-backends' for the available backends.
 This is not the place to define your own backends; custom
