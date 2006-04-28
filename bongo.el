@@ -306,12 +306,18 @@ This is used by the function `bongo-default-format-field'."
   :group 'bongo-display)
 
 (defcustom bongo-insert-album-covers (and (window-system) t)
-  "Whether to put album cover images into playlists.
+  "Whether to put album cover images into Bongo buffers.
 This is done by `bongo-insert-directory' and by
   `bongo-insert-directory-tree'.
 See also `bongo-album-cover-file-names'."
   :type 'boolean
   :link '(custom-group-link bongo-file-names)
+  :group 'bongo-display)
+
+(defcustom bongo-join-inserted-tracks t
+  "Whether to automatically join newly-inserted tracks.
+This is done by repeatedly running `bongo-join'."
+  :type 'boolean
   :group 'bongo-display)
 
 (defcustom bongo-insert-intermediate-headers nil
@@ -2574,6 +2580,18 @@ Album covers are files whose names are in `bongo-album-cover-file-names'."
                                       :file ,cover-file-name)))
           (insert "\n"))))))
 
+(defun bongo-maybe-join-inserted-tracks (beg end)
+  "Maybe run `bongo-join' repeatedly from BEG to END.
+Only do it if `bongo-join-inserted-tracks' is non-nil."
+  (when bongo-join-inserted-tracks
+    (unless (markerp end)
+      (setq end (move-marker (make-marker) end)))
+    (goto-char beg)
+    (unless (bongo-object-line-p)
+      (bongo-forward-object-line))
+    (while (< (point) end)
+      (bongo-join 'skip))))
+
 (defun bongo-insert-directory (directory-name)
   "Insert a new track line for each file in DIRECTORY-NAME.
 Only insert files that can be played by some backend, as determined
@@ -2599,11 +2617,14 @@ Do not examine subdirectories of DIRECTORY-NAME."
                                        (bongo-track-file-name-regexp))))
       (when (null file-names)
         (error "Directory contains no playable files"))
-      (dolist (file-name file-names)
-        (bongo-insert-file file-name))
+      (let ((beg (point)))
+        (dolist (file-name file-names)
+          (bongo-insert-file file-name))
+        (bongo-maybe-join-inserted-tracks beg (point)))
       (when (and (interactive-p) (not (bongo-buffer-p)))
         (message "Inserted %d files." (length file-names))))))
-  
+
+(defvar bongo-inside-insert-directory-tree nil)
 (defun bongo-insert-directory-tree (directory-name)
   "Insert a new track line for each file below DIRECTORY-NAME.
 Only insert files that can be played by some backend, as determined
@@ -2627,12 +2648,16 @@ This function descends each subdirectory of DIRECTORY-NAME recursively."
     (when bongo-insert-album-covers
       (bongo-maybe-insert-album-cover directory-name))
     (let ((regexp (bongo-track-file-name-regexp))
-          (file-names (directory-files directory-name t "^[^.]")))
-      (dolist (file-name file-names)
-        (if (file-directory-p file-name)
-            (bongo-insert-directory-tree file-name)
-          (when (string-match regexp file-name)
-            (bongo-insert-file file-name)))))))
+          (file-names (directory-files directory-name t "^[^.]"))
+          (beginning (point)))
+      (let ((bongo-inside-insert-directory-tree t))
+        (dolist (file-name file-names)
+          (if (file-directory-p file-name)
+              (bongo-insert-directory-tree file-name)
+            (when (string-match regexp file-name)
+              (bongo-insert-file file-name)))))
+      (unless bongo-inside-insert-directory-tree
+        (bongo-maybe-join-inserted-tracks beginning (point))))))
 
 (defcustom bongo-gnu-find-program "find"
   "The name of the GNU find executable."
