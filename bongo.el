@@ -116,10 +116,10 @@ For example, to add support for TiMidity++, you could use this:
                  (((const :tag "Matcher" matcher)
                    (choice
                     (const :tag "Never match" nil)
+                    (const :tag "Always match" t)
                     (repeat :tag "File extension" string)
                     (regexp :tag "File name (regular expression)")
-                    (function :tag "Custom predicate")
-                    (other :tag "Always match" always)))
+                    (function :tag "Custom predicate")))
                   ((const :tag "Constructor" constructor)
                    (choice
                     (alist
@@ -174,11 +174,11 @@ may not appear in the list."
                         (symbol :tag "Other backend"))
                 (choice :tag "When"
                         (const :tag "Default condition for backend" nil)
+                        (const :tag "Always preferred" t)
                         (radio :tag "Custom condition" :value ".*"
                                (regexp :tag "File name pattern")
                                (repeat :tag "File name extensions" string)
-                               (function :tag "File name predicate"))
-                        (other :tag "Always preferred" always))))
+                               (function :tag "File name predicate")))))
   :link '(custom-group-link bongo-mplayer)
   :link '(custom-group-link bongo-mpg123)
   :group 'bongo)
