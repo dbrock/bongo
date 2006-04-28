@@ -24,6 +24,9 @@
 
 ;;; Code:
 
+(eval-when-compile
+  (require 'cl))
+
 (defgroup bongo nil
   "Buffer-oriented media player."
   :prefix "bongo-"
