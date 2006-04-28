@@ -2262,6 +2262,8 @@ If TOGGLE-INTERRUPT (prefix argument if interactive) is non-nil,
   act as if `bongo-avoid-interrupting-playback' were reversed.
 If there is no track on the line at POINT, signal an error."
   (interactive "d\nP")
+  (unless (bongo-playlist-buffer-p)
+    (error "Not a Bongo playlist buffer"))
   (with-point-at-bongo-track point
     (if (and (bongo-playing-p)
              (bongo-xor bongo-avoid-interrupting-playback
@@ -3112,6 +3114,43 @@ See `undo'."
   (let ((inhibit-read-only t))
     (undo arg)))
 
+(defun bongo-enqueue-line (mode &optional skip)
+  "Insert the current line into the Bongo playlist.
+If MODE is `insert', implement `bongo-insert-enqueue-line'.
+If MODE is `append', implement `bongo-append-enqueue-line'."
+  (let* ((section-flag (bongo-header-line-p))
+         (section-text (when section-flag
+                         (buffer-substring
+                          (bongo-point-before-line)
+                          (bongo-point-after-section))))
+         (track-file-name (unless section-flag
+                            (bongo-line-file-name)))
+         (position
+          (with-bongo-playlist-buffer
+            (save-excursion
+              (case mode
+                (insert (if (bongo-active-track-position)
+                            (bongo-goto-point
+                             (bongo-point-after-line
+                              (bongo-active-track-position)))
+                          (goto-char (point-min))))
+                (append (goto-char (point-max)))
+                (t (error "Invalid argument")))
+              (prog1 (point)
+                (if section-flag
+                    (bongo-insert section-text)
+                  (bongo-insert-line 'bongo-file-name
+                                     track-file-name)))))))
+      (prog1 position
+        (when skip
+          (bongo-forward-section))
+        (when (bongo-library-buffer-p)
+          (let ((original-window (selected-window)))
+            (select-window (display-buffer (bongo-playlist-buffer)))
+            (goto-char position)
+            (recenter)
+            (select-window original-window))))))
+
 (defun bongo-insert-enqueue-line (&optional skip)
   "Insert the current line immediately after the track being played.
 In Bongo Playlist mode, insert into the current buffer.
@@ -3119,28 +3158,7 @@ In Bongo Library mode, insert into the playlist buffer
   \(see `bongo-playlist-buffer').
 If point is on a section header, insert the whole section."
   (interactive "d")
-  (let ((text (buffer-substring (bongo-point-before-line)
-                                (if (bongo-header-line-p)
-                                    (bongo-point-after-section)
-                                  (bongo-point-after-line))))
-        position)
-    (with-bongo-playlist-buffer
-      (save-excursion
-        (if (bongo-active-track-position)
-            (bongo-goto-point (bongo-point-after-line
-                               (bongo-active-track-position)))
-          (goto-char (point-min)))
-        (setq position (point))
-        (bongo-insert text)))
-    (prog1 position
-      (when skip
-        (bongo-forward-section))
-      (when (bongo-library-buffer-p)
-        (let ((original-window (selected-window)))
-          (select-window (display-buffer (bongo-playlist-buffer)))
-          (goto-char position)
-          (recenter)
-          (select-window original-window))))))
+  (bongo-enqueue-line 'insert skip))
 
 (defun bongo-append-enqueue-line (&optional skip)
   "Append the current line to the Bongo playlist buffer.
@@ -3149,25 +3167,7 @@ In Bongo Library mode, append to the playlist buffer
   \(see `bongo-playlist-buffer').
 If point is on a section header, append the whole section."
   (interactive "d")
-  (let ((text (buffer-substring (bongo-point-before-line)
-                                (if (bongo-header-line-p)
-                                    (bongo-point-after-section)
-                                  (bongo-point-after-line))))
-        position)
-    (with-bongo-playlist-buffer
-      (save-excursion
-        (goto-char (point-max))
-        (setq position (point))
-        (bongo-insert text)))
-    (prog1 position
-      (when skip
-        (bongo-forward-section))
-      (when (bongo-library-buffer-p)
-        (let ((original-window (selected-window)))
-          (select-window (display-buffer (bongo-playlist-buffer)))
-          (goto-char position)
-          (recenter)
-          (select-window original-window))))))
+  (bongo-enqueue-line 'append skip))
 
 
 ;;;; Serializing buffers
