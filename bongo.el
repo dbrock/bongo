@@ -305,7 +305,7 @@ This is used by the function `bongo-default-format-field'."
                  string)
   :group 'bongo-display)
 
-(defcustom bongo-insert-album-covers t
+(defcustom bongo-insert-album-covers (and (window-system) t)
   "Whether to put album cover images into playlists.
 This is done by `bongo-insert-directory' and by
   `bongo-insert-directory-tree'.
