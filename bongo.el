@@ -1018,49 +1018,35 @@ Return the final value of TEST.
   "Return the set-theoretic union of the items in SETS.
 Comparisons are done with `eq'.  Order is *not* preserved."
   (let (result)
-    (while sets
-      (let (set (car sets))
-        (while set
-          (unless (memq (car set) result)
-            (setq result (cons (car set) result)))
-          (setq set (cdr set))))
-      (setq sets (cdr sets)))
-    result))
+    (dolist (set sets result)
+      (dolist (entry set)
+        (unless (memq entry result)
+          (push entry result))))))
 
 (defun bongo-set-intersection (a b)
   "Return the items in A that are also in B.
 Comparisons are done with `eq'.  Order is preserved."
   (let (result)
-    (while a
-      (when (memq (car a) b)
-        (setq result (cons (car a) result)))
-      (setq a (cdr a)))
-    (nreverse result)))
+    (dolist (entry a (nreverse result))
+      (when (memq entry b)
+        (push entry result)))))
 
 (defun bongo-set-exclusive-or (a b)
   "Return the items that appear in either A or B but not both.
 Comparisons are done with `eq'.  Order is *not* preserved."
   (let (result)
-    (let ((sets (list a b)))
-      (while sets
-        (let ((set (car sets)))
-          (while set
-            (when (bongo-xor (memq (car set) a)
-                             (memq (car set) b))
-              (setq result (cons (car set) result)))
-            (setq set (cdr set))))
-        (setq sets (cdr sets))))
-    result))
+    (dolist (set (list a b) result)
+      (dolist (entry set)
+        (when (bongo-xor (memq entry a) (memq entry b))
+          (push entry result))))))
 
 (defun bongo-set-difference (a b)
   "Return the items in A that are not also in B.
 Comparisons are done with `eq'.  Order is preserved."
   (let (result)
-    (while a
-      (unless (memq (car a) b)
-        (setq result (cons (car a) result)))
-      (setq a (cdr a)))
-    (nreverse result)))
+    (dolist (entry a (nreverse result))
+      (unless (memq entry b)
+        (push entry result)))))
 
 (defun bongo-set-equal-p (a b)
   "Return non-nil if A and B have equal elements.
@@ -1092,11 +1078,9 @@ If ALIST is a symbol, operate on the vaule of that symbol instead."
   "Return a new list of each pair in ALIST whose car is in KEYS.
 Key comparisons are done with `eq'.  Order is preserved."
   (let (result)
-    (while alist
-      (when (memq (caar alist) keys)
-        (setq result (cons (car alist) result)))
-      (setq alist (cdr alist)))
-    (nreverse result)))
+    (dolist (entry alist (nreverse result))
+      (when (memq (car entry) keys)
+        (push entry result)))))
 
 (defun bongo-filter-plist (keys plist)
   "Return a new list of each property in PLIST whose name is in KEYS.
