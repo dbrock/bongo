@@ -50,14 +50,21 @@
      (matcher "mid" "midi")
      (constructor
       (program-name . "timidity")
-      (arguments "--quiet" file-name))))
+      (arguments "--quiet" file-name)))
+    (mikmod
+     (matcher ".669" ".amf" ".dsm" ".far" ".gdm" ".it"
+              ".imf" ".mod" ".med" ".mtm" ".okt" ".s3m"
+              ".stm" ".stx" ".ult" ".apun" ".xm" ".mod")
+     (constructor
+      (program-name . "mikmod")
+      (arguments "-q" file-name))))
   "List of player backends shipped with Bongo.
 Entries are of the same form as for `bongo-custom-backends'.
 
-The `mplayer' and `mpg123' backends support pausing and seeking,
-while `ogg123' and `timidity' do not.  Furthermore, mpg123 can
-report the amount of time remaining, and usually has better seek
-granularity than mplayer.")
+The `mpg123' and `mplayer' backends support pausing and
+seeking, while the others do not.  Furthermore, mpg123 can
+report the amount of time remaining, and usually has better
+seek granularity than mplayer.")
 
 (defcustom bongo-enabled-backends
   ;; This code is not meant to be really smart or anything;
@@ -79,7 +86,9 @@ granularity than mplayer.")
               (when (executable-find "ogg123")
                 '(ogg123)))
           (when (executable-find "timidity")
-            '(timidity)))
+            '(timidity))
+          (when (executable-find "mikmod")
+            '(mikmod)))
   "List of names of enabled Bongo player backends.
 See `bongo-shipped-backends' for the available backends.
 This is not the place to define your own backends; custom
