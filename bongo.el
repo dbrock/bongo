@@ -115,11 +115,11 @@ For example, to add support for TiMidity++, you could use this:
                  :options
                  (((const :tag "Matcher" matcher)
                    (choice
-                    (const :tag "Always match" t)
                     (const :tag "Never match" nil)
                     (repeat :tag "File extension" string)
                     (regexp :tag "File name (regular expression)")
-                    (function :tag "Custom predicate")))
+                    (function :tag "Custom predicate")
+                    (other :tag "Always match" always)))
                   ((const :tag "Constructor" constructor)
                    (choice
                     (alist
@@ -170,15 +170,15 @@ MATCHER, if non-nil, overrides the default matcher for the backend;
 may not appear in the list."
                 (choice :tag "Backend"
                         ,@(mapcar (lambda (x) `(const ,(car x)))
-                                  (bongo-backends t))
+                                  (bongo-backends 'include-disabled))
                         (symbol :tag "Other backend"))
                 (choice :tag "When"
                         (const :tag "Default condition for backend" nil)
-                        (const :tag "Always preferred" t)
                         (radio :tag "Custom condition" :value ".*"
                                (regexp :tag "File name pattern")
                                (repeat :tag "File name extensions" string)
-                               (function :tag "File name predicate")))))
+                               (function :tag "File name predicate"))
+                        (other :tag "Always preferred" always))))
   :link '(custom-group-link bongo-mplayer)
   :link '(custom-group-link bongo-mpg123)
   :group 'bongo)
@@ -229,11 +229,16 @@ command act as if this variable was temporarily toggled.)"
 (defcustom bongo-next-action 'bongo-play-next-or-stop
   "The function to call after the current track finishes playing."
   :type '(choice
-          (const :tag "Stop playback" bongo-stop)
-          (const :tag "Play the next track" bongo-play-next-or-stop)
-          (const :tag "Play the same track again" bongo-replay-current)
-          (const :tag "Play the previous track" bongo-play-previous)
-          (const :tag "Play a random track" bongo-play-random))
+          (function-item :tag "Stop playback"
+                         bongo-stop)
+          (function-item :tag "Play the next track"
+                         bongo-play-next-or-stop)
+          (function-item :tag "Play the same track again"
+                         bongo-replay-current)
+          (function-item :tag "Play the previous track"
+                         bongo-play-previous)
+          (function-item :tag "Play a random track"
+                         bongo-play-random))
   :group 'bongo)
 (make-variable-buffer-local 'bongo-next-action)
 
@@ -243,7 +248,7 @@ This variable is used by `bongo-play-queued'.")
 
 (defgroup bongo-file-names nil
   "File names and file name parsing in Bongo.
-If your files do not have nice names, but they do have nice tags,
+If your files do not have nice names but they do have nice tags,
 you can use the `tree-from-tags.rb' tool (shipped with Bongo) to
 create a hierarchy of nicely-named links to your files."
   :group 'bongo)
