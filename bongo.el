@@ -2342,10 +2342,11 @@ In addition, set `bongo-next-action' to the value of
   (when bongo-queued-track-arrow-timer
     (cancel-timer bongo-queued-track-arrow-timer)
     (setq bongo-queued-track-arrow-timer nil))
+  (when (bongo-queued-track-position)
+    (setq bongo-next-action bongo-stored-next-action)
+    (setq bongo-stored-next-action nil))
   (move-marker bongo-queued-track-marker nil)
-  (move-marker bongo-queued-track-arrow-marker nil)
-  (setq bongo-next-action bongo-stored-next-action
-        bongo-stored-next-action nil))
+  (move-marker bongo-queued-track-arrow-marker nil))
 
 (defmacro with-point-at-bongo-track (point &rest body)
   "Execute BODY with point at the Bongo track line at POINT.
