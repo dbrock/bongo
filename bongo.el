@@ -3540,7 +3540,7 @@ Do not use this mode directly.  Instead, use Bongo Playlist mode (see
     (define-key map "E" 'bongo-insert-enqueue-line)
     (define-key map "r" 'bongo-rename-line)
     (when (require 'volume nil t)
-      (define-key map "xv" 'volume))
+      (define-key map "v" 'volume))
     map)
   "Keymap used in Bongo mode buffers.")
 
