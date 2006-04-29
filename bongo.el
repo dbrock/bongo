@@ -2642,7 +2642,15 @@ Point is left immediately after the new line."
   (if (bongo-empty-header-line-p)
       (bongo-delete-line)
     (bongo-redisplay-line)
-    (forward-line)))
+    (if (or (bongo-header-line-p)
+             (bongo-last-object-line-p)
+             (>= (bongo-line-indentation)
+                 (save-excursion
+                   (bongo-forward-object-line)
+                   (bongo-line-indentation))))
+        (forward-line)
+      (forward-line)
+      (bongo-insert-header))))
 
 (defun bongo-insert-header (&optional fields)
   "Insert a new header line with internal FIELDS.
@@ -2735,7 +2743,9 @@ Do not examine subdirectories of DIRECTORY-NAME."
       (when (and (interactive-p) (not (bongo-buffer-p)))
         (message "Inserted %d files." (length file-names))))))
 
-(defvar bongo-inside-insert-directory-tree nil)
+(defvar bongo-inside-insert-directory-tree nil
+  "Non-nil in the dynamic scope of `bongo-insert-directory-tree'.")
+
 (defun bongo-insert-directory-tree (directory-name)
   "Insert a new track line for each file below DIRECTORY-NAME.
 Only insert files that can be played by some backend, as determined
