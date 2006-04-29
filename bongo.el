@@ -1536,17 +1536,15 @@ If it is a list, treat it as a set of file name extensions;
   return non-nil if the extension of FILE-NAME appears in MATCHER.
 Otherwise, signal an error."
   (cond
-   ((eq t matcher) t)
+   ((eq matcher t) t)
    ((stringp matcher) (string-match matcher file-name))
    ((symbolp matcher) (funcall matcher file-name))
    ((listp matcher)
-    (let ((extension (file-name-extension file-name)))
-      (let (match)
-        (while (and matcher (not match))
-          (if (equal (car matcher) extension)
-              (setq match t)
-            (setq matcher (cdr matcher))))
-        match)))
+    (let ((actual-extension (file-name-extension file-name)))
+      (catch 'match
+        (dolist (extension matcher nil)
+          (when (string= extension actual-extension)
+            (throw 'match t))))))
    (t (error "Bad file name matcher: %s" matcher))))
 
 ;;; XXX: These functions need to be refactored.
@@ -2173,8 +2171,12 @@ These will come before the file name."
          (backend-name (bongo-backend-name backend))
          (options (bongo-backend-constructor backend))
          (program-name
-          (or (indirect-variable
-               (bongo-alist-get options 'program-name))
+          (or (let ((program-name (bongo-alist-get options 'program-name)))
+                (cond ((stringp program-name) program-name)
+                      ((symbolp program-name) (symbol-value program-name))
+                      (t (error "\
+Invalid value for `program-name' option in simple constructor \
+for `%s' backend: %s" backend-name options))))
               (error "\
 Missing option `program-name' in simple constructor \
 for `%s' backend: %s" backend-name options)))
@@ -2182,13 +2184,14 @@ for `%s' backend: %s" backend-name options)))
           (apply 'start-process
                  (format "bongo-%s" backend-name)
                  nil program-name
-                 (nconc
+                 (apply
+                  'nconc
                   (mapcar
                    (lambda (x)
                      (cond
                       ((stringp x) (list x))
                       ((symbolp x)
-                       (let ((value (indirect-variable x)))
+                       (let ((value (symbol-value x)))
                          (if (listp value) value (list value))))
                       ((eq x 'file-name) (list file-name))
                       (t (error "\
