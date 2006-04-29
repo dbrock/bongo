@@ -53,9 +53,19 @@
       (program-name . bongo-timidity-program-name)
       (arguments bongo-timidity-extra-arguments file-name)))
     (mikmod
-     (matcher "669" "amf" "dsm" "far" "gdm" "it"
-              "imf" "mod" "med" "mtm" "okt" "s3m"
-              "stm" "stx" "ult" "apun" "xm" "mod")
+     (matcher .
+      ,(concat "\\."
+               (regexp-opt
+                '("669" "amf" "dsm" "far" "gdm" "imf"
+                  "it" "med" "mod" "mtm" "okt" "s3m"
+                  "stm" "stx" "ult" "uni" "apun" "xm")
+                'add-enclosing-parens)
+               "\\(\\."
+               (regexp-opt
+                '("zip" "lha" "lhz" "zoo" "gz" "bz2"
+                  "tar" "tar.gz" "tar.bz2" "rar")
+                'add-enclosing-parens)
+               "\\)?$"))
      (constructor
       (program-name . bongo-mikmod-program-name)
       (arguments bongo-mikmod-extra-arguments file-name))))
@@ -2159,7 +2169,7 @@ These will come before the file name."
   :type 'string
   :group 'bongo-mikmod)
 
-(defcustom bongo-mikmod-extra-arguments '("-q")
+(defcustom bongo-mikmod-extra-arguments '("-q" "-P" "1" "-X")
   "Extra command-line arguments to pass to mikmod.
 These will come before the file name."
   :type '(repeat string)
