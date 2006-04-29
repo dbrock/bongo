@@ -38,7 +38,7 @@
      (matcher "mp3" "mp2")
      (constructor . bongo-start-mpg123-player))
     (mplayer
-     (matcher "ogg" "mp3" "wav" "wma" "rm"
+     (matcher "ogg" "flac" "mp3" "wav" "wma" "rm"
               "mpg" "mpeg" "avi" "mov" "asf" "wmv")
      (constructor . bongo-start-mplayer-player))
     (ogg123
