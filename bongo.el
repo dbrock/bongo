@@ -344,6 +344,19 @@ See also `bongo-insert-album-covers'."
   :type '(repeat string)
   :group 'bongo-file-names)
 
+(defcustom bongo-update-references-to-renamed-files 'ask
+  "Whether to search all Bongo buffers after renaming a file.
+If nil, never search through any buffers after renaming a file.
+If `ask', ask the user every time.
+If any other value, always perform the search.
+
+You can rename a file from Bongo using `bongo-rename-line'."
+  :type '(choice (const :tag "Never" nil)
+                 (const :tag "Ask" ask)
+                 (other :tag "Always" t))
+  :group 'bongo
+  :group 'bongo-file-names)
+
 (defgroup bongo-display nil
   "Display of Bongo playlist and library buffers."
   :group 'bongo)
@@ -3316,15 +3329,32 @@ If point is on a section header, append the whole section."
   (bongo-enqueue-line 'append skip))
 
 (defun bongo-rename-line (new-name &optional point)
-  "Rename the file corresponding to the track at POINT."
+  "Rename the file corresponding to the track at POINT.
+This function uses `bongo-update-references-to-renamed-files'."
   (interactive
    (when (bongo-track-line-p)
      (list (read-from-minibuffer "Rename track to: "
                                  (bongo-line-file-name)))))
   (with-point-at-bongo-track point
-    (rename-file (bongo-line-file-name) new-name)
-    (bongo-delete-line)
-    (bongo-insert-line 'bongo-file-name new-name)))
+    (let ((old-name (bongo-line-file-name)))
+      (rename-file old-name new-name)
+      (if (or (and (eq bongo-update-references-to-renamed-files 'ask)
+                   (y-or-n-p
+                    (concat "Search all Bongo buffers and update "
+                            "references to the renamed file? ")))
+              bongo-update-references-to-renamed-files)
+          (dolist (buffer (buffer-list))
+            (when (bongo-buffer-p buffer)
+              (set-buffer buffer)
+              (goto-char (point-min))
+              (bongo-maybe-forward-object-line)
+              (while (not (eobp))
+                (when (string= (bongo-line-file-name) old-name)
+                  (bongo-delete-line)
+                  (bongo-insert-line 'bongo-file-name new-name))
+                (bongo-forward-object-line))))
+        (bongo-delete-line)
+        (bongo-insert-line 'bongo-file-name new-name)))))
 
 
 ;;;; Serializing buffers
