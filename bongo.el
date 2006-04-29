@@ -53,9 +53,9 @@
       (program-name . bongo-timidity-program-name)
       (arguments bongo-timidity-extra-arguments file-name)))
     (mikmod
-     (matcher ".669" ".amf" ".dsm" ".far" ".gdm" ".it"
-              ".imf" ".mod" ".med" ".mtm" ".okt" ".s3m"
-              ".stm" ".stx" ".ult" ".apun" ".xm" ".mod")
+     (matcher "669" "amf" "dsm" "far" "gdm" "it"
+              "imf" "mod" "med" "mtm" "okt" "s3m"
+              "stm" "stx" "ult" "apun" "xm" "mod")
      (constructor
       (program-name . bongo-mikmod-program-name)
       (arguments bongo-mikmod-extra-arguments file-name))))
