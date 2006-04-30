@@ -3343,6 +3343,17 @@ If point is on a section header, append the whole section."
   (interactive "d")
   (bongo-enqueue-line 'append skip))
 
+(defun bongo-flush-playlist ()
+  "Delete everything above the currently playing track."
+  (interactive)
+  (with-bongo-playlist-buffer
+    (when (not (bongo-playing-p))
+      (error "No active track"))
+    (let ((inhibit-read-only t))
+      (delete-region (point-min)
+                     (bongo-point-before-line
+                      (bongo-active-track-position))))))
+
 (defun bongo-rename-line (new-name &optional point)
   "Rename the file corresponding to the track at POINT.
 This function uses `bongo-update-references-to-renamed-files'."
@@ -3553,6 +3564,7 @@ Do not use this mode directly.  Instead, use Bongo Playlist mode (see
     (define-key map "it" 'bongo-insert-directory-tree)
     (define-key map "e" 'bongo-append-enqueue-line)
     (define-key map "E" 'bongo-insert-enqueue-line)
+    (define-key map "f" 'bongo-flush-playlist)
     (define-key map "r" 'bongo-rename-line)
     (when (require 'volume nil t)
       (define-key map "v" 'volume))
