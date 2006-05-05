@@ -53,7 +53,7 @@
       (program-name . bongo-speexdec-program-name)
       (arguments bongo-speexdec-extra-arguments file-name)))
     (timidity
-     (matcher "mid" "midi")
+     (matcher "mid" "midi" "rcp" "r36" "g18" "g36" "mod")
      (constructor
       (program-name . bongo-timidity-program-name)
       (arguments bongo-timidity-extra-arguments file-name)))
@@ -152,10 +152,11 @@ you may be able use the following form instead:
           (arguments ARGUMENT...)))
 PROGRAM-NAME may be a string or the name of a variable
   whose value is a string.
-Each ARGUMENT may be a string or the name of a variable
-  whose value is either a string or a list of strings.
-The special ARGUMENT `file-name' is substituted for the
-  name of the file that is to be played.
+Each ARGUMENT may be a string or the name of a variable whose
+  value is either a string or a list of strings, or a form
+  that evaluates to a string or a list of strings.
+In the list of ARGUMENTs, the symbol `file-name' will be
+  bound to the name of the file that is to be played.
 
 For example, to add support for TiMidity, you could use this:
    (setq bongo-custom-backends
@@ -2145,7 +2146,7 @@ Interactive mplayer processes support pausing and seeking."
 (defcustom bongo-ogg123-extra-arguments nil
   "Extra command-line arguments to pass to ogg123.
 These will come before the file name."
-  :type '(repeat string)
+  :type '(repeat (choice string variable sexp))
   :group 'bongo-ogg123)
 
 (defgroup bongo-speexdec nil
@@ -2177,7 +2178,7 @@ These will come before the file name."
 (defcustom bongo-timidity-extra-arguments '("--quiet")
   "Extra command-line arguments to pass to timidity.
 These will come before the file name."
-  :type '(repeat string)
+  :type '(repeat (choice string variable sexp))
   :group 'bongo-timidity)
 
 (defgroup bongo-mikmod nil
@@ -2193,10 +2194,13 @@ These will come before the file name."
 (defcustom bongo-mikmod-extra-arguments '("-q" "-P" "1" "-X")
   "Extra command-line arguments to pass to mikmod.
 These will come before the file name."
-  :type '(repeat string)
+  :type '(repeat (choice string variable sexp))
   :group 'bongo-mikmod)
 
 (defun bongo-start-simple-player (backend file-name)
+  ;; Don't change the name of the `file-name' parameter.
+  ;; The simple constructor argument list relies on that
+  ;; symbol being dynamically bound to the file name.
   "This function is used by `bongo-start-player'."
   (let* ((process-connection-type nil)
          (backend-name (bongo-backend-name backend))
@@ -2224,7 +2228,9 @@ for `%s' backend: %s" backend-name options)))
                       ((symbolp x)
                        (let ((value (symbol-value x)))
                          (if (listp value) value (list value))))
-                      ((eq x 'file-name) (list file-name))
+                      ((listp x)
+                       (let ((value (eval x)))
+                         (if (listp value) value (list value))))
                       (t (error "\
 Invalid argument specifier in `arguments' option of simple \
 constructor for `%s' backend" (car backend)))))
