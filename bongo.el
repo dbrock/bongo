@@ -5,7 +5,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: April 29, 2006
+;; Updated: May 5, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -47,6 +47,11 @@
      (constructor
       (program-name . bongo-ogg123-program-name)
       (arguments bongo-ogg123-extra-arguments file-name)))
+    (speexdec
+     (matcher "spx")
+     (constructor
+      (program-name . bongo-speexdec-program-name)
+      (arguments bongo-speexdec-extra-arguments file-name)))
     (timidity
      (matcher "mid" "midi")
      (constructor
@@ -2142,6 +2147,22 @@ Interactive mplayer processes support pausing and seeking."
 These will come before the file name."
   :type '(repeat string)
   :group 'bongo-ogg123)
+
+(defgroup bongo-speexdec nil
+  "The speexdec backend to Bongo."
+  :prefix "bongo-speexdec-"
+  :group 'bongo)
+
+(defcustom bongo-speexdec-program-name "speexdec"
+  "The name of the speexdec executable."
+  :type 'string
+  :group 'bongo-speexdec)
+
+(defcustom bongo-speexdec-extra-arguments nil
+  "Extra command-line arguments to pass to speexdec.
+These will come before the file name."
+  :type '(repeat (choice string variable sexp))
+  :group 'bongo-speexdec)
 
 (defgroup bongo-timidity nil
   "The TiMidity backend to Bongo."
