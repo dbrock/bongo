@@ -2537,7 +2537,7 @@ If there is no next track to play, stop playback."
           (let ((next-position (bongo-point-at-next-track-line position)))
             (if next-position
                 (bongo-play-line next-position)
-              (bongo-play-line position))))
+              (bongo-stop))))
       ;; We should not interrupt playback.
       (if (eq bongo-next-action 'bongo-play-next-or-stop)
           (message (concat "Switched to sequential playback "
