@@ -92,13 +92,13 @@ seek granularity than mplayer.")
                      bongo-mpg123-program-name
                    "mpg123"))
             '(mpg123))
-          ;; Don't bother with ogg123 if mplayer
-          ;; is available.
           (or (when (executable-find
                      (if (boundp 'bongo-mplayer-program-name)
                          bongo-mplayer-program-name
                        "mplayer"))
                 '(mplayer))
+              ;; Don't bother with ogg123 if mplayer is
+              ;; available (the latter is interactive).
               (when (executable-find
                      (if (boundp 'bongo-ogg123-program-name)
                          bongo-ogg123-program-name
@@ -1950,7 +1950,7 @@ This is used by `bongo-mpg123-seek-by'."
 
 (defcustom bongo-mpg123-extra-arguments nil
   "Extra command-line arguments to pass to mpg123.
-These will come at the end or right before the file name."
+These will come at the end or right before the file name, if any."
   :type '(repeat string)
   :group 'bongo-mpg123)
 
@@ -2069,7 +2069,7 @@ Setting this to nil disables the pause and seek functionality."
 
 (defcustom bongo-mplayer-extra-arguments nil
   "Extra command-line arguments to pass to mplayer.
-These will come at the end or right before the file name."
+These will come at the end or right before the file name, if any."
   :type '(repeat string)
   :group 'bongo-mplayer)
 
