@@ -2850,53 +2850,6 @@ This function descends each subdirectory of DIRECTORY-NAME recursively."
       (unless bongo-inside-insert-directory-tree
         (bongo-maybe-join-inserted-tracks beginning (point))))))
 
-(defcustom bongo-gnu-find-program "find"
-  "The name of the GNU find executable."
-  :type 'string
-  :group 'bongo)
-
-(defcustom bongo-gnu-find-extra-arguments
-  (when (and (executable-find bongo-gnu-find-program)
-             (equal 0 (call-process bongo-gnu-find-program nil nil nil
-                                    "-regextype" "emacs" "-prune")))
-    '("-regextype" "emacs"))
-  "Extra arguments to pass to GNU find."
-  :type '(repeat string)
-  :group 'bongo)
-
-(defun bongo-insert-directory-tree-using-find (directory-name)
-  "Insert a new track line for each file below DIRECTORY-NAME.
-Only insert files that can be played by some backend, as determined
-by the file name (see `bongo-track-file-name-regexp').
-
-This function descends each subdirectory of DIRECTORY-NAME recursively,
-using `bongo-gnu-find-program' to find the files."
-  (interactive (list (expand-file-name
-                      (read-directory-name
-                       "Insert directory tree: "
-                       default-directory nil t
-                       (when (eq major-mode 'dired-mode)
-                         (when (file-directory-p (dired-get-filename))
-                           (dired-get-filename t)))))))
-  (let ((file-count 0)
-        (bongo-buffer (bongo-buffer)))
-    (with-temp-buffer
-      (apply 'call-process bongo-gnu-find-program nil t nil
-             directory-name "-type" "f"
-             "-iregex" (bongo-track-file-name-regexp)
-             bongo-gnu-find-extra-arguments)
-      (sort-lines nil (point-min) (point-max))
-      (goto-char (point-min))
-      (while (not (eobp))
-        (with-current-buffer bongo-buffer
-          (bongo-insert-file (buffer-substring (point) (point-at-eol))))
-        (setq file-count (1+ file-count))
-        (forward-line)))
-    (when (zerop file-count)
-      (error "Directory tree contains no playable files"))
-    (when (and (interactive-p) (not (bongo-buffer-p)))
-      (message "Inserted %d files." file-count))))
-
 
 ;;;; Collapsing and expanding
 
