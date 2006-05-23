@@ -279,6 +279,11 @@ command act as if this variable was temporarily toggled.)"
   :type 'boolean
   :group 'bongo)
 
+(defcustom bongo-display-playlist-after-enqueue t
+  "If non-nil, Bongo will display the playlist after enqueuing a track."
+  :type 'boolean
+  :group 'bongo)
+
 (defcustom bongo-default-directory nil
   "Default directory for Bongo buffers, or nil."
   :type '(choice (const :tag "None in particular" nil)
@@ -2253,9 +2258,10 @@ constructor for `%s' backend" (car backend)))))
 If point is on a header, collapse or expand the section below.
 If point is on a track, the action is contingent on the mode:
   In Bongo Playlist mode, call `bongo-play-line'.
-  In Bongo Library mode, call `bongo-insert-enqueue-line' and then,
-    unless either `bongo-avoid-interrupting-playback' xor
-    PREFIX-ARGUMENT is non-nil, call `bongo-play-next'.
+  In Bongo Library mode, call `bongo-insert-enqueue-line' to
+    insert the track into the playlist.  Then start playing
+    that track, unless either `bongo-avoid-interrupting-playback'
+    xor PREFIX-ARGUMENT is non-nil.
 
 If point is neither on a track nor on a header, do nothing."
   (interactive "P")
@@ -3344,7 +3350,9 @@ If MODE is `append', implement `bongo-append-enqueue-line'."
       (prog1 position
         (when skip
           (bongo-forward-section))
-        (when (bongo-library-buffer-p)
+        (when (and (bongo-library-buffer-p)
+                   (or (get-buffer-window (bongo-playlist-buffer))
+                       bongo-display-playlist-after-enqueue))
           (let ((original-window (selected-window)))
             (select-window (display-buffer (bongo-playlist-buffer)))
             (goto-char position)
