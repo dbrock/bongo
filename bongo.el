@@ -1334,18 +1334,19 @@ A field is common in a region if all object lines inside
 the region share the same value for the field."
   (save-excursion
     (let ((last-value nil)
-          (common-p t))
+          (result t))
       (goto-char beg)
       (when (not (bongo-object-line-p))
         (bongo-forward-object-line))
       (when (< (point) end)
-        (setq last-value (bongo-line-field-value field))
-        (bongo-forward-object-line)
-        (while (and common-p (< (point) end))
-          (if (equal last-value (bongo-line-field-value field))
-              (bongo-forward-object-line)
-            (setq common-p nil))))
-      common-p)))
+        (if (null (setq last-value (bongo-line-field-value field)))
+            (setq result nil)
+          (bongo-forward-object-line)
+          (while (and result (< (point) end))
+            (if (equal last-value (bongo-line-field-value field))
+                (bongo-forward-object-line)
+              (setq result nil)))))
+      result)))
 
 ;; XXX: This will not work properly unless the fields are
 ;;      strictly hierarchical.
@@ -1387,13 +1388,13 @@ the object at POINT and either the previous or the next object."
 Return nil if there is a field in FIELDS that is not external for
 at least one line in the region."
   (save-excursion
-    (let ((external-p t))
+    (let ((result t))
       (goto-char beg)
-      (while (and (< (point) end) external-p)
+      (while (and (< (point) end) result)
         (when (< (bongo-line-indentation) (length fields))
-          (setq external-p nil))
+          (setq result nil))
         (forward-line))
-      external-p)))
+      result)))
 
 ;;; (defun bongo-external-fields-in-region-equal-p (beg end)
 ;;;   "In Bongo, return the fields that are external in the region.
@@ -3008,7 +3009,7 @@ If SKIP is nil, leave point at the newly created header line.
 If SKIP is non-nil, leave point at the first object line after
   the newly created section.
 If there are no common fields at point and SKIP is nil, signal an error.
-If called interactively, SKIP is always non-nil."
+When called interactively, SKIP is always non-nil."
   (interactive "p")
   (if (and transient-mark-mode mark-active)
       (bongo-join-region (region-beginning) (region-end))
