@@ -22,6 +22,14 @@
 ;; Software Foundation, 51 Franklin Street, Fifth Floor,
 ;; Boston, MA 02110-1301, USA.
 
+;;; Todo:
+
+;; Shuffle operations.  It would be nice to have both a
+;; random shuffle operation and an interleaving
+;; enqueue operation.
+
+;; Streaming media support.
+
 ;;; Code:
 
 (eval-when-compile
