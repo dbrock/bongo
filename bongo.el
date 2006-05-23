@@ -5,7 +5,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: May 5, 2006
+;; Updated: May 23, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -3013,8 +3013,7 @@ If called interactively, SKIP is always non-nil."
       (if (null fields)
           (if (not skip)
               (error "No common fields at point")
-            (unless (bongo-last-object-line-p)
-              (bongo-forward-object-line)))
+            (bongo-forward-object-line))
         (let ((values (bongo-line-field-values fields))
               (before (bongo-point-before-line))
               (after (bongo-point-after-line)))
