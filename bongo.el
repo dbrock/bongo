@@ -1975,7 +1975,7 @@ If the player backend cannot report this, return nil."
                     (program-arguments . ,program-arguments)
                     (pretty-name . ,pretty-name)))
        (add-to-list 'bongo-backends ',name t)
-       (bongo-define-enabled-backends-variable))))
+       (bongo-evaluate-backend-defcustoms))))
 
 
 ;;;; The mpg123 backend
