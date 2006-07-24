@@ -1539,11 +1539,11 @@ existing header into two (see `bongo-maybe-insert-intermediate-header')."
 
 (defun bongo-backend-get (backend property)
   "Return the value of BACKEND's PROPERTY."
-  (bongo-alist-get (cdr backend) property))
+  (bongo-alist-get (cdr (bongo-backend backend)) property))
 
 (defun bongo-backend-put (backend property value)
   "Set BACKEND's PROPERTY to VALUE."
-  (bongo-alist-put (cdr backend) property value))
+  (bongo-alist-put (cdr (bongo-backend backend)) property value))
 
 (defun bongo-backend-matcher (backend)
   "Return BACKEND's matcher."
