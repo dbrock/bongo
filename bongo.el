@@ -41,224 +41,88 @@
   :group 'multimedia
   :group 'applications)
 
-(defvar bongo-shipped-backends
-  `((mpg123
-     (matcher "mp3" "mp2")
-     (constructor . bongo-start-mpg123-player))
-    (mplayer
-     (matcher "ogg" "flac" "mp3" "mka" "wav" "wma"
-              "mpg" "mpeg" "avi" "ogm" "mp4" "mkv"
-              "mov" "asf" "wmv" "rm" "rmvb")
-     (constructor . bongo-start-mplayer-player))
-    (ogg123
-     (matcher "ogg")
-     (constructor
-      (program-name . bongo-ogg123-program-name)
-      (arguments bongo-ogg123-extra-arguments file-name)))
-    (speexdec
-     (matcher "spx")
-     (constructor
-      (program-name . bongo-speexdec-program-name)
-      (arguments bongo-speexdec-extra-arguments file-name)))
-    (timidity
-     (matcher "mid" "midi" "rcp" "r36" "g18" "g36" "mod")
-     (constructor
-      (program-name . bongo-timidity-program-name)
-      (arguments bongo-timidity-extra-arguments file-name)))
-    (mikmod
-     (matcher .
-      ,(concat "\\."
-               (regexp-opt
-                '("669" "amf" "dsm" "far" "gdm" "imf"
-                  "it" "med" "mod" "mtm" "okt" "s3m"
-                  "stm" "stx" "ult" "uni" "apun" "xm")
-                'add-enclosing-parens)
-               "\\(\\."
-               (regexp-opt
-                '("zip" "lha" "lhz" "zoo" "gz" "bz2"
-                  "tar" "tar.gz" "tar.bz2" "rar")
-                'add-enclosing-parens)
-               "\\)?$"))
-     (constructor
-      (program-name . bongo-mikmod-program-name)
-      (arguments bongo-mikmod-extra-arguments file-name))))
-  "List of player backends shipped with Bongo.
-Entries are of the same form as for `bongo-custom-backends'.
+(defvar bongo-backends '()
+  "List of names of available Bongo player backends.
+The backend data for each entry is stored in the `bongo-backend'
+property of the backend name symbol.")
 
-The `mpg123' and `mplayer' backends support pausing and
-seeking, while the others do not.  Furthermore, mpg123 can
-report the amount of time remaining, and usually has better
-seek granularity than mplayer.")
+(defvar bongo-backend-matchers '()
+  "List of Bongo player backend matchers.
+See `bongo-custom-backend-matchers' for more information.")
 
-(defcustom bongo-enabled-backends
-  ;; This code is not meant to be really smart or anything;
-  ;; its purpose is to hazard a guess for a workable setup.
-  ;; Users can easily change this and related variables,
-  ;; but it's nice when things Just Work most of the time.
-  (append (when (executable-find
-                 (if (boundp 'bongo-mpg123-program-name)
-                     bongo-mpg123-program-name
-                   "mpg123"))
-            '(mpg123))
-          (or (when (executable-find
-                     (if (boundp 'bongo-mplayer-program-name)
-                         bongo-mplayer-program-name
-                       "mplayer"))
-                '(mplayer))
-              ;; Don't bother with ogg123 if mplayer is
-              ;; available (the latter is interactive).
-              (when (executable-find
-                     (if (boundp 'bongo-ogg123-program-name)
-                         bongo-ogg123-program-name
-                       "ogg123"))
-                '(ogg123)))
-          (when (executable-find
-                 (if (boundp 'bongo-timidity-program-name)
-                     bongo-timidity-program-name
-                   "timidity"))
-            '(timidity))
-          (when (executable-find
-                 (if (boundp 'bongo-mikmod-program-name)
-                     bongo-mikmod-program-name
-                   "mikmod"))
-            '(mikmod)))
-  "List of names of enabled Bongo player backends.
-See `bongo-shipped-backends' for the available backends.
-This is not the place to define your own backends; custom
-backends (see `bongo-custom-backends') are always enabled
-and always preferred over these backends.
+(defun bongo-evaluate-backend-defcustoms ()
+  "Define `bongo-enabled-backends' and `bongo-custom-backend-matchers'.
+This should be done whenever `bongo-backends' changes, so that
+the `defcustom' options can be updated."
+  (put 'bongo-enabled-backends 'custom-options nil)
 
-The `mpg123' and `mplayer' backends support pausing and
-seeking, while the others do not.  Furthermore, mpg123 can
-report the amount of time remaining, and usually has better
-seek granularity than mplayer."
-  ;; XXX: This variable is not really a hook, but you can't
-  ;;      use the `:options' keyword with '(repeat symbol)
-  ;;      for some reason --- this is a workaround.
-  :type 'hook
-  :options (mapcar 'car bongo-shipped-backends)
-  :link '(custom-group-link bongo-mplayer)
-  :link '(custom-group-link bongo-mpg123)
-  :group 'bongo)
+  (defcustom bongo-enabled-backends
+    (mapcan (lambda (backend-name)
+              (when (executable-find (bongo-backend-program-name
+                                      (bongo-backend backend-name)))
+                (list backend-name)))
+            bongo-backends)
+    "List of names of enabled Bongo player backends.
+See `bongo-backends' for a list of available backends."
+    ;; XXX: This variable is not really a hook, but you can't
+    ;;      use the `:options' keyword with '(repeat symbol)
+    ;;      for some reason --- this is an ugly workaround.
+    :type 'hook
+    :options bongo-backends
+    :group 'bongo)
 
-(defcustom bongo-custom-backends nil
-  "List of user-defined Bongo player backends.
-Entries are of the following form:
-   (NAME (matcher . MATCHER)
-         (constructor . CONSTRUCTOR))
+  (defcustom bongo-custom-backend-matchers nil
+    "List of custom Bongo player backend matchers.
+Entries are rules of the form (BACKEND-NAME . MATCHER).
 
-MATCHER can be t, nil, a string, a list, or a symbol;
-  see `bongo-file-name-matches-p' for more information.
-CONSTRUCTOR is a function that recieves one argument, FILE-NAME.
-  It should immediately start a player for FILE-NAME.
+BACKEND-NAME is either `ignore' (which tells Bongo to ignore
+  the matched files), or a symbol naming the backend to use.
+MATCHER specifies which files the rule applies to;
+  it is given to `bongo-file-name-matches-p'.
 
-For simple backends that do not merit a custom constructor,
-you may be able use the following form instead:
-   (NAME (matcher . MATCHER)
-         (constructor
-          (program-name PROGRAM-NAME)
-          (arguments ARGUMENT...)))
-PROGRAM-NAME may be a string or the name of a variable
-  whose value is a string.
-Each ARGUMENT may be a string or the name of a variable whose
-  value is either a string or a list of strings, or a form
-  that evaluates to a string or a list of strings.
-In the list of ARGUMENTs, the symbol `file-name' will be
-  bound to the name of the file that is to be played.
+This option overrides `bongo-enabled-backends' in that disabled
+backends will still be used if these rules say so.  In addition,
+it always takes precedence over `bongo-backend-matchers'.
 
-For example, to add support for TiMidity, you could use this:
-   (setq bongo-custom-backends
-         '(timidity
-           (matcher \"mid\" \"midi\")
-           (constructor
-            (program-name . \"timidity\")
-            (arguments \"--quiet\" file-name))))"
-  :type `(repeat
-          (cons :tag "Backend"
-                :value (timidity-example
-                        (matcher "mid" "midi")
-                        (constructor
-                         (program-name . "timidity")
-                         (arguments "--quiet" file-name)))
-                (symbol :tag "Name")
-                (alist
-                 :format "%v"
-                 :key-type symbol
-                 :options
-                 (((const :tag "Matcher" matcher)
-                   (choice
-                    (const :tag "Never match" nil)
-                    (const :tag "Always match" t)
-                    (repeat :tag "File extension" string)
-                    (regexp :tag "File name (regular expression)")
-                    (function :tag "Custom predicate")))
-                  ((const :tag "Constructor" constructor)
-                   (choice
-                    (alist
-                     :tag "Simple constructor"
-                     :key-type symbol
-                     :options
-                     (((const :tag "Program name" program-name) string)
-                      ((const :tag "Argument list" arguments)
-                       (choice (const :tag "Just the file name" (file-name))
-                               (repeat :tag "Some strings and the file name"
-                                (choice string
-                                        (const :tag "The file name"
-                                               file-name)))))))
-                    function))))))
-  :group 'bongo)
+For example, let's say that you want to use mplayer instead of
+mpg123 to play MP3 files, use speexdec to play \".speex\" files
+in addition to \".spx\" files, and ignore WAV files altogether.
+Then you could use the following setting:
 
-(defun bongo-backends (&optional include-disabled)
-  "Return an alist of available and enabled Bongo backends.
-If INCLUDE-DISABLED is non-nil, also include disabled backends.
+   (setq bongo-custom-backend-matchers
+         '((mplayer local-file \"mp3\")
+           (speexdec local-file \"speex\")
+           (ignore local-file \"wav\")))"
+    :type
+    `(repeat
+      (cons :format "%v"
+            (choice :tag "Backend"
+                    (const :tag "Ignore matching files" ignore)
+                    ,@(mapcar (lambda (backend-name)
+                                (list 'const (bongo-backend-pretty-name
+                                              (bongo-backend backend-name))))
+                              bongo-backends)
+                    (symbol :tag "Other backend"))
+            (cons :format "%v"
+                  (repeat :tag "File types"
+                          :value (local-file)
+                          (choice :tag "Type"
+                                  (const :tag "Local file" local-file)
+                                  (string :tag "URI (specify scheme)")))
+                  (choice :tag "Matcher"
+                          (repeat :tag "File extensions" string)
+                          (regexp :tag "File name (regexp)")
+                          (function :tag "File name (predicate)")
+                          (const :tag "All files" t)))))
+    :group 'bongo))
 
-The return value is always the entirety of `bongo-custom-backends'
-followed by some subset of `bongo-shipped-backends'."
-  (append bongo-custom-backends
-          (let (enabled-backends)
-            (mapc (lambda (x)
-                    (when (memq (car x) bongo-enabled-backends)
-                      (setq enabled-backends (cons x enabled-backends))))
-                  bongo-shipped-backends)
-            enabled-backends)))
+(bongo-evaluate-backend-defcustoms)
 
-;;; XXX: This variable may have outlived its usefulness,
-;;;      now that we have `bongo-enabled-backends'.
-;;;      However, it is still useful for customizing which
-;;;      files get handled by which backends.  Maybe we
-;;;      should invent a new way to do exactly this.
-(defcustom bongo-preferred-backends nil
-  "List of preferred Bongo player backends.
-Entries are of the form (BACKEND-NAME . MATCHER).
-
-For example, if you want to use the `mplayer' backend for all tracks
-regardless of file name, you could use the following setting:
-
-   (setq bongo-preferred-backends '((mplayer . t)))
-
-BACKEND-NAME is the key for an entry in `bongo-custom-backends'
-  or `bongo-shipped-backends'.
-MATCHER, if non-nil, overrides the default matcher for the backend;
-  see `bongo-file-name-matches-p' for more information."
-  :type `(repeat
-          (cons :format "%t\n%d%v"
-                :tag "Preference:"
-                :doc "Please note that recently added backends \
-may not appear in the list."
-                (choice :tag "Backend"
-                        ,@(mapcar (lambda (x) `(const ,(car x)))
-                                  (bongo-backends 'include-disabled))
-                        (symbol :tag "Other backend"))
-                (choice :tag "When"
-                        (const :tag "Default condition for backend" nil)
-                        (const :tag "Always preferred" t)
-                        (radio :tag "Custom condition" :value ".*"
-                               (regexp :tag "File name pattern")
-                               (repeat :tag "File name extensions" string)
-                               (function :tag "File name predicate")))))
-  :link '(custom-group-link bongo-mplayer)
-  :link '(custom-group-link bongo-mpg123)
-  :group 'bongo)
+(define-obsolete-variable-alias 'bongo-preferred-backends
+  'bongo-custom-backend-matchers nil
+  "This is an obsolete name for `bongo-custom-backend-matchers'.
+Please read the documentation for that variable, as the new usage
+differs slightly from the old.")
 
 (defcustom bongo-prefer-library-buffers t
   "If non-nil, prefer library buffers over playlist buffers.
@@ -296,7 +160,8 @@ command act as if this variable was temporarily toggled.)"
   "Default directory for Bongo buffers, or nil."
   :type '(choice (const :tag "None in particular" nil)
                  directory)
-  :group 'bongo)
+  :group 'bongo
+  :group 'bongo-file-names)
 
 (defcustom bongo-default-playlist-buffer-name "*Bongo Playlist*"
   "The name of the default Bongo playlist buffer."
@@ -513,27 +378,78 @@ The meaning and content of the fields are defined implicitly by the
 functions that use and operate on fields and infosets (sets of fields).
 Therefore, if you change this list, you probably also need to change
  (a) either `bongo-infoset-formatting-function' or
-     `bongo-field-formatting-function', and
- (b) `bongo-infoset-from-file-name-function'."
+     `bongo-field-formatting-function',
+ (b) `bongo-infoset-from-file-name-function', and
+ (c) either `bongo-file-name-from-infoset-function' or
+     `bongo-file-name-part-from-field-function'."
   :type '(repeat symbol)
   :group 'bongo-infosets)
 
 (defcustom bongo-infoset-from-file-name-function
   'bongo-default-infoset-from-file-name
-  "Function used to convert file names into infosets."
+  "Function used to convert file names into infosets.
+This function should be chosen so that the following
+identity holds at all times:
+   (equal (file-name-sans-extension
+           (file-name-nondirectory FILE-NAME))
+          (bongo-file-name-from-infoset
+           (bongo-infoset-from-file-name FILE-NAME)))
+
+Good functions are `bongo-default-infoset-from-file-name'
+and `bongo-simple-infoset-from-file-name'.
+
+See also `bongo-file-name-from-infoset-function'."
+  :type 'function
+  :options '(bongo-default-infoset-from-file-name
+             bongo-simple-infoset-from-file-name)
+  :group 'bongo-file-names
+  :group 'bongo-infosets)
+
+(defcustom bongo-file-name-from-infoset-function
+  'bongo-default-file-name-from-infoset
+  "Function used to represent an infoset as a file name.
+This function should be chosen so that the following
+identity holds at all times:
+   (equal (file-name-sans-extension
+           (file-name-nondirectory FILE-NAME))
+          (bongo-file-name-from-infoset
+           (bongo-infoset-from-file-name FILE-NAME)))
+
+If the infoset cannot be represented as a file name, the
+function should signal an error.  To satisfy the above
+identity, this must not be the case for any infoset that
+`bongo-infoset-from-file-name' can generate.
+
+The default function cannot represent infosets that contain
+general but not specific data.  For example, it cannot
+represent ((artist (name \"Foo\"))), because a file name
+containing only \"Foo\" would be interpreted as containing
+only a track title.
+
+See also `bongo-infoset-from-file-name-function'."
   :type 'function
   :group 'bongo-file-names
   :group 'bongo-infosets)
 
-(defcustom bongo-infoset-formatting-function 'bongo-default-format-infoset
-  "Function used to convert an infoset into a string."
+(defcustom bongo-file-name-part-from-field-function
+  'bongo-default-file-name-part-from-field
+  "Function used to represent an info field as part of a file name.
+This is used by `bongo-default-file-name-from-infoset'."
+  :type 'function
+  :group 'bongo-file-names
+  :group 'bongo-infosets)
+
+(defcustom bongo-infoset-formatting-function
+  'bongo-default-format-infoset
+  "Function used to represent an infoset as a user-friendly string."
   :type 'function
   :group 'bongo-display
   :group 'bongo-infosets)
 
-(defcustom bongo-field-formatting-function 'bongo-default-format-field
-  "Function used to convert an info field into a string.
-This is used by the function `bongo-default-format-infoset'."
+(defcustom bongo-field-formatting-function
+  'bongo-default-format-field
+  "Function used to represent an info field as a user-friendly string.
+This is used by `bongo-default-format-infoset'."
   :type 'function
   :group 'bongo-display
   :group 'bongo-infosets)
@@ -602,11 +518,31 @@ This function just calls `bongo-infoset-formatting-function'."
 
 (defun bongo-default-format-infoset (infoset)
   "Format INFOSET by calling `bongo-format-field' on each field.
-Separate the obtained formatted field values by `bongo-field-separator'."
+Separate the obtained formatted field values by
+  `bongo-field-separator'."
   (mapconcat 'bongo-format-field infoset bongo-field-separator))
+
+(defun bongo-file-name-from-infoset (infoset)
+  "Represent INFOSET as a file name, if possible.
+If INFOSET cannot be represented as a file name, signal an error.
+This function just calls `bongo-file-name-from-infoset-function'.
+See the documentation for that variable for more information."
+  (funcall bongo-file-name-from-infoset-function infoset))
+
+(defun bongo-default-file-name-from-infoset (infoset)
+  "Represent INFOSET as a file name, if possible.
+This function calls `bongo-file-name-part-from-field' on
+each field and separates the obtained field values using
+`bongo-file-name-field-separator'."
+  ;; Signal an error if the infoset cannot be represented.
+  (mapconcat 'bongo-file-name-part-from-field infoset
+             bongo-file-name-field-separator))
 
 (defun bongo-join-fields (values)
   (mapconcat 'identity values bongo-field-separator))
+
+(defun bongo-join-file-name-fields (values)
+  (mapconcat 'identity values bongo-file-name-field-separator))
 
 (defun bongo-format-field (field)
   (funcall bongo-field-formatting-function field))
@@ -615,10 +551,10 @@ Separate the obtained formatted field values by `bongo-field-separator'."
   (require 'format-spec)
   (let ((type (car field))
         (data (cdr field)))
-    (cond
-     ((eq type 'artist)
+    (case type
+     ((artist)
       (propertize (bongo-alist-get data 'name) 'face 'bongo-artist))
-     ((eq type 'album)
+     ((album)
       (let ((title (bongo-alist-get data 'title))
             (year (bongo-alist-get data 'year)))
         (if (null year) (propertize title 'face 'bongo-album-title)
@@ -627,7 +563,7 @@ Separate the obtained formatted field values by `bongo-field-separator'."
                                  title 'face 'bongo-album-title))
                          (?y . ,(propertize
                                  year 'face 'bongo-album-year)))))))
-     ((eq type 'track)
+     ((track)
       (let ((title (bongo-alist-get data 'title))
             (index (bongo-alist-get data 'index)))
         (if (null index) (propertize title 'face 'bongo-track-title)
@@ -636,6 +572,27 @@ Separate the obtained formatted field values by `bongo-field-separator'."
                                  title 'face 'bongo-track-title))
                          (?i . ,(propertize
                                  index 'face 'bongo-track-index))))))))))
+
+(defun bongo-file-name-part-from-field (field)
+  "Represent an info field as part of a file name.
+This is used by `bongo-default-file-name-from-infoset'."
+  (funcall bongo-file-name-part-from-field-function field))
+
+(defun bongo-default-file-name-part-from-field (field)
+  (let ((type (car field))
+        (data (cdr field)))
+    (case type
+     ((artist) data)
+     ((album)
+      (let ((title (bongo-alist-get data 'title))
+            (year (bongo-alist-get data 'year)))
+        (if (null year) title
+          (bongo-join-file-name-fields (list year title)))))
+     ((track)
+      (let ((title (bongo-alist-get data 'title))
+            (index (bongo-alist-get data 'index)))
+        (if (null index) title
+          (bongo-join-file-name-fields (list index title))))))))
 
 (defun bongo-infoset-from-file-name (file-name)
   (funcall bongo-infoset-from-file-name-function file-name))
@@ -689,6 +646,17 @@ Separate the obtained formatted field values by `bongo-field-separator'."
 (defun bongo-simple-infoset-from-file-name (file-name)
   `((track (title . ,(file-name-sans-extension
                       (file-name-nondirectory file-name))))))
+
+(defun bongo-infoset-artist-name (infoset)
+  (bongo-alist-get (bongo-alist-get infoset 'artist) 'name))
+(defun bongo-infoset-album-year (infoset)
+  (bongo-alist-get (bongo-alist-get infoset 'album) 'year))
+(defun bongo-infoset-album-title (infoset)
+  (bongo-alist-get (bongo-alist-get infoset 'album) 'title))
+(defun bongo-infoset-track-index (infoset)
+  (bongo-alist-get (bongo-alist-get infoset 'track) 'index))
+(defun bongo-infoset-track-title (infoset)
+  (bongo-alist-get (bongo-alist-get infoset 'track) 'title))
 
 
 ;;;; Basic point-manipulation routines
@@ -1080,6 +1048,18 @@ to exist for long enough to be visible to the user."
 Collapsed header lines are header lines whose sections are collapsed."
   (and (bongo-header-line-p point)
        (bongo-line-get-property 'bongo-collapsed point)))
+
+(defun bongo-empty-section-p (&optional point)
+  "Return non-nil if the line at POINT is an empty section.
+That is, the header line of a section that has no content."
+  (and (bongo-header-line-p point)
+       (or (bongo-last-object-line-p point)
+           (not (> (bongo-line-indentation
+                    (save-excursion
+                      (bongo-goto-point point)
+                      (bongo-forward-object-line)
+                      (point)))
+                   (bongo-line-indentation point))))))
 
 
 ;;;; General convenience routines
@@ -1528,14 +1508,21 @@ existing header into two (see `bongo-maybe-insert-intermediate-header')."
 
 ;;;; Backends
 
-(defun bongo-get-backend (name)
-  "Return the backend whose name is NAME."
-  (or (assoc bongo-custom-backends name)
-      (assoc bongo-shipped-backends name)))
+(defun bongo-backend (backend-name)
+  "Return the backend called BACKEND-NAME.
+If BACKEND-NAME is not a symbol, just return it."
+  (if (symbolp backend-name)
+      (get backend-name 'bongo-backend)
+    backend-name))
 
 (defun bongo-backend-name (backend)
-  "Return the name of BACKEND (`mpg123', `mplayer', etc.)."
+  "Return the name of BACKEND."
   (car backend))
+
+(defun bongo-backend-pretty-name (backend)
+  "Return BACKEND's pretty name."
+  (or (bongo-backend-get backend 'pretty-name)
+      (symbol-name (bongo-backend-name backend))))
 
 (defun bongo-backend-get (backend property)
   "Return the value of BACKEND's PROPERTY."
@@ -1545,17 +1532,27 @@ existing header into two (see `bongo-maybe-insert-intermediate-header')."
   "Set BACKEND's PROPERTY to VALUE."
   (bongo-alist-put (cdr (bongo-backend backend)) property value))
 
-(defun bongo-backend-matcher (backend)
-  "Return BACKEND's matcher."
-  (bongo-backend-get backend 'matcher))
-
 (defun bongo-backend-constructor (backend)
   "Return BACKEND's constructor."
   (bongo-backend-get backend 'constructor))
 
+(defun bongo-backend-program-name (backend)
+  "Return BACKEND's program name."
+  (let ((program-name (bongo-backend-get backend 'program-name)))
+    (if (symbolp program-name)
+        (symbol-value program-name)
+      program-name)))
+
+(defun bongo-backend-program-arguments (backend)
+  "Return BACKEND's program argument list."
+  (bongo-backend-get backend 'program-arguments))
+
 (defun bongo-file-name-matches-p (file-name matcher)
   "Return non-nil if FILE-NAME matches MATCHER.
-The possible values of MATCHER are listed below.
+MATCHER is of the form (TYPE-MATCHER . VALUE-MATCHER),
+where TYPE-MATCHER is either `local-file' or a string
+of the form \"URI-SCHEME:\", or a list of such atoms.
+The possible values of VALUE-MATCHER are listed below.
 
 If it is t, return non-nil immediately.
 If it is a string, treat it as a regular expression;
@@ -1565,82 +1562,44 @@ If it is a symbol, treat it as a function name;
 If it is a list, treat it as a set of file name extensions;
   return non-nil if the extension of FILE-NAME appears in MATCHER.
 Otherwise, signal an error."
-  (cond
-   ((eq matcher t) t)
-   ((stringp matcher) (string-match matcher file-name))
-   ((symbolp matcher) (funcall matcher file-name))
-   ((listp matcher)
-    (let ((actual-extension (file-name-extension file-name)))
-      (catch 'match
-        (dolist (extension matcher nil)
-          (when (string= extension actual-extension)
-            (throw 'match t))))))
-   (t (error "Bad file name matcher: %s" matcher))))
+  (let ((type-matcher (car matcher))
+        (value-matcher (cdr matcher)))
+    (when (or (eq type-matcher 'local-file)
+              (and (listp type-matcher)
+                   (memq 'local-file type-matcher)))
+      (cond
+       ((eq value-matcher t) t)
+       ((stringp value-matcher) (string-match value-matcher file-name))
+       ((symbolp value-matcher) (funcall value-matcher file-name))
+       ((listp value-matcher)
+        (let ((actual-extension
+               (downcase (or (file-name-extension file-name) ""))))
+          (catch 'match
+            (dolist (extension value-matcher nil)
+              (when (string= extension actual-extension)
+                (throw 'match t))))))
+       (t (error "Bad file name matcher: %s" value-matcher))))))
 
-;;; XXX: These functions need to be refactored.
+(defun bongo-backend-matchers ()
+  (append bongo-custom-backend-matchers
+          (mapcan (lambda (matcher)
+                    (when (memq (car matcher) bongo-enabled-backends)
+                      (list matcher)))
+                  bongo-backend-matchers)))
 
-(defun bongo-track-file-name-regexp ()
-  "Return a regexp matching the names of playable files.
-Walk `bongo-preferred-backends', `bongo-custom-backends', and
-`bongo-shipped-backends' --- collecting file name regexps and file name
-extensions --- and construct a regexp that matches all of the possibilities."
-  (let ((available-backends (bongo-backends)))
-    (when (null available-backends)
-      (error (concat "No backends are enabled; please customize "
-                     "`bongo-enabled-backends'")))
-    (let ((extensions nil) (regexps nil))
-      (let ((list bongo-preferred-backends))
-        (while list
-          (let ((backend (assoc (caar list) available-backends)))
-            (when (null backend)
-              (error "No such backend: `%s'" (caar list)))
-            (let ((matcher (or (cdar list)
-                               (bongo-backend-matcher backend))))
-              (cond
-               ((stringp matcher)
-                (setq regexps (cons matcher regexps)))
-               ((listp matcher)
-                (setq extensions (append matcher extensions))))))
-          (setq list (cdr list))))
-      (let ((list available-backends))
-        (while list
-          (let ((matcher (bongo-backend-matcher (car list))))
-            (cond
-             ((stringp matcher)
-              (setq regexps (cons matcher regexps)))
-             ((listp matcher)
-              (setq extensions (append matcher extensions)))))
-          (setq list (cdr list))))
-      (when extensions
-        (let ((regexp (format ".*\\.%s$" (regexp-opt extensions t))))
-          (setq regexps (cons regexp regexps))))
-      (if (null regexps) "."
-        (mapconcat 'identity regexps "\\|")))))
+(defun bongo-backend-for-file (file-name)
+  "Return the name of the backend to use for playing FILE-NAME."
+  (let ((backend-name nil))
+    (let ((matchers (bongo-backend-matchers)))
+      (while (and matchers (null backend-name))
+        (if (bongo-file-name-matches-p file-name (cdar matchers))
+            (setq backend-name (caar matchers))
+          (setq matchers (cdr matchers)))))
+    (unless (eq backend-name 'ignore)
+      backend-name)))
 
-(defun bongo-best-backend-for-file (file-name)
-  "Return a backend that can play the file FILE-NAME, or nil.
-First search `bongo-preferred-backends', then `bongo-custom-backends',
-then `bongo-shipped-backends'."
-  (let ((available-backends (bongo-backends))
-        (best-backend nil))
-    (let ((list bongo-preferred-backends))
-      (while (and list (null best-backend))
-        (let ((backend (assoc (caar list) available-backends)))
-          (when (null backend)
-            (error "No such backend: `%s'" (caar list)))
-          (let ((matcher (or (cdar list)
-                             (bongo-backend-matcher backend))))
-            (when (bongo-file-name-matches-p file-name matcher)
-              (setq best-backend backend))))
-        (setq list (cdr list))))
-    (unless best-backend
-      (let ((list available-backends))
-        (while (and list (null best-backend))
-          (let ((matcher (bongo-backend-matcher (car list))))
-            (if (bongo-file-name-matches-p file-name matcher)
-                (setq best-backend (car list))
-              (setq list (cdr list)))))))
-    best-backend))
+(define-obsolete-function-alias 'bongo-best-backend-for-file
+  'bongo-backend-for-file)
 
 
 ;;;; Players
@@ -1681,9 +1640,6 @@ then `bongo-shipped-backends'."
 
 (defun bongo-player-failed (player)
   "Run the hooks appropriate for when PLAYER has failed."
-  (let ((process (bongo-player-process player)))
-    (message "Process `%s' exited abnormally with code %d"
-             (process-name process) (process-exit-status process)))
   (when (buffer-live-p (bongo-player-buffer player))
     (with-current-buffer (bongo-player-buffer player)
       (run-hook-with-args 'bongo-player-failed-functions player)
@@ -1717,18 +1673,18 @@ You should not call this function directly."
       (run-hooks 'bongo-player-finished-hook)
       (bongo-perform-next-action))))
 
-(defun bongo-play (file-name &optional backend-name)
+(defun bongo-play (file-name &optional backend)
   "Start playing FILE-NAME and return the new player.
 In Bongo mode, first stop the currently active player, if any.
 
-BACKEND-NAME specifies which backend to use; if it is nil,
+BACKEND specifies which backend to use; if it is nil,
 Bongo will try to find the best player for FILE-NAME.
 
 This function runs `bongo-player-started-hook'."
   (when (bongo-buffer-p)
     (when bongo-player
       (bongo-player-stop bongo-player)))
-  (let ((player (bongo-start-player file-name backend-name)))
+  (let ((player (bongo-start-player file-name backend)))
     (prog1 player
       (when (bongo-buffer-p)
         (setq bongo-player player))
@@ -1758,42 +1714,35 @@ The variable `bongo-renice-command' says what command to use."
                 (format "%s %d -p %d" bongo-renice-command
                         priority pid)))
 
-(defun bongo-start-player (file-name &optional backend-name)
+(defun bongo-start-player (file-name &optional backend)
   "Start and return a new Bongo player for FILE-NAME.
 
-BACKEND-NAME specifies which backend to use; if it is nil,
+BACKEND specifies which backend to use; if it is nil,
 Bongo will try to find the best player for FILE-NAME.
 
 This function runs `bongo-player-started-functions'.
 See also `bongo-play'."
-  (let ((backend (if backend-name
-                     (bongo-alist-get (bongo-backends) backend-name)
-                   (bongo-best-backend-for-file file-name))))
-    (when (null backend)
-      (error "Don't know how to play `%s'" file-name))
-    (let* ((constructor (bongo-backend-constructor backend))
-           (player (cond
-                    ((symbolp constructor)
-                     (funcall constructor file-name))
-                    ((listp constructor)
-                     (bongo-start-simple-player backend file-name))
-                    (t (error "Invalid constructor for `%s' backend: %s"
-                              (bongo-backend-name backend) constructor))))
-           (process (bongo-player-process player)))
-      (prog1 player
-        (when (and process bongo-player-process-priority
-                   (eq 'run (process-status process)))
-          (bongo-renice (process-id process)
-                        bongo-player-process-priority))
-        (run-hook-with-args 'bongo-player-started-functions player)))))
+  (setq backend (if backend (bongo-backend backend)
+                  (bongo-backend-for-file file-name)))
+  (when (null backend)
+    (error "Don't know how to play `%s'" file-name))
+  (let* ((constructor (bongo-backend-constructor backend))
+         (player (funcall constructor file-name))
+         (process (bongo-player-process player)))
+    (prog1 player
+      (when (and process bongo-player-process-priority
+                 (eq 'run (process-status process)))
+        (bongo-renice (process-id process)
+                      bongo-player-process-priority))
+      (run-hook-with-args 'bongo-player-started-functions player))))
 
 (defun bongo-player-backend-name (player)
-  "Return the name of PLAYER's backend (`mpg123', `mplayer', etc.)."
+  "Return the name of PLAYER's backend."
   (car player))
 
 (defun bongo-player-backend (player)
   "Return PLAYER's backend object."
-  (bongo-get-backend (bongo-player-backend-name player)))
+  (bongo-backend (bongo-player-backend-name player)))
 
 (defun bongo-player-get (player property)
   "Return the value of PLAYER's PROPERTY."
@@ -1841,10 +1790,22 @@ When this function returns, PLAYER will no longer be usable."
   (bongo-player-put player 'explicitly-stopped t)
   (bongo-player-call player 'stop))
 
+(defun bongo-player-pausing-supported-p (player)
+  "Return non-nil if PLAYER supports pausing."
+  (bongo-player-get player 'pausing-supported-flag))
+
+(defun bongo-player-paused-p (player)
+  "Return non-nil if PLAYER is paused."
+  (bongo-player-call player 'paused-p))
+
 (defun bongo-player-pause/resume (player)
   "Tell PLAYER to toggle its paused state.
 If PLAYER does not support pausing, signal an error."
   (bongo-player-call player 'pause/resume))
+
+(defun bongo-player-seeking-supported-p (player)
+  "Return non-nil if PLAYER supports seeking."
+  (bongo-player-get player 'seeking-supported-flag))
 
 (defun bongo-player-seek-by (player n)
   "Tell PLAYER to seek to absolute position N.
@@ -1900,41 +1861,162 @@ If the player backend cannot report this, return nil."
      ((eq status 'exit)
       (if (zerop (process-exit-status process))
           (bongo-player-succeeded player)
+        (message "Process `%s' exited abnormally with code %d"
+                 (process-name process) (process-exit-status process))
         (bongo-player-failed player)))
      ((eq status 'signal)
       (unless (bongo-player-explicitly-stopped-p player)
         (bongo-player-killed player))))))
 
 
+;;;; Backends
+
+(defun bongo-evaluate-program-argument (argument)
+  (cond
+   ((stringp argument) (list argument))
+   ((symbolp argument)
+    (let ((value (symbol-value argument)))
+      (if (listp value) value (list value))))
+   ((listp argument)
+    (let ((value (eval argument)))
+      (if (listp value) value (list value))))
+   (t (error "Invalid program argument specifier: `%s'" argument))))
+
+(defun bongo-evaluate-program-arguments (arguments)
+  (apply 'nconc (mapcar 'bongo-evaluate-program-argument arguments)))
+
+(defun bongo-start-simple-player (backend file-name)
+  ;; Don't change the name of the `file-name' parameter.
+  ;; The simple constructor argument list relies on that
+  ;; symbol being dynamically bound to the file name.
+  (let* ((process-connection-type nil)
+         (backend (bongo-backend backend))
+         (backend-name (bongo-backend-name backend))
+         (process (apply 'start-process
+                         (format "bongo-%s" backend-name) nil
+                         (bongo-backend-program-name backend)
+                         (bongo-evaluate-program-arguments
+                          (bongo-backend-program-arguments backend))))
+         (player `(,backend-name
+                   (process . ,process)
+                   (file-name . ,file-name)
+                   (buffer . ,(current-buffer))
+                   (stop . bongo-default-player-stop))))
+    (prog1 player
+      (set-process-sentinel process 'bongo-default-player-process-sentinel)
+      (bongo-process-put process 'bongo-player player))))
+
+(defmacro define-bongo-backend (name &rest options)
+  (let* ((group-name
+          (intern (format "bongo-%s" name)))
+         (program-name-variable
+          (or (eval (plist-get options :program-name-variable))
+              (intern (format "bongo-%s-program-name" name))))
+         (extra-program-arguments-variable
+          (or (eval (plist-get options :extra-program-arguments-variable))
+              (intern (format "bongo-%s-extra-arguments" name))))
+         (pretty-name
+          (or (eval (plist-get options :pretty-name))
+              (symbol-name name)))
+         (constructor
+          (or (eval (plist-get options :constructor))
+              (intern (format "bongo-start-%s-player" name))))
+         (program-name
+          (or (eval (plist-get options :program-name))
+              (symbol-name name)))
+         (program-arguments
+          (or (eval (plist-get options :program-arguments))
+              (list extra-program-arguments-variable 'file-name)))
+         (extra-program-arguments
+          (eval (plist-get options :extra-program-arguments)))
+         (matchers
+          (let ((options options)
+                (result nil))
+            (while options
+              (when (eq (car options) :matcher)
+                (setq result (cons (cadr options) result)))
+              (setq options (cddr options)))
+            (reverse result))))
+    `(progn
+       (defgroup ,group-name nil
+         ,(format "The %s backend to Bongo." pretty-name)
+         :prefix ,(format "bongo-%s-" name)
+         :group 'bongo)
+
+       ,@(when program-name-variable
+           `((defcustom ,program-name-variable ,program-name
+               ,(format "The name of the `%s' executable." program-name)
+               :type 'string
+               :group ',group-name)))
+
+       ,@(when (and (not (null extra-program-arguments-variable))
+                    (member extra-program-arguments-variable
+                            program-arguments))
+           `((defcustom ,extra-program-arguments-variable
+               ,extra-program-arguments
+               ,(format "Extra command-line arguments to pass to `%s'."
+                        program-name)
+               :type '(repeat (choice string variable sexp))
+               :group ',group-name)))
+
+       ,@(when (null (plist-get options :constructor))
+           `((defun ,constructor (file-name)
+               (bongo-start-simple-player ',name file-name))))
+
+       ,@(mapcar (lambda (matcher)
+                   `(add-to-list 'bongo-backend-matchers
+                      (cons ',name ,matcher) t))
+                 matchers)
+       
+       (put ',name 'bongo-backend
+            '(,name (constructor . ,constructor)
+                    (program-name . ,(or program-name-variable
+                                         program-name))
+                    (program-arguments . ,program-arguments)
+                    (pretty-name . ,pretty-name)))
+       (add-to-list 'bongo-backends ',name t)
+       (bongo-define-enabled-backends-variable))))
+
+
 ;;;; The mpg123 backend
 
-(defgroup bongo-mpg123 nil
-  "The mpg123 backend to Bongo."
-  :prefix "bongo-mpg123-"
-  :group 'bongo)
+(define-bongo-backend mpg123
+  :constructor 'bongo-start-mpg123-player
+  ;; We define this variable manually so that we can get
+  ;; some other customization variables to appear before it.
+  :extra-program-arguments-variable nil
+  :matcher '(local-file "mp3" "mp2"))
 
-(defcustom bongo-mpg123-program-name "mpg123"
-  "The name of the mpg123-compatible executable."
-  :type 'string
-  :group 'bongo-mpg123)
-
-(defcustom bongo-mpg123-device-type nil
-  "The type of device (oss, alsa, esd, etc.) to be used by mpg123.
+(defcustom bongo-mpg123-audio-driver nil
+  "The audio driver (\"esd\", \"alsa\", etc.) to be used by mpg123.
 This corresponds to the `-o' option of mpg123."
   :type '(choice (const :tag "System default" nil)
-                 (const :tag "ALSA" "alsa")
-                 (const :tag "OSS" "oss")
-                 (const :tag "Sun" "sun")
-                 (const :tag "ESD" "esd")
-                 (const :tag "ARTS" "arts")
-                 (string :tag "Other (specify)"))
+                 (const :tag "\
+esd (the Enlightened Sound Daemon)" "esd")
+                 (const :tag "\
+alsa (the Advanced Linux Sound Architecture)" "alsa")
+                 (const :tag "\
+alsa09 (ALSA version 0.9)" "alsa")
+                 (const :tag "\
+arts (the analog real-time synthesiser)" "arts")
+                 (const :tag "\
+sun (the Sun audio system)" "sun")
+                 (const :tag "\
+oss (the Linux Open Sound System)" "oss")
+                 (string :tag "Other audio driver"))
   :group 'bongo-mpg123)
 
-(defcustom bongo-mpg123-device nil
-  "The device (e.g., for ALSA, 1:0 or 2:1) to be used by mpg123.
+(define-obsolete-variable-alias 'bongo-mpg123-device-type
+  'bongo-mpg123-audio-driver)
+
+(defcustom bongo-mpg123-audio-device nil
+  "The audio device (e.g., for ALSA, \"1:0\") to be used by mpg123.
 This corresponds to the `-a' option of mpg123."
   :type '(choice (const :tag "System default" nil) string)
   :group 'bongo-mpg123)
+
+(define-obsolete-variable-alias 'bongo-mpg123-device
+  'bongo-mpg123-audio-device)
 
 (defcustom bongo-mpg123-interactive t
   "If non-nil, use the remote-control facility of mpg123.
@@ -1963,9 +2045,9 @@ This is used by `bongo-mpg123-seek-by'."
   :group 'bongo-mpg123)
 
 (defcustom bongo-mpg123-extra-arguments nil
-  "Extra command-line arguments to pass to mpg123.
+  "Extra command-line arguments to pass to `mpg123'.
 These will come at the end or right before the file name, if any."
-  :type '(repeat string)
+  :type '(repeat (choice string variable sexp))
   :group 'bongo-mpg123)
 
 ;;; XXX: What happens if a record is split between two calls
@@ -1987,11 +2069,17 @@ These will come at the end or right before the file name, if any."
 (defun bongo-mpg123-player-interactive-p (player)
   "Return non-nil if PLAYER's process is interactive.
 Interactive mpg123 processes support pausing and seeking."
-  (bongo-alist-get player 'interactive-flag))
+  (bongo-player-get player 'interactive-flag))
+
+(defun bongo-mpg123-player-paused-p (player)
+  (bongo-player-get player 'paused-flag))
 
 (defun bongo-mpg123-player-pause/resume (player)
   (if (bongo-mpg123-player-interactive-p player)
-      (process-send-string (bongo-player-process player) "PAUSE\n")
+      (progn
+        (process-send-string (bongo-player-process player) "PAUSE\n")
+        (bongo-player-put player 'paused-flag
+                          (not (bongo-mpg123-player-paused-p player))))
     (error "This mpg123 process does not support pausing")))
 
 (defun bongo-mpg123-player-seek-to (player position)
@@ -2017,15 +2105,16 @@ Interactive mpg123 processes support pausing and seeking."
 (defun bongo-start-mpg123-player (file-name)
   (let* ((process-connection-type nil)
          (arguments (append
-                     (when bongo-mpg123-device-type
-                       (list "-o" bongo-mpg123-device-type))
-                     (when bongo-mpg123-device
-                       (list "-a" bongo-mpg123-device))
+                     (when bongo-mpg123-audio-driver
+                       (list "-o" bongo-mpg123-audio-driver))
+                     (when bongo-mpg123-audio-device
+                       (list "-a" bongo-mpg123-audio-device))
                      (when bongo-mpg123-update-granularity
                        (list "--skip-printing-frames"
                              (number-to-string
                               bongo-mpg123-update-granularity)))
-                     bongo-mpg123-extra-arguments
+                     (bongo-evaluate-program-arguments
+                      bongo-mpg123-extra-arguments)
                      (if bongo-mpg123-interactive
                          '("-R" "dummy") (list file-name))))
          (process (apply 'start-process "bongo-mpg123" nil
@@ -2036,7 +2125,11 @@ Interactive mpg123 processes support pausing and seeking."
                    (buffer . ,(current-buffer))
                    (stop . bongo-default-player-stop)
                    (interactive-flag . ,bongo-mpg123-interactive)
+                   (pausing-supported-flag . ,bongo-mpg123-interactive)
+                   (paused-p . bongo-mpg123-player-paused-p)
+                   (paused-flag . nil)
                    (pause/resume . bongo-mpg123-player-pause/resume)
+                   (seeking-supported-flag . ,bongo-mpg123-interactive)
                    (seek-by . bongo-mpg123-player-seek-by)
                    (seek-to . bongo-mpg123-player-seek-to)
                    (seek-unit . frames))))
@@ -2051,17 +2144,21 @@ Interactive mpg123 processes support pausing and seeking."
 
 ;;;; The mplayer backend
 
-(defgroup bongo-mplayer nil
-  "The mplayer backend to Bongo."
-  :prefix "bongo-mplayer-"
-  :group 'bongo)
+(define-bongo-backend mplayer
+  :constructor 'bongo-start-mplayer-player
+  ;; We define this variable manually so that we can get
+  ;; some other customization variables to appear before it.
+  :extra-program-arguments-variable nil
+  ;; Play generic URLs and files only if the file extension
+  ;; matches that of some potentially supported format.
+  :matcher '((local-file "file:" "http:" "ftp:")
+             "ogg" "flac" "mp3" "mka" "wav" "wma"
+             "mpg" "mpeg" "avi" "ogm" "mp4" "mkv"
+             "mov" "asf" "wmv" "rm" "rmvb")
+  ;; Play media-specific URLs regardless of the file name.
+  :matcher '(("mms:" "mmst:" "rtp:" "rtsp:" "unsv:") . t))
 
-(defcustom bongo-mplayer-program-name "mplayer"
-  "The name of the mplayer executable."
-  :type 'string
-  :group 'bongo-mplayer)
-
-(defun bongo-mplayer-available-devices (type)
+(defun bongo-mplayer-available-drivers (type)
   (unless (member type '(audio video))
     (error "Invalid device type"))
   (when (executable-find bongo-mplayer-program-name)
@@ -2083,38 +2180,38 @@ Interactive mpg123 processes support pausing and seeking."
           (forward-line)))
       (reverse result))))
 
-(defcustom bongo-mplayer-audio-device nil
-  "The audio device to be used by mplayer.
+(defcustom bongo-mplayer-audio-driver nil
+  "The audio driver to be used by mplayer.
 This corresponds to the `-ao' option of mplayer."
   :type `(choice (const :tag "System default" nil)
                  ,@(mapcar (lambda (entry)
                              `(const :tag ,(concat (car entry)
                                                    " (" (cdr entry) ")")))
-                           (bongo-mplayer-available-devices 'audio))
-                 (string :tag "Other"))
+                           (bongo-mplayer-available-drivers 'audio))
+                 (string :tag "Other audio driver"))
   :group 'bongo-mplayer)
 
-(defcustom bongo-mplayer-video-device nil
-  "The video device to be used by mplayer.
+(define-obsolete-variable-alias 'bongo-mplayer-audio-device
+  'bongo-mplayer-audio-driver)
+
+(defcustom bongo-mplayer-video-driver nil
+  "The video driver to be used by mplayer.
 This corresponds to the `-vo' option of mplayer."
   :type `(choice (const :tag "System default" nil)
                  ,@(mapcar (lambda (entry)
                              `(const :tag ,(concat (car entry)
                                                    " (" (cdr entry) ")")))
-                           (bongo-mplayer-available-devices 'video))
-                 (string :tag "Other"))
+                           (bongo-mplayer-available-drivers 'video))
+                 (string :tag "Other video driver"))
   :group 'bongo-mplayer)
+
+(define-obsolete-variable-alias 'bongo-mplayer-video-device
+  'bongo-mplayer-video-driver)
 
 (defcustom bongo-mplayer-interactive t
   "If non-nil, use the slave mode of mplayer.
 Setting this to nil disables the pause and seek functionality."
   :type 'boolean
-  :group 'bongo-mplayer)
-
-(defcustom bongo-mplayer-extra-arguments nil
-  "Extra command-line arguments to pass to mplayer.
-These will come at the end or right before the file name, if any."
-  :type '(repeat string)
   :group 'bongo-mplayer)
 
 (defcustom bongo-mplayer-seek-increment 5.0
@@ -2123,14 +2220,26 @@ This is used by `bongo-mplayer-seek-by'."
   :type 'float
   :group 'bongo-mplayer)
 
+(defcustom bongo-mplayer-extra-arguments nil
+  "Extra command-line arguments to pass to `mplayer'.
+These will come at the end or right before the file name, if any."
+  :type '(repeat (choice string variable sexp))
+  :group 'bongo-mplayer)
+
 (defun bongo-mplayer-player-interactive-p (player)
   "Return non-nil if PLAYER's process is interactive.
 Interactive mplayer processes support pausing and seeking."
-  (bongo-alist-get player 'interactive-flag))
+  (bongo-player-get player 'interactive-flag))
+
+(defun bongo-mplayer-player-paused-p (player)
+  (bongo-player-get player 'paused-flag))
 
 (defun bongo-mplayer-player-pause/resume (player)
   (if (bongo-mplayer-player-interactive-p player)
-      (process-send-string (bongo-player-process player) "pause\n")
+      (progn
+        (process-send-string (bongo-player-process player) "pause\n")
+        (bongo-player-put player 'paused-flag
+                          (not (bongo-mplayer-player-paused-p player))))
     (error "This mplayer process does not support pausing")))
 
 (defun bongo-mplayer-player-seek-to (player position)
@@ -2150,11 +2259,12 @@ Interactive mplayer processes support pausing and seeking."
 (defun bongo-start-mplayer-player (file-name)
   (let* ((process-connection-type nil)
          (arguments (append
-                     (when bongo-mplayer-audio-device
-                       (list "-ao" bongo-mplayer-audio-device))
-                     (when bongo-mplayer-video-device
-                       (list "-vo" bongo-mplayer-video-device))
-                     bongo-mplayer-extra-arguments
+                     (when bongo-mplayer-audio-driver
+                       (list "-ao" bongo-mplayer-audio-driver))
+                     (when bongo-mplayer-video-driver
+                       (list "-vo" bongo-mplayer-video-driver))
+                     (bongo-evaluate-program-arguments
+                      bongo-mplayer-extra-arguments)
                      (if bongo-mplayer-interactive
                          (list "-quiet" "-slave" file-name)
                        (list file-name))))
@@ -2166,7 +2276,11 @@ Interactive mplayer processes support pausing and seeking."
                    (buffer . ,(current-buffer))
                    (stop . bongo-default-player-stop)
                    (interactive-flag . ,bongo-mplayer-interactive)
+                   (pausing-supported-flag . ,bongo-mplayer-interactive)
+                   (paused-p . bongo-mplayer-player-paused-p)
+                   (paused-flag . nil)
                    (pause/resume . bongo-mplayer-player-pause/resume)
+                   (seeking-supported-flag . ,bongo-mplayer-interactive)
                    (seek-by . bongo-mplayer-player-seek-by)
                    (seek-to . bongo-mplayer-player-seek-to)
                    (seek-unit . seconds))))
@@ -2177,116 +2291,32 @@ Interactive mplayer processes support pausing and seeking."
 
 ;;;; Simple backends
 
-(defgroup bongo-ogg123 nil
-  "The ogg123 backend to Bongo."
-  :prefix "bongo-ogg123-"
-  :group 'bongo)
+(define-bongo-backend ogg123
+  :matcher '(local-file "ogg"))
 
-(defcustom bongo-ogg123-program-name "ogg123"
-  "The name of the ogg123 executable."
-  :type 'string
-  :group 'bongo-ogg123)
+(define-bongo-backend speexdec
+  :matcher '(local-file "spx"))
 
-(defcustom bongo-ogg123-extra-arguments nil
-  "Extra command-line arguments to pass to ogg123.
-These will come before the file name."
-  :type '(repeat (choice string variable sexp))
-  :group 'bongo-ogg123)
+(define-bongo-backend timidity
+  :pretty-name "TiMidity"
+  :extra-program-arguments '("--quiet")
+  :matcher '(local-file "mid" "midi" "mod" "rcp" "r36" "g18" "g36"))
 
-(defgroup bongo-speexdec nil
-  "The speexdec backend to Bongo."
-  :prefix "bongo-speexdec-"
-  :group 'bongo)
-
-(defcustom bongo-speexdec-program-name "speexdec"
-  "The name of the speexdec executable."
-  :type 'string
-  :group 'bongo-speexdec)
-
-(defcustom bongo-speexdec-extra-arguments nil
-  "Extra command-line arguments to pass to speexdec.
-These will come before the file name."
-  :type '(repeat (choice string variable sexp))
-  :group 'bongo-speexdec)
-
-(defgroup bongo-timidity nil
-  "The TiMidity backend to Bongo."
-  :prefix "bongo-timidity-"
-  :group 'bongo)
-
-(defcustom bongo-timidity-program-name "timidity"
-  "The name of the timidity executable."
-  :type 'string
-  :group 'bongo-timidity)
-
-(defcustom bongo-timidity-extra-arguments '("--quiet")
-  "Extra command-line arguments to pass to timidity.
-These will come before the file name."
-  :type '(repeat (choice string variable sexp))
-  :group 'bongo-timidity)
-
-(defgroup bongo-mikmod nil
-  "The MikMod backend to Bongo."
-  :prefix "bongo-mikmod-"
-  :group 'bongo)
-
-(defcustom bongo-mikmod-program-name "mikmod"
-  "The name of the mikmod executable."
-  :type 'string
-  :group 'bongo-mikmod)
-
-(defcustom bongo-mikmod-extra-arguments '("-q" "-P" "1" "-X")
-  "Extra command-line arguments to pass to mikmod.
-These will come before the file name."
-  :type '(repeat (choice string variable sexp))
-  :group 'bongo-mikmod)
-
-(defun bongo-start-simple-player (backend file-name)
-  ;; Don't change the name of the `file-name' parameter.
-  ;; The simple constructor argument list relies on that
-  ;; symbol being dynamically bound to the file name.
-  "This function is used by `bongo-start-player'."
-  (let* ((process-connection-type nil)
-         (backend-name (bongo-backend-name backend))
-         (options (bongo-backend-constructor backend))
-         (program-name
-          (or (let ((program-name (bongo-alist-get options 'program-name)))
-                (cond ((stringp program-name) program-name)
-                      ((symbolp program-name) (symbol-value program-name))
-                      (t (error "\
-Invalid value for `program-name' option in simple constructor \
-for `%s' backend: %s" backend-name options))))
-              (error "\
-Missing option `program-name' in simple constructor \
-for `%s' backend: %s" backend-name options)))
-         (process
-          (apply 'start-process
-                 (format "bongo-%s" backend-name)
-                 nil program-name
-                 (apply
-                  'nconc
-                  (mapcar
-                   (lambda (x)
-                     (cond
-                      ((stringp x) (list x))
-                      ((symbolp x)
-                       (let ((value (symbol-value x)))
-                         (if (listp value) value (list value))))
-                      ((listp x)
-                       (let ((value (eval x)))
-                         (if (listp value) value (list value))))
-                      (t (error "\
-Invalid argument specifier in `arguments' option of simple \
-constructor for `%s' backend" (car backend)))))
-                   (bongo-alist-get options 'arguments)))))
-         (player `(,backend-name
-                   (process . ,process)
-                   (file-name . ,file-name)
-                   (buffer . ,(current-buffer))
-                   (stop . bongo-default-player-stop))))
-    (prog1 player
-      (set-process-sentinel process 'bongo-default-player-process-sentinel)
-      (bongo-process-put process 'bongo-player player))))
+(define-bongo-backend mikmod
+  :pretty-name "MikMod"
+  :extra-program-arguments '("-q" "-P" "1" "-X")
+  :matcher `(local-file
+             . ,(concat
+                 "\\."
+                 (regexp-opt
+                  '("669" "amf" "dsm" "far" "gdm" "imf"
+                    "it" "med" "mod" "mtm" "okt" "s3m"
+                    "stm" "stx" "ult" "uni" "apun" "xm") t)
+                 "\\(\\."
+                 (regexp-opt
+                  '("zip" "lha" "lhz" "zoo" "gz" "bz2"
+                    "tar" "tar.gz" "tar.bz2" "rar") t)
+                 "\\)?$")))
 
 
 ;;;; DWIM commands
@@ -2338,6 +2368,24 @@ See `bongo-dwim'."
   (with-bongo-playlist-buffer
     (and (not (null bongo-player))
          (bongo-player-running-p bongo-player))))
+
+(defun bongo-pausing-supported-p ()
+  "Return non-nil if the active player supports pausing."
+  (with-bongo-playlist-buffer
+    (and (bongo-playing-p)
+         (bongo-player-pausing-supported-p bongo-player))))
+
+(defun bongo-paused-p ()
+  "Return non-nil if the active player is paused."
+  (with-bongo-playlist-buffer
+    (and (bongo-playing-p)
+         (bongo-player-paused-p bongo-player))))
+
+(defun bongo-seeking-supported-p ()
+  "Return non-nil if the active player supports seeking."
+  (with-bongo-playlist-buffer
+    (and (bongo-playing-p)
+         (bongo-player-seeking-supported-p bongo-player))))
 
 (defvar bongo-active-track-marker nil
   "Marker pointing at the currently playing track, if any.")
@@ -2585,8 +2633,11 @@ If there is no next track to play, stop playback."
               (bongo-stop))))
       ;; We should not interrupt playback.
       (if (eq bongo-next-action 'bongo-play-next-or-stop)
-          (message (concat "Switched to sequential playback "
-                           "(prefix argument forces)."))
+          (when (interactive-p)
+            (message (concat "Switched to sequential playback "
+                             "(call this command %s a prefix "
+                             "argument to interrupt playback).")
+                     (if toggle-interrupt "without" "with")))
         (setq bongo-next-action 'bongo-play-next-or-stop)
         (message "Switched to sequential playback.")))))
 
@@ -2793,7 +2844,6 @@ Album covers are files whose names are in `bongo-album-cover-file-names'."
           (error "Unrecognized file name extension: %s" cover-file-name))
         (let ((cover-file-type (cdr file-type-entry))
               (inhibit-read-only t))
-          (insert "\n")
           (insert (propertize "(cover image)" 'display
                               `(image :type ,cover-file-type
                                       :file ,cover-file-name)))
@@ -2813,8 +2863,8 @@ Only do it if `bongo-join-inserted-tracks' is non-nil."
 
 (defun bongo-insert-directory (directory-name)
   "Insert a new track line for each file in DIRECTORY-NAME.
-Only insert files that can be played by some backend, as determined
-by the file name (see `bongo-track-file-name-regexp').
+Only insert files that can be played by some backend, as determined by the
+matchers in `bongo-custom-backend-matchers' and `bongo-backend-matchers'.
 
 If `bongo-insert-album-covers' is non-nil, then for each directory
 that contains a file whose name is in `bongo-album-cover-file-names',
@@ -2834,24 +2884,26 @@ Do not examine subdirectories of DIRECTORY-NAME."
       (error "File is not a directory: %s" directory-name))
     (when bongo-insert-album-covers
       (bongo-maybe-insert-album-cover directory-name))
-    (let ((file-names (directory-files directory-name t
-                                       (bongo-track-file-name-regexp))))
+    (let ((file-names (directory-files directory-name t "^[^.]")))
       (when (null file-names)
         (error "Directory contains no playable files"))
-      (let ((beg (point)))
+      (let ((beginning (point)))
         (dolist (file-name file-names)
-          (bongo-insert-file file-name))
-        (bongo-maybe-join-inserted-tracks beg (point)))
+          (when (bongo-backend-for-file file-name)
+            (bongo-insert-file file-name)))
+        (bongo-maybe-join-inserted-tracks beginning (point)))
       (when (and (interactive-p) (not (bongo-buffer-p)))
-        (message "Inserted %d files." (length file-names))))))
+        (message "Inserted %d files." (length file-names))))
+    (let ((inhibit-read-only t))
+      (insert "\n"))))
 
 (defvar bongo-inside-insert-directory-tree nil
   "Non-nil in the dynamic scope of `bongo-insert-directory-tree'.")
 
 (defun bongo-insert-directory-tree (directory-name)
   "Insert a new track line for each file below DIRECTORY-NAME.
-Only insert files that can be played by some backend, as determined
-by the file name (see `bongo-track-file-name-regexp').
+Only insert files that can be played by some backend, as determined by the
+matchers in `bongo-custom-backend-matchers' and `bongo-backend-matchers'.
 
 If `bongo-insert-album-covers' is non-nil, then for each directory
 that contains a file whose name is in `bongo-album-cover-file-names',
@@ -2872,14 +2924,13 @@ This function descends each subdirectory of DIRECTORY-NAME recursively."
       (error "File is not a directory: %s" directory-name))
     (when bongo-insert-album-covers
       (bongo-maybe-insert-album-cover directory-name))
-    (let ((regexp (bongo-track-file-name-regexp))
-          (file-names (directory-files directory-name t "^[^.]"))
+    (let ((file-names (directory-files directory-name t "^[^.]"))
           (beginning (point)))
       (let ((bongo-inside-insert-directory-tree t))
         (dolist (file-name file-names)
           (if (file-directory-p file-name)
               (bongo-insert-directory-tree file-name)
-            (when (string-match regexp file-name)
+            (when (bongo-backend-for-file file-name)
               (bongo-insert-file file-name)))))
       (unless bongo-inside-insert-directory-tree
         (bongo-maybe-join-inserted-tracks beginning (point))))))
@@ -3204,6 +3255,12 @@ See also `bongo-copy-line-as-kill'."
      ((bongo-track-line-p)
       (when (bongo-active-track-line-p)
         (bongo-unset-active-track))
+      (when (bongo-queued-track-line-p)
+        ;; Use a text property to communicate with
+        ;; `bongo-clean-up-after-insertion'.
+        (bongo-line-set-property 'bongo-queued-track-flag t)
+        (bongo-unset-queued-track)
+        (bongo-line-remove-property 'bongo-queued-track-flag))
       (let ((kill-whole-line t))
         (beginning-of-line)
         (kill-line)))
@@ -3262,6 +3319,10 @@ See `kill-region'."
                      (null (bongo-active-track-position)))
                 (bongo-set-active-track (point-at-bol))
               (bongo-line-remove-property 'bongo-player))))
+        (unless (bongo-queued-track-position)
+          (when (bongo-line-get-property 'bongo-queued-track-flag)
+            (bongo-line-remove-property 'bongo-queued-track-flag)
+            (bongo-set-queued-track)))
         (bongo-forward-object-line))
       ;; These headers will stay if they are needed,
       ;; or disappear automatically otherwise.
@@ -3561,10 +3622,6 @@ Do not use this mode directly.  Instead, use Bongo Playlist mode (see
     (define-key map "g" 'bongo-redisplay)
     (define-key map "h" 'bongo-switch-buffers)
     (define-key map "l" 'bongo-recenter)
-    (define-key map "j" 'bongo-join)
-    (define-key map "J" 'bongo-split)
-    (define-key map "c" 'bongo-collapse)
-    (define-key map "C" 'bongo-expand)
     (define-key map "k" 'bongo-copy-line-as-kill)
     (substitute-key-definition
      'kill-line 'bongo-kill-line map global-map)
@@ -3598,6 +3655,79 @@ Do not use this mode directly.  Instead, use Bongo Playlist mode (see
     (define-key map "r" 'bongo-rename-line)
     (when (require 'volume nil t)
       (define-key map "v" 'volume))
+    (let ((menu-map (make-sparse-keymap "Bongo")))
+      (define-key menu-map [bongo-quit]
+        '("Quit Bongo" . bongo-quit))
+      (define-key menu-map [bongo-menu-separator-6]
+        '("----" . nil))
+      (define-key menu-map [bongo-customize]
+        '("Customize Bongo..." . (lambda ()
+                                   (interactive)
+                                   (customize-group 'bongo))))
+      (define-key menu-map [bongo-menu-separator-5]
+        '("----" . nil))
+      (define-key menu-map [bongo-flush-playlist]
+        '("Flush Playlist" . bongo-flush-playlist))
+      (define-key menu-map [bongo-insert-directory-tree]
+        '("Insert Directory Tree..." . bongo-insert-directory-tree))
+      (define-key menu-map [bongo-insert-directory]
+        '("Insert Directory..." . bongo-insert-directory))
+      (define-key menu-map [bongo-insert-file]
+        '("Insert File..." . bongo-insert-file))
+      (define-key menu-map [bongo-menu-separator-4]
+        '("----" . nil))
+      (define-key menu-map [bongo-play-random-track]
+        '("Play Random Track" . bongo-play-random))
+      (define-key menu-map [bongo-play-previous-track]
+        '("Play Previous Track" . bongo-play-previous))
+      (define-key menu-map [bongo-play-next-track]
+        '("Play Next Track" . bongo-play-next))
+      (define-key menu-map [bongo-replay-current-track]
+        '("Replay Current Track" . bongo-replay-current))
+      (define-key menu-map [bongo-menu-separator-3]
+        '("----" . nil))
+      (when (require 'volume nil t)
+        (define-key menu-map [bongo-change-volume]
+          '("Change Volume..." . volume)))
+      (define-key menu-map [bongo-stop]
+        '(menu-item "Stop Playback" bongo-stop
+                    :enable (bongo-playing-p)))
+      (define-key menu-map [bongo-seek-backward]
+        '(menu-item "Seek Backward" bongo-seek-backward
+                    :enable (bongo-seeking-supported-p)))
+      (define-key menu-map [bongo-seek-forward]
+        '(menu-item "Seek Forward" bongo-seek-forward
+                    :enable (bongo-seeking-supported-p)))
+      (define-key menu-map [bongo-pause/resume]
+        '(menu-item "Pause Playback" bongo-pause/resume
+                    :enable (bongo-pausing-supported-p)
+                    :button (:toggle . (bongo-paused-p))))
+      (define-key menu-map [bongo-menu-separator-2]
+        '("----" . nil))
+      (define-key menu-map [bongo-rename-track-file]
+        '("Rename Track File..." . bongo-rename-line))
+      (define-key menu-map [bongo-kill-track]
+        '("Cut Track" . bongo-kill-line))
+      (define-key menu-map [bongo-copy-track]
+        '("Copy Track" . bongo-copy-line-as-kill))
+      (define-key menu-map [bongo-insert-enqueue-track]
+        '("Enqueue Track Urgently" . bongo-insert-enqueue-line))
+      (define-key menu-map [bongo-append-enqueue-track]
+        '("Enqueue Track" . bongo-append-enqueue-line))
+      (define-key menu-map [bongo-play-track]
+        '("Play Track" . bongo-play-line))
+      (define-key menu-map [bongo-selected-track]
+        '(menu-item "Selected Track"))
+      (define-key menu-map [bongo-menu-separator-1]
+        '("----" . nil))
+      (define-key menu-map [bongo-switch-to-library]
+        '(menu-item "Switch to Library" bongo-switch-buffers
+                    :visible (bongo-playlist-buffer-p)))
+      (define-key menu-map [bongo-switch-to-playlist]
+        '(menu-item "Switch to Playlist" bongo-switch-buffers
+                    :visible (bongo-library-buffer-p)))
+      (define-key map [menu-bar bongo]
+        (cons "Bongo" menu-map)))
     map)
   "Keymap used in Bongo mode buffers.")
 
