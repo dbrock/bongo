@@ -2827,6 +2827,8 @@ Do not examine subdirectories of DIRECTORY-NAME."
                        (when (eq major-mode 'dired-mode)
                          (when (file-directory-p (dired-get-filename))
                            (dired-get-filename t)))))))
+  (when (null (bongo-backend-matchers))
+    (error "No backends are enabled; customize `bongo-enabled-backends'"))
   (with-bongo-buffer
     (when (not (file-directory-p directory-name))
       (error "File is not a directory: %s" directory-name))
@@ -2863,6 +2865,8 @@ This function descends each subdirectory of DIRECTORY-NAME recursively."
                        (when (eq major-mode 'dired-mode)
                          (when (file-directory-p (dired-get-filename))
                            (dired-get-filename t)))))))
+  (when (null (bongo-backend-matchers))
+    (error "No backends are enabled; customize `bongo-enabled-backends'"))
   (with-bongo-buffer
     (when (not (file-directory-p directory-name))
       (error "File is not a directory: %s" directory-name))
