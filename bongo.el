@@ -1944,7 +1944,7 @@ If the player backend cannot report this, return nil."
          :group 'bongo)
 
        ,@(when program-name-variable
-           `((defcustom ,program-name-variable ,program-name
+           `((defcustom ,program-name-variable ',program-name
                ,(format "The name of the `%s' executable." program-name)
                :type 'string
                :group ',group-name)))
@@ -1953,7 +1953,7 @@ If the player backend cannot report this, return nil."
                     (member extra-program-arguments-variable
                             program-arguments))
            `((defcustom ,extra-program-arguments-variable
-               ,extra-program-arguments
+               ',extra-program-arguments
                ,(format "Extra command-line arguments to pass to `%s'."
                         program-name)
                :type '(repeat (choice string variable sexp))
