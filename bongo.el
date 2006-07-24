@@ -5,7 +5,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: May 23, 2006
+;; Updated: July 24, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -2061,18 +2061,48 @@ Interactive mpg123 processes support pausing and seeking."
   :type 'string
   :group 'bongo-mplayer)
 
+(defun bongo-mplayer-available-devices (type)
+  (unless (member type '(audio video))
+    (error "Invalid device type"))
+  (when (executable-find bongo-mplayer-program-name)
+    (let ((result nil))
+      (with-temp-buffer
+        (call-process bongo-mplayer-program-name nil t nil
+                      (cond ((eq type 'audio) "-ao")
+                            ((eq type 'video) "-vo"))
+                      "help")
+        (goto-char (point-min))
+        (search-forward (concat "Available "
+                                (cond ((eq type 'audio) "audio")
+                                      ((eq type 'video) "video"))
+                                " output drivers:\n"))
+        (while (looking-at "^[ \t]+\\(\\w+\\)[ \t]+\\(.*\\)$")
+          (setq result (cons (cons (match-string 1)
+                                   (match-string 2))
+                             result))
+          (forward-line)))
+      (reverse result))))
+
 (defcustom bongo-mplayer-audio-device nil
   "The audio device to be used by mplayer.
 This corresponds to the `-ao' option of mplayer."
-  :type '(choice (const :tag "System default" nil)
-                 string)
+  :type `(choice (const :tag "System default" nil)
+                 ,@(mapcar (lambda (entry)
+                             `(const :tag ,(concat (car entry)
+                                                   " (" (cdr entry) ")")))
+                           (bongo-mplayer-available-devices 'audio))
+                 (string :tag "Other"))
   :group 'bongo-mplayer)
 
 (defcustom bongo-mplayer-video-device nil
   "The video device to be used by mplayer.
 This corresponds to the `-vo' option of mplayer."
-  :type '(choice (const :tag "System default" nil)
-                 string)
+  :type `(choice (const :tag "System default" nil)
+                 ,@(mapcar (lambda (entry)
+                             `(const :tag ,(concat (car entry)
+                                                   " (" (cdr entry) ")")))
+                           (bongo-mplayer-available-devices 'video))
+                 (string :tag "Other"))
   :group 'bongo-mplayer)
 
 (defcustom bongo-mplayer-interactive t
