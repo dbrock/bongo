@@ -5,7 +5,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: July 24, 2006
+;; Updated: September 2, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -24,11 +24,11 @@
 
 ;;; Todo:
 
+;; Streaming media support.
+
 ;; Shuffle operations.  It would be nice to have both a
 ;; random shuffle operation and an interleaving
 ;; enqueue operation.
-
-;; Streaming media support.
 
 ;;; Code:
 
@@ -50,28 +50,33 @@ property of the backend name symbol.")
   "List of Bongo player backend matchers.
 See `bongo-custom-backend-matchers' for more information.")
 
+(defcustom bongo-enabled-backends nil
+  "(dummy declaration)" :group 'bongo)
+(defcustom bongo-custom-backend-matchers nil
+  "(dummy declaration)" :group 'bongo)
+
 (defun bongo-evaluate-backend-defcustoms ()
   "Define `bongo-enabled-backends' and `bongo-custom-backend-matchers'.
 This should be done whenever `bongo-backends' changes, so that
 the `defcustom' options can be updated."
-  (put 'bongo-enabled-backends 'custom-options nil)
-
-  (defcustom bongo-enabled-backends
-    (mapcan (lambda (backend-name)
-              (when (executable-find (bongo-backend-program-name
-                                      (bongo-backend backend-name)))
-                (list backend-name)))
-            bongo-backends)
+  (custom-declare-variable 'bongo-enabled-backends
+    `',(mapcan (lambda (backend-name)
+                 (when (executable-find (bongo-backend-program-name
+                                         (bongo-backend backend-name)))
+                   (list backend-name)))
+               bongo-backends)
     "List of names of enabled Bongo player backends.
 See `bongo-backends' for a list of available backends."
-    ;; XXX: This variable is not really a hook, but you can't
-    ;;      use the `:options' keyword with '(repeat symbol)
-    ;;      for some reason --- this is an ugly workaround.
-    :type 'hook
-    :options bongo-backends
+    :type `(list (set :inline t :format "%v"
+                      ,@(mapcar (lambda (backend-name)
+                                  `(const :tag ,(bongo-backend-pretty-name
+                                                 backend-name)
+                                          ,backend-name))
+                                bongo-backends)))
     :group 'bongo)
+  (custom-reevaluate-setting 'bongo-enabled-backends)
 
-  (defcustom bongo-custom-backend-matchers nil
+  (custom-declare-variable 'bongo-custom-backend-matchers nil
     "List of custom Bongo player backend matchers.
 Entries are rules of the form (BACKEND-NAME . MATCHER).
 
@@ -3594,24 +3599,6 @@ instead, use high-level functions such as `save-buffer'."
 (defvar bongo-mode-hook nil
   "Hook run when entering Bongo mode.")
 
-(defun bongo-mode ()
-  "Common parent major mode for Bongo buffers.
-Do not use this mode directly.  Instead, use Bongo Playlist mode (see
-`bongo-playlist-mode') or Bongo Library mode (see `bongo-library-mode').
-
-\\{bongo-mode-map}"
-  (kill-all-local-variables)
-  (set (make-local-variable 'forward-sexp-function)
-       'bongo-forward-section)
-  (use-local-map bongo-mode-map)
-  (setq buffer-read-only t)
-  (setq major-mode 'bongo-mode)
-  (setq mode-name "Bongo")
-  (setq buffer-file-format '(bongo))
-  (when bongo-default-directory
-    (setq default-directory bongo-default-directory))
-  (run-mode-hooks 'bongo-mode-hook))
-
 (defvar bongo-mode-map
   (let ((map (make-sparse-keymap)))
     (suppress-keymap map)
@@ -3730,6 +3717,24 @@ Do not use this mode directly.  Instead, use Bongo Playlist mode (see
         (cons "Bongo" menu-map)))
     map)
   "Keymap used in Bongo mode buffers.")
+
+(defun bongo-mode ()
+  "Common parent major mode for Bongo buffers.
+Do not use this mode directly.  Instead, use Bongo Playlist mode (see
+`bongo-playlist-mode') or Bongo Library mode (see `bongo-library-mode').
+
+\\{bongo-mode-map}"
+  (kill-all-local-variables)
+  (set (make-local-variable 'forward-sexp-function)
+       'bongo-forward-section)
+  (use-local-map bongo-mode-map)
+  (setq buffer-read-only t)
+  (setq major-mode 'bongo-mode)
+  (setq mode-name "Bongo")
+  (setq buffer-file-format '(bongo))
+  (when bongo-default-directory
+    (setq default-directory bongo-default-directory))
+  (run-mode-hooks 'bongo-mode-hook))
 
 (define-derived-mode bongo-library-mode bongo-mode
   "Bongo Library"
