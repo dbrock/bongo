@@ -3489,15 +3489,17 @@ If point is on a section header, append the whole section."
   (bongo-enqueue-line 'append skip))
 
 (defun bongo-flush-playlist ()
-  "Delete everything above the currently playing track."
+  "Delete everything above the currently playing track.
+If no track is playing, delete everything in the playlist."
   (interactive)
-  (with-bongo-playlist-buffer
-    (when (not (bongo-playing-p))
-      (error "No active track"))
-    (let ((inhibit-read-only t))
-      (delete-region (point-min)
-                     (bongo-point-before-line
-                      (bongo-active-track-position))))))
+  (when (yes-or-no-p "Really flush playlist? ")
+    (with-bongo-playlist-buffer
+      (let ((inhibit-read-only t))
+        (delete-region (point-min)
+                       (if (bongo-playing-p)
+                           (bongo-point-before-line
+                            (bongo-active-track-position))
+                         (point-max)))))))
 
 (defun bongo-rename-line (new-name &optional point)
   "Rename the file corresponding to the track at POINT.
