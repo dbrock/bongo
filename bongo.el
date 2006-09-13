@@ -2055,22 +2055,6 @@ These will come at the end or right before the file name, if any."
   :type '(repeat (choice string variable sexp))
   :group 'bongo-mpg123)
 
-;;; XXX: What happens if a record is split between two calls
-;;;      to the process filter?
-(defun bongo-mpg123-process-filter (process string)
-  (let ((player (bongo-process-get process 'bongo-player)))
-    (cond
-     ((string-match "^@P 0$" string)
-      (bongo-player-succeeded player)
-      (set-process-sentinel process nil)
-      (delete-process process))
-     ((string-match "^@F .+ .+ \\(.+\\) \\(.+\\)$" string)
-      (let* ((elapsed-time (string-to-number (match-string 1 string)))
-             (total-time (+ elapsed-time (string-to-number
-                                          (match-string 2 string)))))
-        (bongo-player-put player 'elapsed-time elapsed-time)
-        (bongo-player-put player 'total-time total-time))))))
-
 (defun bongo-mpg123-player-interactive-p (player)
   "Return non-nil if PLAYER's process is interactive.
 Interactive mpg123 processes support pausing and seeking."
@@ -2101,11 +2085,26 @@ Interactive mpg123 processes support pausing and seeking."
                (* bongo-mpg123-seek-increment (abs delta))))
     (error "This mpg123 process does not support seeking")))
 
-(defun bongo-mpg123-player-get-elapsed-time (player)
-  (bongo-player-get player 'elapsed-time))
-
-(defun bongo-mpg123-player-get-total-time (player)
-  (bongo-player-get player 'total-time))
+;;; XXX: What happens if a record is split between two calls
+;;;      to the process filter?
+(defun bongo-mpg123-process-filter (process string)
+  (let ((player (bongo-process-get process 'bongo-player)))
+    (with-temp-buffer
+      (insert string)
+      (goto-char (point-min))
+      (while (not (eobp))
+        (cond
+         ((looking-at "^@P 0$")
+          (bongo-player-succeeded player)
+          (set-process-sentinel process nil)
+          (delete-process process))
+         ((looking-at "^@F .+ .+ \\(.+\\) \\(.+\\)$")
+          (let* ((elapsed-time (string-to-number (match-string 1)))
+                 (total-time (+ elapsed-time (string-to-number
+                                              (match-string 2)))))
+            (bongo-player-put player 'elapsed-time elapsed-time)
+            (bongo-player-put player 'total-time total-time))))
+        (forward-line)))))
 
 (defun bongo-start-mpg123-player (file-name)
   (let* ((process-connection-type nil)
@@ -2261,6 +2260,44 @@ Interactive mplayer processes support pausing and seeking."
        (format "seek %f 0\n" (* bongo-mplayer-seek-increment delta)))
     (error "This mplayer process does not support seeking")))
 
+(defun bongo-mplayer-player-start-timer (player)
+  (bongo-mplayer-player-stop-timer player)
+  (let ((timer (run-with-timer 0 1 'bongo-mplayer-player-tick player)))
+    (bongo-player-put player 'timer timer)))
+
+(defun bongo-mplayer-player-stop-timer (player)
+  (let ((timer (bongo-player-get player 'timer)))
+    (when timer
+      (cancel-timer timer)
+      (bongo-player-put player 'timer nil))))
+
+(defun bongo-mplayer-player-tick (player)
+  (cond
+   ((not (bongo-player-running-p player))
+    (bongo-mplayer-player-stop-timer player))
+   ((not (bongo-player-paused-p player))
+    (let ((process (bongo-player-process player)))
+      (process-send-string process "get_time_pos\n")
+      (when (null (bongo-player-total-time player))
+        (process-send-string process "get_time_length\n"))))))
+
+;;; XXX: What happens if a record is split between two calls
+;;;      to the process filter?
+(defun bongo-mplayer-process-filter (process string)
+  (let ((player (bongo-process-get process 'bongo-player)))
+    (with-temp-buffer
+      (insert string)
+      (goto-char (point-min))
+      (while (not (eobp))
+       (cond
+        ((looking-at "^ANS_TIME_POSITION=\\(.+\\)$")
+         (bongo-player-put player 'elapsed-time
+                           (string-to-number (match-string 1))))
+        ((looking-at "^ANS_LENGTH=\\(.+\\)$")
+         (bongo-player-put player 'total-time
+                           (string-to-number (match-string 1)))))
+       (forward-line)))))
+
 (defun bongo-start-mplayer-player (file-name)
   (let* ((process-connection-type nil)
          (arguments (append
@@ -2291,7 +2328,10 @@ Interactive mplayer processes support pausing and seeking."
                    (seek-unit . seconds))))
     (prog1 player
       (set-process-sentinel process 'bongo-default-player-process-sentinel)
-      (bongo-process-put process 'bongo-player player))))
+      (bongo-process-put process 'bongo-player player)
+      (when bongo-mplayer-interactive
+        (set-process-filter process 'bongo-mplayer-process-filter)
+        (bongo-mplayer-player-start-timer player)))))
 
 
 ;;;; Simple backends
