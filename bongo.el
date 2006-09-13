@@ -2297,7 +2297,7 @@ Interactive mplayer processes support pausing and seeking."
 ;;;; Simple backends
 
 (define-bongo-backend ogg123
-  :matcher '(local-file "ogg"))
+  :matcher '(local-file "ogg" "flac"))
 
 (define-bongo-backend speexdec
   :matcher '(local-file "spx"))
