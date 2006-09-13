@@ -5,7 +5,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: September 2, 2006
+;; Updated: September 14, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -3478,6 +3478,11 @@ This function uses `bongo-update-references-to-renamed-files'."
         (bongo-delete-line)
         (bongo-insert-line 'bongo-file-name new-name)))))
 
+(defun bongo-dired-line (&optional point)
+  "Open a Dired buffer containing the track at POINT."
+  (interactive)
+  (dired (file-name-directory (bongo-line-file-name point))))
+
 
 ;;;; Serializing buffers
 
@@ -3640,6 +3645,7 @@ instead, use high-level functions such as `save-buffer'."
     (define-key map "E" 'bongo-insert-enqueue-line)
     (define-key map "f" 'bongo-flush-playlist)
     (define-key map "r" 'bongo-rename-line)
+    (define-key map "d" 'bongo-dired-line)
     (when (require 'volume nil t)
       (define-key map "v" 'volume))
     (let ((menu-map (make-sparse-keymap "Bongo")))
