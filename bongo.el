@@ -2779,9 +2779,12 @@ The time unit is currently backend-specific.
 This functionality may not be available for all backends."
   (interactive "p")
   (with-bongo-playlist-buffer
-    (if bongo-player
-        (bongo-player-seek-by bongo-player n)
-      (error "No active player"))))
+    (if (null bongo-player)
+        (error "No active player")
+      (bongo-player-seek-by bongo-player n)
+      (when (and (bongo-player-elapsed-time bongo-player)
+                 (bongo-player-total-time bongo-player))
+        (bongo-show)))))
 
 (defun bongo-seek-backward (&optional n)
   "Seek N units backward in the currently playing track.
@@ -2789,9 +2792,12 @@ The time unit it currently backend-specific.
 This functionality may not be available for all backends."
   (interactive "p")
   (with-bongo-playlist-buffer
-    (if bongo-player
-        (bongo-player-seek-by bongo-player (- n))
-      (error "No active player"))))
+    (if (null bongo-player)
+        (error "No active player")
+      (bongo-player-seek-by bongo-player (- n))
+      (when (and (bongo-player-elapsed-time bongo-player)
+                 (bongo-player-total-time bongo-player))
+        (bongo-show)))))
 
 (defun bongo-seek-to (position)
   "Seek to POSITION in the currently playing track.
@@ -2820,9 +2826,12 @@ This functionality may not be available for all backends."
                   (sit-for 2)))))))
        (error "No active player"))))
   (with-bongo-playlist-buffer
-    (if bongo-player
-        (bongo-player-seek-to bongo-player position)
-      (error "No active player"))))
+    (if (null bongo-player)
+        (error "No active player")
+      (bongo-player-seek-to bongo-player position)
+      (when (and (bongo-player-elapsed-time bongo-player)
+                 (bongo-player-total-time bongo-player))
+        (bongo-show)))))
 
 
 ;;;; Inserting
