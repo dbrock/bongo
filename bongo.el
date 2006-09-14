@@ -3235,7 +3235,7 @@ With prefix argument ARG, remove all indentation and headers."
     (goto-char (point-min))
     (bongo-maybe-forward-object-line)
     (while (not (eobp))
-      (message "Rendernig buffer...%d%%"
+      (message "Rendering buffer...%d%%"
                (/ (* 100 (point)) (point-max)))
       (cond
        ((and arg (bongo-header-line-p))
