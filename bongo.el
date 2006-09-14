@@ -579,7 +579,7 @@ each field and separates the obtained field values using
                                  index 'face 'bongo-track-index))))))))))
 
 (defun bongo-file-name-part-from-field (field)
-  "Represent an info field as part of a file name.
+  "Represent FIELD as part of a file name.
 This is used by `bongo-default-file-name-from-infoset'."
   (funcall bongo-file-name-part-from-field-function field))
 
@@ -885,7 +885,7 @@ If no track line is found before the starting line, return nil."
   "Return the point after the section with its header on POINT."
   (unless (bongo-header-line-p point)
     (error "Point is not on a section header"))
-  (save-excursion 
+  (save-excursion
     (bongo-goto-point point)
     (let ((indentation (bongo-line-indentation))
           (after-last (bongo-point-after-line)))
@@ -2381,7 +2381,7 @@ If point is neither on a track nor on a header, do nothing."
   (interactive "P")
   (cond
    ((and (bongo-track-line-p) (bongo-library-buffer-p))
-    (let ((position (if (bongo-playing-p)        
+    (let ((position (if (bongo-playing-p)
                         (bongo-insert-enqueue-line)
                       (bongo-append-enqueue-line))))
       (with-bongo-playlist-buffer
@@ -2723,7 +2723,7 @@ If TOGGLE-INTERRUPT (prefix argument if interactive) is non-nil,
   act as if `bongo-avoid-interrupting-playback' were reversed."
   (interactive "P")
   (with-bongo-playlist-buffer
-    (if (not (bongo-xor bongo-avoid-interrupting-playback 
+    (if (not (bongo-xor bongo-avoid-interrupting-playback
                         toggle-interrupt))
         ;; We should interrupt playback, so start playing a
         ;; random track immediately.
@@ -2917,8 +2917,8 @@ Only do it if `bongo-join-inserted-tracks' is non-nil."
 
 (defun bongo-insert-directory (directory-name)
   "Insert a new track line for each file in DIRECTORY-NAME.
-Only insert files that can be played by some backend, as determined by the
-matchers in `bongo-custom-backend-matchers' and `bongo-backend-matchers'.
+Only insert files that can be played by some backend, as determined by
+the matchers returned by the function `bongo-backend-matchers'.
 
 If `bongo-insert-album-covers' is non-nil, then for each directory
 that contains a file whose name is in `bongo-album-cover-file-names',
@@ -2979,8 +2979,8 @@ and modified by `bongo-insert-directory-tree-1'.")
 
 (defun bongo-insert-directory-tree (directory-name)
   "Insert a new track line for each file below DIRECTORY-NAME.
-Only insert files that can be played by some backend, as determined by the
-matchers in `bongo-custom-backend-matchers' and `bongo-backend-matchers'.
+Only insert files that can be played by some backend, as determined by
+the matchers returned by the function `bongo-backend-matchers'.
 
 If `bongo-insert-album-covers' is non-nil, then for each directory
 that contains a file whose name is in `bongo-album-cover-file-names',
@@ -3226,7 +3226,7 @@ If called interactively, SKIP is always non-nil."
 
 (defun bongo-redisplay (&optional arg)
   "Redisplay every line in the entire buffer.
-With prefix argument, remove all indentation and headers."
+With prefix argument ARG, remove all indentation and headers."
   (interactive "P")
   (unless (bongo-buffer-p)
     (error "Not a Bongo buffer"))
@@ -3497,7 +3497,7 @@ If MODE is `append', implement `bongo-append-enqueue-line'."
   "Insert the current line immediately after the track being played.
 In Bongo Playlist mode, insert into the current buffer.
 In Bongo Library mode, insert into the playlist buffer
-  \(see `bongo-playlist-buffer').
+  \(see the function `bongo-playlist-buffer').
 If point is on a section header, insert the whole section."
   (interactive "d")
   (bongo-enqueue-line 'insert skip))
@@ -3506,7 +3506,7 @@ If point is on a section header, insert the whole section."
   "Append the current line to the Bongo playlist buffer.
 In Bongo Playlist mode, append to the current buffer.
 In Bongo Library mode, append to the playlist buffer
-  \(see `bongo-playlist-buffer').
+  \(see the function `bongo-playlist-buffer').
 If point is on a section header, append the whole section."
   (interactive "d")
   (bongo-enqueue-line 'append skip))
@@ -3525,7 +3525,7 @@ If no track is playing, delete everything in the playlist."
                          (point-max)))))))
 
 (defun bongo-rename-line (new-name &optional point)
-  "Rename the file corresponding to the track at POINT.
+  "Rename the file corresponding to the track at POINT to NEW-NAME.
 This function uses `bongo-update-references-to-renamed-files'."
   (interactive
    (when (bongo-track-line-p)
@@ -3647,7 +3647,7 @@ When a bongo Buffer is written to a file, only serializable text
 properties are saved; all other text properties are discarded.")
 
 (defun bongo-encode (beg end buffer)
-  "Serialize part of a Bongo buffer into a flat representation.
+  "Serialize part of BUFFER into a flat representation.
 Modify region between BEG and END; return the new end of the region.
 
 This function is used when writing Bongo buffers to files.
@@ -3919,8 +3919,8 @@ If BUFFER is nil, test the current buffer instead."
 (defun bongo-buffer ()
   "Return an interesting Bongo buffer, creating it if necessary.
 
-First try to find an existing Bongo buffer, using a strategy
-similar to `bongo-library-buffer' and `bongo-playlist-buffer'.
+First try to find an existing Bongo buffer, using a strategy similar to the
+function `bongo-library-buffer' and the function `bongo-playlist-buffer'.
 If no Bongo buffer is found, create a new one.
 This function respects the value of `bongo-prefer-library-buffers'."
   (or (if bongo-prefer-library-buffers
@@ -3986,7 +3986,7 @@ the new buffer will be the value of `bongo-default-library-buffer-name'."
 
 (defun bongo-playlist ()
   "Switch to a Bongo playlist buffer.
-See `bongo-playlist-buffer'."
+See the function `bongo-playlist-buffer'."
   (interactive)
   (switch-to-buffer (bongo-playlist-buffer)))
 
@@ -4030,16 +4030,14 @@ If OTHER-WINDOW (prefix argument if interactive) is non-nil,
             (pop-to-buffer buffer)
           (switch-to-buffer buffer))))))
 
-(defun bongo (&optional prefix-argument)
+(defun bongo ()
   "Switch to a Bongo buffer.
 See the function `bongo-buffer'."
-  (interactive "P")
+  (interactive)
   (when bongo-stored-window-configuration
     (set-window-configuration bongo-stored-window-configuration))
   (unless (bongo-buffer-p)
     (switch-to-buffer (bongo-buffer))))
-
-(provide 'bongo)
 
 ;;; Local Variables:
 ;;; coding: utf-8
@@ -4047,3 +4045,7 @@ See the function `bongo-buffer'."
 ;;; time-stamp-start: ";; Updated: "
 ;;; time-stamp-end: "$"
 ;;; End:
+
+(provide 'bongo)
+
+;;; bongo.el ends here.
