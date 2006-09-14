@@ -2951,8 +2951,31 @@ Do not examine subdirectories of DIRECTORY-NAME."
     (let ((inhibit-read-only t))
       (insert "\n"))))
 
-(defvar bongo-inside-insert-directory-tree nil
-  "Non-nil in the dynamic scope of `bongo-insert-directory-tree'.")
+(defvar bongo-insert-directory-tree-total-file-count nil
+  "The total number of files to be inserted.
+This variable is bound by `bongo-insert-directory-tree'.")
+(defvar bongo-insert-directory-tree-current-file-count nil
+  "The number of files inserted so far.
+This variable is bound by `bongo-insert-directory-tree'
+and modified by `bongo-insert-directory-tree-1'.")
+
+(defun bongo-insert-directory-tree-1 (directory-name)
+  "Helper function for `bongo-insert-directory-tree'."
+  (when bongo-insert-album-covers
+    (bongo-maybe-insert-album-cover directory-name))
+  (let ((file-names (directory-files directory-name t "^[^.]")))
+    (let ((bongo-inside-insert-directory-tree t))
+      (dolist (file-name file-names)
+        (if (file-directory-p file-name)
+            (bongo-insert-directory-tree-1 file-name)
+          (when (bongo-backend-for-file file-name)
+            (bongo-insert-file file-name))
+          (when (zerop (% bongo-insert-directory-tree-current-file-count 10))
+            (message "Inserting directory tree...%d%%"
+                     (/ (* 100 bongo-insert-directory-tree-current-file-count)
+                        bongo-insert-directory-tree-total-file-count)))
+          (setq bongo-insert-directory-tree-current-file-count
+                (+ 1 bongo-insert-directory-tree-current-file-count)))))))
 
 (defun bongo-insert-directory-tree (directory-name)
   "Insert a new track line for each file below DIRECTORY-NAME.
@@ -2973,21 +2996,21 @@ This function descends each subdirectory of DIRECTORY-NAME recursively."
                            (dired-get-filename t)))))))
   (when (null (bongo-backend-matchers))
     (error "No backends are enabled; customize `bongo-enabled-backends'"))
+  (when (not (file-directory-p directory-name))
+    (error "File is not a directory: %s" directory-name))
+  (message "Inserting directory tree...")
   (with-bongo-buffer
-    (when (not (file-directory-p directory-name))
-      (error "File is not a directory: %s" directory-name))
-    (when bongo-insert-album-covers
-      (bongo-maybe-insert-album-cover directory-name))
-    (let ((file-names (directory-files directory-name t "^[^.]"))
-          (beginning (point)))
-      (let ((bongo-inside-insert-directory-tree t))
-        (dolist (file-name file-names)
-          (if (file-directory-p file-name)
-              (bongo-insert-directory-tree file-name)
-            (when (bongo-backend-for-file file-name)
-              (bongo-insert-file file-name)))))
-      (unless bongo-inside-insert-directory-tree
-        (bongo-maybe-join-inserted-tracks beginning (point))))))
+    (let ((beginning (point))
+          (bongo-insert-directory-tree-current-file-count 0)
+          (bongo-insert-directory-tree-total-file-count
+           (with-temp-buffer
+             (insert directory-name)
+             (call-process-region (point-min) (point-max) "sh" t t nil
+                                  "-c" "xargs -0i find {} -type f | wc -l")
+             (string-to-number (buffer-string)))))
+      (bongo-insert-directory-tree-1 directory-name)
+      (bongo-maybe-join-inserted-tracks beginning (point))))
+  (message "Inserting directory tree...done"))
 
 
 ;;;; Collapsing and expanding
