@@ -5,7 +5,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: September 14, 2006
+;; Updated: September 17, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -1614,13 +1614,13 @@ Otherwise, signal an error."
 (make-variable-buffer-local 'bongo-player)
 
 (defcustom bongo-player-started-hook '(bongo-show)
-  "Normal hook run when a Bongo player is started."
+  "Normal hook run when a Bongo player is started in Bongo mode."
   :options '(bongo-show)
   :type 'hook
   :group 'bongo)
 
 (defcustom bongo-player-finished-hook nil
-  "Normal hook run when a Bongo player finishes."
+  "Normal hook run when a Bongo player finishes in Bongo mode."
   :options '((lambda () (bongo-show) (sit-for 2)))
   :type 'hook
   :group 'bongo)
@@ -1638,27 +1638,30 @@ Otherwise, signal an error."
 
 (defun bongo-player-succeeded (player)
   "Run the hooks appropriate for when PLAYER has succeeded."
-  (when (buffer-live-p (bongo-player-buffer player))
-    (with-current-buffer (bongo-player-buffer player)
-      (run-hook-with-args 'bongo-player-succeeded-functions player)
-      (bongo-player-finished player))))
+  (save-current-buffer
+    (when (buffer-live-p (bongo-player-buffer player))
+      (set-buffer (bongo-player-buffer player)))
+    (run-hook-with-args 'bongo-player-succeeded-functions player)
+    (bongo-player-finished player)))
 
 (defun bongo-player-failed (player)
   "Run the hooks appropriate for when PLAYER has failed."
-  (when (buffer-live-p (bongo-player-buffer player))
-    (with-current-buffer (bongo-player-buffer player)
-      (run-hook-with-args 'bongo-player-failed-functions player)
-      (bongo-player-finished player))))
+  (save-current-buffer
+    (when (buffer-live-p (bongo-player-buffer player))
+      (set-buffer (bongo-player-buffer player)))
+    (run-hook-with-args 'bongo-player-failed-functions player)
+    (bongo-player-finished player)))
 
 (defun bongo-player-killed (player)
   "Run the hooks appropriate for when PLAYER was killed."
   (let ((process (bongo-player-process player)))
     (message "Process `%s' received fatal signal %s"
              (process-name process) (process-exit-status process)))
-  (when (buffer-live-p (bongo-player-buffer player))
-    (with-current-buffer (bongo-player-buffer player)
-      (run-hook-with-args 'bongo-player-killed-functions player)
-      (bongo-player-finished player))))
+  (save-current-buffer
+    (when (buffer-live-p (bongo-player-buffer player))
+      (set-buffer (bongo-player-buffer player)))
+    (run-hook-with-args 'bongo-player-killed-functions player)
+    (bongo-player-finished player)))
 
 (defun bongo-perform-next-action ()
   "Perform the next Bongo action, if any.
@@ -1672,10 +1675,12 @@ The next action is specified by `bongo-next-action'."
   "Run the hooks appropriate for when PLAYER has finished.
 Then perform the next action according to `bongo-next-action'.
 You should not call this function directly."
-  (when (buffer-live-p (bongo-player-buffer player))
-    (with-current-buffer (bongo-player-buffer player)
-      (run-hook-with-args 'bongo-player-finished-functions player)
-      (run-hooks 'bongo-player-finished-hook)
+  (save-current-buffer
+    (when (buffer-live-p (bongo-player-buffer player))
+      (set-buffer (bongo-player-buffer player)))
+    (run-hook-with-args 'bongo-player-finished-functions player)
+    (run-hooks 'bongo-player-finished-hook)
+    (when (bongo-buffer-p)
       (bongo-perform-next-action))))
 
 (defun bongo-play (file-name &optional backend)
@@ -1685,15 +1690,15 @@ In Bongo mode, first stop the currently active player, if any.
 BACKEND specifies which backend to use; if it is nil,
 Bongo will try to find the best player for FILE-NAME.
 
-This function runs `bongo-player-started-hook'."
+In Bongo mode, this function runs `bongo-player-started-hook'."
   (when (bongo-buffer-p)
     (when bongo-player
       (bongo-player-stop bongo-player)))
   (let ((player (bongo-start-player file-name backend)))
     (prog1 player
       (when (bongo-buffer-p)
-        (setq bongo-player player))
-      (run-hooks 'bongo-player-started-hook))))
+        (setq bongo-player player)
+        (run-hooks 'bongo-player-started-hook)))))
 
 (defcustom bongo-player-process-priority nil
   "The desired scheduling priority of Bongo player processes.
