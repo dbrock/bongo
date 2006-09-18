@@ -1695,6 +1695,22 @@ You should not call this function directly."
     (when (bongo-buffer-p)
       (bongo-perform-next-action))))
 
+(defcustom bongo-player-sought-hook nil
+  "Normal hook run after a Bongo player seeks in Bongo mode."
+  :type 'hook
+  :group 'bongo)
+
+(defvar bongo-player-sought-functions nil
+  "Abnormal hook run after a Bongo player seeks.")
+
+(defun bongo-player-sought (player)
+  "Run the hooks appropriate for when PLAYER has sought."
+  (save-current-buffer
+    (when (buffer-live-p (bongo-player-buffer player))
+      (set-buffer (bongo-player-buffer player)))
+    (run-hook-with-args 'bongo-player-sought-functions player)
+    (run-hooks 'bongo-player-sought-hook)))
+
 (defun bongo-play (file-name &optional backend)
   "Start playing FILE-NAME and return the new player.
 In Bongo mode, first stop the currently active player, if any.
@@ -2090,16 +2106,20 @@ Interactive mpg123 processes support pausing and seeking."
 
 (defun bongo-mpg123-player-seek-to (player position)
   (if (bongo-mpg123-player-interactive-p player)
-      (process-send-string (bongo-player-process player)
-                           (format "JUMP %d\n" position))
+      (progn
+        (process-send-string (bongo-player-process player)
+                             (format "JUMP %d\n" position))
+        (bongo-player-sought player))
     (error "This mpg123 process does not support seeking")))
 
 (defun bongo-mpg123-player-seek-by (player delta)
   (if (bongo-mpg123-player-interactive-p player)
-      (process-send-string
-       (bongo-player-process player)
-       (format "JUMP %s%d\n" (if (< delta 0) "-" "+")
-               (* bongo-mpg123-seek-increment (abs delta))))
+      (progn
+        (process-send-string
+         (bongo-player-process player)
+         (format "JUMP %s%d\n" (if (< delta 0) "-" "+")
+                 (* bongo-mpg123-seek-increment (abs delta))))
+        (bongo-player-sought player))
     (error "This mpg123 process does not support seeking")))
 
 ;;; XXX: What happens if a record is split between two calls
@@ -2265,16 +2285,20 @@ Interactive mplayer processes support pausing and seeking."
 
 (defun bongo-mplayer-player-seek-to (player position)
   (if (bongo-mpg123-player-interactive-p player)
-      (process-send-string
-       (bongo-player-process player)
-       (format "seek %f 2\n" position))
+      (progn
+       (process-send-string
+        (bongo-player-process player)
+        (format "seek %f 2\n" position))
+       (bongo-player-sought player))
     (error "This mplayer process does not support seeking")))
 
 (defun bongo-mplayer-player-seek-by (player delta)
   (if (bongo-mplayer-player-interactive-p player)
-      (process-send-string
-       (bongo-player-process player)
-       (format "seek %f 0\n" (* bongo-mplayer-seek-increment delta)))
+      (progn
+        (process-send-string
+         (bongo-player-process player)
+         (format "seek %f 0\n" (* bongo-mplayer-seek-increment delta)))
+        (bongo-player-sought player))
     (error "This mplayer process does not support seeking")))
 
 (defun bongo-mplayer-player-start-timer (player)
