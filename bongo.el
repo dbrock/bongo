@@ -5,7 +5,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: September 18, 2006
+;; Updated: September 19, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -2472,6 +2472,18 @@ See `bongo-dwim'."
   (with-bongo-playlist-buffer
     (and (bongo-playing-p)
          (bongo-player-seeking-supported-p bongo-player))))
+
+(defun bongo-elapsed-time ()
+  "Return the number of seconds played so far of the current track.
+Return nil if the active player cannot report this."
+  (with-bongo-playlist-buffer
+    (and bongo-player (bongo-player-elapsed-time bongo-player))))
+
+(defun bongo-total-time ()
+  "Return the length of the currently playing track in seconds.
+Return nil if the active player cannot report this."
+  (with-bongo-playlist-buffer
+    (and bongo-player (bongo-player-total-time bongo-player))))
 
 (defvar bongo-active-track-marker nil
   "Marker pointing at the currently playing track, if any.")
