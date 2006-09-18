@@ -5,7 +5,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: September 17, 2006
+;; Updated: September 18, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -1434,16 +1434,30 @@ This function respects `bongo-insert-intermediate-headers',
                              (bongo-line-proposed-external-fields point)
                              (bongo-line-potential-external-fields point))
                             (bongo-line-external-fields point))
+    ;; We are looking for an already existing header line, above the
+    ;; current line, such that the proposed external fields below the
+    ;; existing header line is a subset of the potential external
+    ;; fields of the current line.  If such a header line exists, then
+    ;; the externalizable fields of the current line is equal to the
+    ;; proposed external fields of the existing header line.
     (let ((potential (bongo-line-potential-external-fields point)))
       (save-excursion
+        ;; We begin the search on the previous line.
         (bongo-backward-object-line)
-        (let (fields)
-          (while (and (null fields) (bongo-line-indented-p))
-            (bongo-backward-up-section)
-            (let ((proposal (bongo-line-external-fields-proposal)))
-              (when (bongo-subset-p potential proposal)
-                (setq fields proposal))))
-          fields)))))
+        ;; If this is a header line, it might be the one we are
+        ;; looking for.
+        (or (and (bongo-header-line-p)
+                 (let ((proposal (bongo-line-external-fields-proposal)))
+                   (and (bongo-subset-p potential proposal) proposal)))
+            ;; If not, continue the search by backing up to the parent
+            ;; header line while there still is one.
+            (let (fields)
+              (while (and (null fields) (bongo-line-indented-p))
+                (bongo-backward-up-section)
+                (let ((proposal (bongo-line-external-fields-proposal)))
+                  (when (bongo-subset-p potential proposal)
+                    (setq fields proposal))))
+              fields))))))
 
 (defun bongo-line-redundant-header-p (&optional point)
   "Return non-nil if the line at POINT is a redundant header.
