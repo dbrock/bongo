@@ -1256,8 +1256,6 @@ If they are distinct but on the same line, return 1."
 
 ;;;; Text properties
 
-;;; XXX: Should rename these to `bongo-get-line-property', etc.
-
 (defun bongo-line-get-property (name &optional point)
   "Return the value of the text property NAME on the line at POINT.
 Actually only look at the terminating newline."
@@ -4068,5 +4066,4 @@ See the function `bongo-buffer'."
 ;;; End:
 
 (provide 'bongo)
-
 ;;; bongo.el ends here.
