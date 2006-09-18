@@ -1320,7 +1320,7 @@ The text properties will only be removed from the terminating newline."
 
 ;;;; Sectioning
 
-(defun bongo-region-field-common-p (beg end field)
+(defun bongo-field-common-in-region-p (beg end field)
   "Return non-nil if FIELD is common between BEG and END.
 FIELD should be the name of a field (i.e., a symbol).
 A field is common in a region if all object lines inside
@@ -1343,13 +1343,13 @@ the region share the same value for the field."
 
 ;; XXX: This will not work properly unless the fields are
 ;;      strictly hierarchical.
-(defun bongo-region-common-fields (beg end)
+(defun bongo-common-fields-in-region (beg end)
   "Return the names of all fields that are common between BEG and END.
-See `bongo-region-field-common-p'."
+See `bongo-field-common-in-region-p'."
   (let ((fields (reverse bongo-fields))
         (common-fields nil))
     (while fields
-      (if (bongo-region-field-common-p beg end (car fields))
+      (if (bongo-field-common-in-region-p beg end (car fields))
           (when (null common-fields)
             (setq common-fields fields))
         (setq common-fields nil))
@@ -1368,15 +1368,15 @@ the object at POINT and either the previous or the next object."
           (after-next (bongo-point-after-next-object-line)))
       (bongo-longest
        (when before-previous
-         (bongo-region-common-fields before-previous
-                                     (bongo-point-after-line)))
+         (bongo-common-fields-in-region before-previous
+                                        (bongo-point-after-line)))
        (when after-next
-         (bongo-region-common-fields (bongo-point-before-line)
-                                     after-next))))))
+         (bongo-common-fields-in-region (bongo-point-before-line)
+                                        after-next))))))
 
 ;; XXX: This will not work properly unless the fields are
 ;;      strictly hierarchical.
-(defun bongo-region-fields-external-p (beg end fields)
+(defun bongo-fields-external-in-region-p (beg end fields)
   "Return non-nil if FIELDS are external between BEG and END.
 Return nil if there is a field in FIELDS that is not external for
 at least one line in the region."
@@ -1419,7 +1419,7 @@ That is, return the names of the fields that are common between
   the line at POINT and the object line before that.
 If the line at POINT is the first line, return nil."
   (unless (bongo-first-object-line-p point)
-    (bongo-region-common-fields
+    (bongo-common-fields-in-region
      (bongo-point-before-previous-object-line point)
      (bongo-point-after-line point))))
 
@@ -1459,7 +1459,7 @@ This function respects `bongo-insert-intermediate-headers',
                     (setq fields proposal))))
               fields))))))
 
-(defun bongo-line-redundant-header-p (&optional point)
+(defun bongo-redundant-header-line-p (&optional point)
   "Return non-nil if the line at POINT is a redundant header.
 Redundant headers are headers whose internal fields are all externalizable."
   (and (bongo-header-line-p point)
@@ -3118,11 +3118,11 @@ This function creates a new header if necessary."
   (interactive "r")
   (let ((line-move-ignore-invisible nil))
     (when (null fields)
-      (unless (setq fields (bongo-region-common-fields beg end))
+      (unless (setq fields (bongo-common-fields-in-region beg end))
         (error "Cannot join tracks: no common fields")))
     (when (= 0 (bongo-region-line-count beg end))
       (error "Cannot join tracks: region empty"))
-    (when (bongo-region-fields-external-p beg end fields)
+    (when (bongo-fields-external-in-region-p beg end fields)
       (error "Cannot join tracks: already joined"))
     (when (= 1 (bongo-region-line-count beg end))
       (error "Cannot join tracks: need more than one"))
@@ -3136,7 +3136,7 @@ This function creates a new header if necessary."
             (bongo-line-set-external-fields fields))
           (bongo-forward-object-line)))
       (move-marker end nil)
-;;;     (when (bongo-line-redundant-header-p)
+;;;     (when (bongo-redundant-header-line-p)
 ;;;       (bongo-delete-line))
       (goto-char beg)
       (bongo-insert-header))))
