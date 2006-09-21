@@ -5,7 +5,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: September 19, 2006
+;; Updated: September 21, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -40,6 +40,82 @@
   :prefix "bongo-"
   :group 'multimedia
   :group 'applications)
+
+
+;;;; Macro definitions
+
+(defmacro with-bongo-buffer (&rest body)
+  "Execute the forms in BODY in some Bongo buffer.
+The value returned is the value of the last form in BODY.
+
+If the current buffer is not a Bongo buffer, switch to
+the buffer returned by the function `bongo-buffer'."
+  (declare (indent 0) (debug t))
+  `(with-current-buffer
+       (if (bongo-buffer-p)
+           (current-buffer)
+         (bongo-buffer))
+     ,@body))
+
+(defmacro with-bongo-library-buffer (&rest body)
+  "Execute the forms in BODY in some Bongo library buffer.
+The value returned is the value of the last form in BODY.
+
+If the current buffer is not a library buffer, switch to
+the buffer returned by the function `bongo-library-buffer'."
+  (declare (indent 0) (debug t))
+  `(with-current-buffer
+       (if (bongo-library-buffer-p)
+           (current-buffer)
+         (bongo-library-buffer))
+     ,@body))
+
+(defmacro with-bongo-playlist-buffer (&rest body)
+  "Execute the forms in BODY in some Bongo playlist buffer.
+The value returned is the value of the last form in BODY.
+
+If the current buffer is not a playlist buffer, switch to
+the buffer returned by the function `bongo-playlist-buffer'."
+  (declare (indent 0) (debug t))
+  `(with-current-buffer
+       (if (bongo-playlist-buffer-p)
+           (current-buffer)
+         (bongo-playlist-buffer))
+     ,@body))
+
+(defmacro with-point-at-bongo-track (point &rest body)
+  "Execute BODY with point at the Bongo track line at POINT.
+If there is no track at POINT, use the next track line.
+If there is no next track line, signal an error."
+  (declare (indent 1) (debug t))
+  `(save-excursion
+     (bongo-goto-point ,point)
+     (when line-move-ignore-invisible
+       (bongo-skip-invisible))
+     (let ((line-move-ignore-invisible nil))
+       (when (not (bongo-track-line-p))
+         (bongo-goto-point (bongo-point-at-next-track-line)))
+       (when (not (bongo-track-line-p))
+        (error "No track at point"))
+       ,@body)))
+
+(defmacro bongo-until (test &rest body)
+  "If TEST yields nil, evaluate BODY... and repeat.
+The order of execution is thus TEST, BODY..., TEST, BODY..., TEST,
+  and so on, until TEST returns non-nil.
+Return the final value of TEST.
+
+\(fn TEST BODY...)"
+  (declare (indent 1) (debug t))
+  (let ((result (gensym)))
+    `(let (,result)
+       (while (unless (setq ,result ,test)
+                (prog1 t
+                  ,@body)))
+       ,result)))
+
+
+;;;; Customization variables
 
 (defvar bongo-backends '()
   "List of names of available Bongo player backends.
@@ -1072,21 +1148,6 @@ That is, the header line of a section that has no content."
 (defsubst bongo-xor (a b)
   "Return non-nil if exactly one of A and B is nil."
   (if a (not b) b))
-
-(defmacro bongo-until (test &rest body)
-  "If TEST yields nil, evaluate BODY... and repeat.
-The order of execution is thus TEST, BODY..., TEST, BODY..., TEST,
-  and so on, until TEST returns non-nil.
-Return the final value of TEST.
-
-\(fn TEST BODY...)"
-  (declare (indent 1) (debug t))
-  (let ((result (gensym)))
-    `(let (,result)
-       (while (unless (setq ,result ,test)
-                (prog1 t
-                  ,@body)))
-       ,result)))
 
 (defun bongo-shortest (a b)
   "Return the shorter of the lists A and B."
@@ -2576,22 +2637,6 @@ In addition, set `bongo-next-action' to the value of
   (move-marker bongo-queued-track-marker nil)
   (move-marker bongo-queued-track-arrow-marker nil))
 
-(defmacro with-point-at-bongo-track (point &rest body)
-  "Execute BODY with point at the Bongo track line at POINT.
-If there is no track at POINT, use the next track line.
-If there is no next track line, signal an error."
-  (declare (indent 1) (debug t))
-  `(save-excursion
-     (bongo-goto-point ,point)
-     (when line-move-ignore-invisible
-       (bongo-skip-invisible))
-     (let ((line-move-ignore-invisible nil))
-       (when (not (bongo-track-line-p))
-         (bongo-goto-point (bongo-point-at-next-track-line)))
-       (when (not (bongo-track-line-p))
-        (error "No track at point"))
-       ,@body)))
-
 (defun bongo-set-queued-track (&optional point)
   "Make `bongo-queued-track-marker' point to the track at POINT.
 In addition, unless `bongo-next-action' is already set to
@@ -3896,45 +3941,6 @@ they have the ability to play tracks.
                'bongo-active-track-marker)
   (add-to-list 'overlay-arrow-variable-list
                'bongo-queued-track-arrow-marker))
-
-(defmacro with-bongo-buffer (&rest body)
-  "Execute the forms in BODY in some Bongo buffer.
-The value returned is the value of the last form in BODY.
-
-If the current buffer is not a Bongo buffer, switch to
-the buffer returned by the function `bongo-buffer'."
-  (declare (indent 0) (debug t))
-  `(with-current-buffer
-       (if (bongo-buffer-p)
-           (current-buffer)
-         (bongo-buffer))
-     ,@body))
-
-(defmacro with-bongo-library-buffer (&rest body)
-  "Execute the forms in BODY in some Bongo library buffer.
-The value returned is the value of the last form in BODY.
-
-If the current buffer is not a library buffer, switch to
-the buffer returned by the function `bongo-library-buffer'."
-  (declare (indent 0) (debug t))
-  `(with-current-buffer
-       (if (bongo-library-buffer-p)
-           (current-buffer)
-         (bongo-library-buffer))
-     ,@body))
-
-(defmacro with-bongo-playlist-buffer (&rest body)
-  "Execute the forms in BODY in some Bongo playlist buffer.
-The value returned is the value of the last form in BODY.
-
-If the current buffer is not a playlist buffer, switch to
-the buffer returned by the function `bongo-playlist-buffer'."
-  (declare (indent 0) (debug t))
-  `(with-current-buffer
-       (if (bongo-playlist-buffer-p)
-           (current-buffer)
-         (bongo-playlist-buffer))
-     ,@body))
 
 (defvar bongo-library-buffer nil
   "The default Bongo library buffer, or nil.
