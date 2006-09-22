@@ -5,7 +5,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: September 21, 2006
+;; Updated: September 22, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -29,6 +29,8 @@
 ;; Shuffle operations.  It would be nice to have both a
 ;; random shuffle operation and an interleaving
 ;; enqueue operation.
+
+;; Fix `E' when the playing song is not in the playlist.
 
 ;;; Code:
 
@@ -432,6 +434,275 @@ This is used by the function `bongo-default-format-field'.
   :type 'string
   :group 'bongo-display)
 
+(defgroup bongo-mode-line nil
+  "Bongo mode line display."
+  :group 'bongo)
+
+(defcustom bongo-enable-mode-line-display nil
+  "Whether to display playback status in the mode line."
+  :type 'boolean
+  :group 'bongo-mode-line)
+
+(defcustom bongo-mode-line-format " %i %e/%r"
+  "Template for mode line playback status.
+%s means the track information.
+%i means the status icon.
+%t means time information.
+%e means the elapsed time.
+%r means the remaining time.
+%E means a plus sign followed by the elapsed time.
+%R means a minus sign followed by the remaining time."
+  :type 'string
+  :group 'bongo-mode-line)
+
+(defcustom bongo-mode-line-max-track-width 20
+  "The width of the track information in the mode line.")
+
+(defcustom bongo-mode-line-track-overflow 'scroll
+  "What to do when the track information doesn't fit in the mode line.
+Value is ")
+
+(defvar bongo-mode-line-string nil)
+
+;; This is needed for text properties to work in the mode line.
+(put 'bongo-mode-line-string 'risky-local-variable t)
+
+(defcustom bongo-mode-line-icon-color "black"
+  "The color of the mode line icons."
+  :type 'string
+  :group 'bongo-mode-line)
+
+(defvar bongo-mode-line-icon-paused-18
+  `(image :type xpm :ascent center :data ,(concat "/* XPM */
+static char *paused[] = {
+/* width height num_colors chars_per_pixel */
+\"  18    18        2            1\",
+/* colors */
+\". c " bongo-mode-line-icon-color  "\",
+\"# c None s None\",
+/* pixels */
+\"##################\",
+\"###....####....###\",
+\"###....####....###\",
+\"###....####....###\",
+\"###....####....###\",
+\"###....####....###\",
+\"###....####....###\",
+\"###....####....###\",
+\"###....####....###\",
+\"###....####....###\",
+\"###....####....###\",
+\"###....####....###\",
+\"###....####....###\",
+\"###....####....###\",
+\"###....####....###\",
+\"###....####....###\",
+\"###....####....###\",
+\"##################\"};")))
+
+(defvar bongo-mode-line-icon-paused-11
+  `(image :type xpm :ascent center :data ,(concat "/* XPM */
+static char *paused[] = {
+/* width height num_colors chars_per_pixel */
+\"  10    11        2            1\",
+/* colors */
+\". c " bongo-mode-line-icon-color  "\",
+\"# c None s None\",
+/* pixels */
+\"##########\",
+\"##..##..##\",
+\"##..##..##\",
+\"##..##..##\",
+\"##..##..##\",
+\"##..##..##\",
+\"##..##..##\",
+\"##..##..##\",
+\"##..##..##\",
+\"##..##..##\",
+\"##########\"};")))
+
+(defvar bongo-mode-line-icon-playing-18
+  `(image :type xpm :ascent center :data ,(concat "/* XPM */
+static char *playing[] = {
+/* width height num_colors chars_per_pixel */
+\"  18    18        2            1\",
+/* colors */
+\". c " bongo-mode-line-icon-color  "\",
+\"# c None s None\",
+/* pixels */
+\"##################\",
+\"##################\",
+\"######.###########\",
+\"######..##########\",
+\"######...#########\",
+\"######....########\",
+\"######.....#######\",
+\"######......######\",
+\"######.......#####\",
+\"######........####\",
+\"######.......#####\",
+\"######......######\",
+\"######.....#######\",
+\"######....########\",
+\"######...#########\",
+\"######..##########\",
+\"######.###########\",
+\"##################\"};")))
+
+(defvar bongo-mode-line-icon-playing-11
+  `(image :type xpm :ascent center :data ,(concat "/* XPM */
+static char *playing[] = {
+/* width height num_colors chars_per_pixel */
+\"  10    11        2            1\",
+/* colors */
+\". c " bongo-mode-line-icon-color  "\",
+\"# c None s None\",
+/* pixels */
+\"##########\",
+\"###.######\",
+\"###..#####\",
+\"###...####\",
+\"###....###\",
+\"###.....##\",
+\"###....###\",
+\"###...####\",
+\"###..#####\",
+\"###.######\",
+\"##########\"};") nil t))
+
+(defun bongo-mode-line-icon-string ()
+  (let* ((font-size (aref (font-info (face-font 'mode-line)) 3))
+         (icon-size (if (>= font-size 18) 18 11)))
+    (cond ((bongo-paused-p)
+           (propertize " " 'display
+                       (cond ((= icon-size 18)
+                              bongo-mode-line-icon-paused-18)
+                             ((= icon-size 11)
+                              bongo-mode-line-icon-paused-11))))
+          ((bongo-playing-p)
+           (propertize " " 'display
+                       (cond ((= icon-size 18)
+                              bongo-mode-line-icon-playing-18)
+                             ((= icon-size 11)
+                              bongo-mode-line-icon-playing-11))))
+          (t ""))))
+
+(defvar bongo-mode-line-scroll-position 0)
+
+(defun bongo-make-blank-string (length)
+  (make-string length 32))
+
+(defun bongo-mode-line-time-string ()
+  (with-bongo-buffer
+    (when (bongo-elapsed-time)
+      (concat (bongo-format-seconds
+               (bongo-elapsed-time))
+              (when (bongo-total-time)
+                (concat "/" (bongo-format-seconds
+                             (bongo-total-time))))))))
+
+(defun bongo-mode-line-track-string ()
+  (with-bongo-buffer
+    (let ((original-string
+            (bongo-format-infoset
+             (bongo-player-infoset bongo-player))))
+      (when (> bongo-mode-line-scroll-position
+               (length original-string))
+        (setq bongo-mode-line-scroll-position
+              (- bongo-mode-line-max-track-width)))
+      (let* ((scrolled-string
+              (if (>= bongo-mode-line-scroll-position 0)
+                  (substring original-string
+                             bongo-mode-line-scroll-position)
+                (concat (bongo-make-blank-string
+                         (- bongo-mode-line-scroll-position))
+                        original-string)))
+             (cropped-string
+              (if (and bongo-mode-line-max-track-width
+                       (> (length scrolled-string)
+                          bongo-mode-line-max-track-width))
+                  (substring scrolled-string 0
+                             bongo-mode-line-max-track-width)
+                (concat scrolled-string
+                        (bongo-make-blank-string
+                         (- bongo-mode-line-max-track-width
+                            (length scrolled-string)))))))
+        cropped-string))))
+
+(defun bongo-mode-line-string ()
+  (with-bongo-buffer
+    (when (bongo-playing-p)      
+      (format-spec bongo-mode-line-format
+                   `((?s . ,(bongo-mode-line-track-string))
+                     (?i . ,(bongo-mode-line-icon-string))
+                     (?e . ,(with-bongo-buffer
+                              (when (bongo-elapsed-time)
+                                (bongo-format-seconds
+                                 (bongo-elapsed-time)))))
+                     (?r . ,(with-bongo-buffer
+                              (when (bongo-remaining-time)
+                                (bongo-format-seconds
+                                 (bongo-remaining-time)))))
+                     (?E . ,(with-bongo-buffer
+                              (when (bongo-elapsed-time)
+                                (concat "+" (bongo-format-seconds
+                                             (bongo-elapsed-time))))))
+                     (?R . ,(with-bongo-buffer
+                              (when (bongo-remaining-time)
+                                (concat "-" (bongo-format-seconds
+                                             (bongo-remaining-time))))))
+                     (?t . ,(bongo-mode-line-time-string)))))))
+
+(defun bongo-update-mode-line ()
+  (setq bongo-mode-line-string
+        (bongo-mode-line-string))
+  (setq bongo-mode-line-scroll-position
+        (+ bongo-mode-line-scroll-position
+           (cond ((< bongo-mode-line-scroll-position 0)
+                  (max 1 (/ bongo-mode-line-scroll-position -5)))
+                 ((< (- (length (with-bongo-buffer
+                                  (bongo-format-infoset
+                                   (bongo-player-infoset bongo-player))))
+                        bongo-mode-line-scroll-position)
+                     bongo-mode-line-max-track-width)
+                  (max 1 (/ (- bongo-mode-line-max-track-width
+                               (- (length
+                                   (with-bongo-buffer
+                                     (bongo-format-infoset
+                                      (bongo-player-infoset bongo-player))))
+                                  bongo-mode-line-scroll-position))
+                            5)))
+                 (t 1)))))
+
+(defvar bongo-mode-line-update-interval 10)
+
+(defun bongo-enable-mode-line-display ()
+  (interactive)
+  (add-to-list 'global-mode-string 'bongo-mode-line-string 'append)
+  (when bongo-mode-line-timer
+    (cancel-timer bongo-mode-line-timer))
+  (setq bongo-mode-line-timer
+        (run-with-timer 0 bongo-mode-line-update-interval
+                        'bongo-update-mode-line))
+  (setq bongo-enable-mode-line-display t))
+
+(defun bongo-disable-mode-line-display ()
+  (interactive)
+  (when bongo-mode-line-timer
+    (cancel-timer bongo-mode-line-timer)
+    (setq bongo-mode-line-timer nil))
+  (setq bongo-mode-line-string nil)
+  (setq bongo-enable-mode-line-display nil))
+
+(defun bongo-toggle-mode-line-display ()
+  (interactive)
+  (if bongo-enable-mode-line-display
+      (bongo-disable-mode-line-display)
+    (bongo-enable-mode-line-display))
+  (message "Bongo mode line display %s."
+           (if bongo-enable-mode-line-display
+               "enabled" "disabled")))
+
 (defgroup bongo-infosets nil
   "Structured track information in Bongo."
   :group 'bongo)
@@ -549,8 +820,7 @@ This is used by `bongo-default-format-infoset'."
   "Face used for Bongo artist names."
   :group 'bongo-faces)
 
-(defface bongo-album
-  '((t (:inherit default)))
+(defface bongo-album '((t nil))
   "Face used for Bongo albums (year, title, and punctuation)."
   :group 'bongo-faces)
 
@@ -564,8 +834,7 @@ This is used by `bongo-default-format-infoset'."
   "Face used for Bongo album years."
   :group 'bongo-faces)
 
-(defface bongo-track
-  '((t (:inherit default)))
+(defface bongo-track '((t nil))
   "Face used for Bongo tracks (index, title, and punctuation)."
   :group 'bongo-faces)
 
@@ -2539,6 +2808,13 @@ See `bongo-dwim'."
 Return nil if the active player cannot report this."
   (with-bongo-playlist-buffer
     (and bongo-player (bongo-player-elapsed-time bongo-player))))
+
+(defun bongo-remaining-time ()
+  "Return the number of seconds remaining of the current track.
+Return nil if the active player cannot report this."
+  (let ((elapsed-time (bongo-elapsed-time))
+        (total-time (bongo-total-time)))
+    (and elapsed-time total-time (- total-time elapsed-time))))
 
 (defun bongo-total-time ()
   "Return the length of the currently playing track in seconds.
