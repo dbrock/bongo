@@ -438,6 +438,106 @@ This is used by the function `bongo-default-format-field'.
   :type 'string
   :group 'bongo-display)
 
+(defgroup bongo-header-line nil
+  "Display of Bongo header lines."
+  :group 'bongo
+  :group 'bongo-display)
+
+(defcustom bongo-header-line-mode t
+  "Display header lines in Bongo playlist buffers."
+  :type 'boolean
+  :group 'bongo-header-line)
+
+(defcustom bongo-header-line-playing-string "Playing:"
+  "String to display in the header line when a track is playing."
+  :type 'string
+  :group 'bongo-header-line)
+
+(defcustom bongo-header-line-paused-string "Paused:"
+  "String to display in the header line when a track is paused."
+  :type 'string
+  :group 'bongo-header-line)
+
+(defun bongo-header-line-playback-status ()
+  "Return the string to use for header line playback status."
+  (when (bongo-playing-p)
+    (if (bongo-paused-p)
+        bongo-header-line-paused-string
+      bongo-header-line-playing-string)))
+
+(defcustom bongo-header-line-format
+  '((bongo-header-line-playback-status) " "
+    (bongo-formatted-infoset))
+  "Template for Bongo playlist header lines.
+Value is a list of expressions, each evaluating to a string or nil.
+The values of the expressions are concatenated."
+  :type '(repeat
+          (choice
+           (const :tag "Space" " ")
+           string
+           (const :tag "Playback status"
+                  (bongo-header-line-playback-status))
+           (const :tag "Track description"
+                  (bongo-formatted-infoset))
+           (sexp :tag "Value of arbitrary expression")))
+  :group 'bongo-header-line)
+
+(defun bongo-update-header-line (&rest dummy)
+  "Update `header-line-format' using `bongo-header-line-format'.
+If Bongo is not playing anything, set the header line format to nil.
+Accept DUMMY arguments to ease hook usage."
+  (setq header-line-format
+        (with-bongo-buffer
+          (when (bongo-playing-p)
+            (apply 'concat
+                   (mapcar 'eval bongo-header-line-format))))))
+
+(defun bongo-header-line-mode (argument)
+  "Toggle display of Bongo mode line indicator on or off.
+With ARGUMENT equal to `toggle', or interactively
+  with no prefix argument, toggle the mode.
+With zero or negative ARGUMENT, turn the mode off.
+With any other ARGUMENT, turn the mode on."
+  ;; Use `toggle' rather than (if mode 0 1) so that using
+  ;; `repeat-command' still does the toggling correctly.
+  (interactive (list (or current-prefix-arg 'toggle)))
+  (setq bongo-header-line-mode
+        (if (eq argument 'toggle)
+            (not bongo-header-line-mode)
+          (> (prefix-numeric-value argument) 0)))
+  (when (called-interactively-p)
+    (customize-mark-as-set 'bongo-header-line-mode))
+  (if bongo-header-line-mode
+      (progn
+        (add-hook 'bongo-player-started-functions
+                  'bongo-update-header-line)
+        (add-hook 'bongo-player-finished-functions
+                  'bongo-update-header-line)
+        (add-hook 'bongo-player-stopped-functions
+                  'bongo-update-header-line)
+        (add-hook 'bongo-player-paused/resumed-functions
+                  'bongo-update-header-line)
+        (add-hook 'bongo-player-times-changed-functions
+                  'bongo-update-header-line))
+    (remove-hook 'bongo-player-started-functions
+                 'bongo-update-header-line)
+    (remove-hook 'bongo-player-finished-functions
+                 'bongo-update-header-line)
+    (remove-hook 'bongo-player-stopped-functions
+                 'bongo-update-header-line)
+    (remove-hook 'bongo-player-paused/resumed-functions
+                 'bongo-update-header-line)
+    (remove-hook 'bongo-player-times-changed-functions
+                 'bongo-update-header-line))
+  (when (interactive-p)
+    (message "Bongo header line mode %s."
+             (if bongo-header-line-mode
+                 "enabled" "disabled")))
+  bongo-header-line-mode)
+
+(bongo-header-line-mode
+ (if bongo-header-line-mode +1 -1))
+
 (defgroup bongo-mode-line nil
   "Display of Bongo mode line indicator."
   :group 'bongo
