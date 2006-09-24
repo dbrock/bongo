@@ -5,7 +5,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: September 22, 2006
+;; Updated: September 24, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -31,6 +31,8 @@
 ;; enqueue operation.
 
 ;; Fix `E' when the playing song is not in the playlist.
+
+;; Fix formatting of tracks whose titles contain percent signs.
 
 ;;; Code:
 
@@ -435,273 +437,272 @@ This is used by the function `bongo-default-format-field'.
   :group 'bongo-display)
 
 (defgroup bongo-mode-line nil
-  "Bongo mode line display."
-  :group 'bongo)
+  "Display of Bongo mode line indicator."
+  :group 'bongo
+  :group 'bongo-display)
 
-(defcustom bongo-enable-mode-line-display nil
-  "Whether to display playback status in the mode line."
+(defcustom bongo-mode-line-indicator-mode t
+  "Display a Bongo status indicator in the mode line.
+See `bongo-mode-line-indicator-format'."
   :type 'boolean
   :group 'bongo-mode-line)
 
-(defcustom bongo-mode-line-format " %i %e/%r"
-  "Template for mode line playback status.
-%s means the track information.
-%i means the status icon.
-%t means time information.
-%e means the elapsed time.
-%r means the remaining time.
-%E means a plus sign followed by the elapsed time.
-%R means a minus sign followed by the remaining time."
-  :type 'string
+(defcustom bongo-mode-line-indicator-format
+  '(" " (bongo-mode-line-playback-status) " "
+    (when (and (bongo-elapsed-time) (bongo-total-time))
+      (format "%d%%" (/ (* 100.0 (bongo-elapsed-time))
+                        (bongo-total-time)))))
+  "Template for the Bongo mode line indicator.
+Value is a list of expressions, each evaluating to a string or nil.
+The values of the expressions are concatenated."
+  :type '(repeat
+          (choice
+           (const :tag "Space" " ")
+           string
+           (const :tag "Playback status (if playing or paused)"
+                  (bongo-mode-line-playback-status))
+           (const :tag "Elapsed time"
+                  (bongo-format-seconds (bongo-elapsed-time)))
+           (const :tag "Remaining time"
+                  (bongo-format-seconds (bongo-remaining-time)))
+           (const :tag "Total time"
+                  (bongo-format-seconds (bongo-total-time)))
+           (const :tag "Elapsed percent"
+                  (when (and (bongo-elapsed-time) (bongo-total-time))
+                    (format "%d%%" (/ (* 100.0 (bongo-elapsed-time))
+                                      (bongo-total-time)))))
+           (const :tag "Elapsed and total time"
+                  (when (and (bongo-elapsed-time) (bongo-total-time))
+                    (concat (bongo-format-seconds (bongo-elapsed-time)) "/"
+                            (bongo-format-seconds (bongo-total-time)))))
+           (sexp :tag "Value of arbitrary expression")))
   :group 'bongo-mode-line)
 
-(defcustom bongo-mode-line-max-track-width 20
-  "The width of the track information in the mode line.")
-
-(defcustom bongo-mode-line-track-overflow 'scroll
-  "What to do when the track information doesn't fit in the mode line.
-Value is ")
-
-(defvar bongo-mode-line-string nil)
-
-;; This is needed for text properties to work in the mode line.
-(put 'bongo-mode-line-string 'risky-local-variable t)
+(defcustom bongo-mode-line-indicator-parent '(global-mode-string . append)
+  "List variable in which to put the Bongo mode line indicator.
+Value is either LIST-VARIABLE or (LIST-VARIABLE . append) or nil,
+  where LIST-VARIABLE is the name of a variable whose value is a list.
+If nil, `bongo-mode-line-indicator-string' is not put anywhere."
+  :type '(choice (const :tag "None" nil)
+                 (symbol :tag "Prepend to list")
+                 (cons :tag "Append to list" :format "%v"
+                       (symbol :tag "Append to list")
+                       (const append)))
+  :group 'bongo-mode-line)
 
 (defcustom bongo-mode-line-icon-color "black"
-  "The color of the mode line icons."
+  "Color of Bongo mode line icons."
   :type 'string
   :group 'bongo-mode-line)
 
-(defvar bongo-mode-line-icon-paused-18
-  `(image :type xpm :ascent center :data ,(concat "/* XPM */
-static char *paused[] = {
-/* width height num_colors chars_per_pixel */
-\"  18    18        2            1\",
-/* colors */
-\". c " bongo-mode-line-icon-color  "\",
-\"# c None s None\",
-/* pixels */
-\"##################\",
-\"###....####....###\",
-\"###....####....###\",
-\"###....####....###\",
-\"###....####....###\",
-\"###....####....###\",
-\"###....####....###\",
-\"###....####....###\",
-\"###....####....###\",
-\"###....####....###\",
-\"###....####....###\",
-\"###....####....###\",
-\"###....####....###\",
-\"###....####....###\",
-\"###....####....###\",
-\"###....####....###\",
-\"###....####....###\",
-\"##################\"};")))
+(defcustom bongo-mode-line-playing-string "Playing: "
+  "Fallback string for Bongo ``playing'' icon.
+This must not be the empty string, or the icon will not appear."
+  :type 'string
+  :group 'bongo-mode-line)
 
-(defvar bongo-mode-line-icon-paused-11
-  `(image :type xpm :ascent center :data ,(concat "/* XPM */
-static char *paused[] = {
-/* width height num_colors chars_per_pixel */
-\"  10    11        2            1\",
-/* colors */
-\". c " bongo-mode-line-icon-color  "\",
-\"# c None s None\",
-/* pixels */
-\"##########\",
-\"##..##..##\",
-\"##..##..##\",
-\"##..##..##\",
-\"##..##..##\",
-\"##..##..##\",
-\"##..##..##\",
-\"##..##..##\",
-\"##..##..##\",
-\"##..##..##\",
-\"##########\"};")))
+(defcustom bongo-mode-line-paused-string "Paused: "
+  "Fallback string for Bongo ``paused'' icon.
+This must not be the empty string, or the icon will not appear."
+  :type 'string
+  :group 'bongo-mode-line)
 
-(defvar bongo-mode-line-icon-playing-18
-  `(image :type xpm :ascent center :data ,(concat "/* XPM */
-static char *playing[] = {
-/* width height num_colors chars_per_pixel */
-\"  18    18        2            1\",
+(defvar bongo-mode-line-paused-icon-18
+  '`(image :type xpm :ascent center :data ,(concat "/* XPM */
+static char *paused_18[] = {
+/* width  height  number of colors  number of characters per pixel */
+\" 18     18      2                 1\",
 /* colors */
-\". c " bongo-mode-line-icon-color  "\",
-\"# c None s None\",
+\"# c " bongo-mode-line-icon-color  "\",
+\". c None\",
 /* pixels */
-\"##################\",
-\"##################\",
-\"######.###########\",
-\"######..##########\",
-\"######...#########\",
-\"######....########\",
-\"######.....#######\",
-\"######......######\",
-\"######.......#####\",
-\"######........####\",
-\"######.......#####\",
-\"######......######\",
-\"######.....#######\",
-\"######....########\",
-\"######...#########\",
-\"######..##########\",
-\"######.###########\",
-\"##################\"};")))
+\"..................\",
+\"...####....####...\",
+\"...####....####...\",
+\"...####....####...\",
+\"...####....####...\",
+\"...####....####...\",
+\"...####....####...\",
+\"...####....####...\",
+\"...####....####...\",
+\"...####....####...\",
+\"...####....####...\",
+\"...####....####...\",
+\"...####....####...\",
+\"...####....####...\",
+\"...####....####...\",
+\"...####....####...\",
+\"...####....####...\",
+\"..................\"
+};"))
+  "Bongo ``paused'' icon (18 pixels tall).")
 
-(defvar bongo-mode-line-icon-playing-11
-  `(image :type xpm :ascent center :data ,(concat "/* XPM */
-static char *playing[] = {
-/* width height num_colors chars_per_pixel */
-\"  10    11        2            1\",
+(defvar bongo-mode-line-paused-icon-11
+  '`(image :type xpm :ascent center :data ,(concat "/* XPM */
+static char *paused_11[] = {
+/* width  height  number of colors  number of characters per pixel */
+\" 10     11      2                 1\",
 /* colors */
-\". c " bongo-mode-line-icon-color  "\",
-\"# c None s None\",
+\"# c " bongo-mode-line-icon-color  "\",
+\". c None\",
 /* pixels */
-\"##########\",
-\"###.######\",
-\"###..#####\",
-\"###...####\",
-\"###....###\",
-\"###.....##\",
-\"###....###\",
-\"###...####\",
-\"###..#####\",
-\"###.######\",
-\"##########\"};") nil t))
+\"..........\",
+\"..##..##..\",
+\"..##..##..\",
+\"..##..##..\",
+\"..##..##..\",
+\"..##..##..\",
+\"..##..##..\",
+\"..##..##..\",
+\"..##..##..\",
+\"..##..##..\",
+\"..........\"};"))
+  "Bongo ``paused'' icon (11 pixels tall).")
 
-(defun bongo-mode-line-icon-string ()
+(defvar bongo-mode-line-playing-icon-18
+  '`(image :type xpm :ascent center :data ,(concat "/* XPM */
+static char *playing_18[] = {
+/* width  height  number of colors  number of characters per pixel */
+\" 18     18      2                 1\",
+/* colors */
+\"# c " bongo-mode-line-icon-color  "\",
+\". c None\",
+/* pixels */
+\"..................\",
+\"..................\",
+\"......##..........\",
+\"......###.........\",
+\"......####........\",
+\"......#####.......\",
+\"......######......\",
+\"......#######.....\",
+\"......########....\",
+\"......########....\",
+\"......#######.....\",
+\"......######......\",
+\"......#####.......\",
+\"......####........\",
+\"......###.........\",
+\"......##..........\",
+\"..................\",
+\"..................\"
+};"))
+  "Bongo ``playing'' icon (18 pixels tall)")
+
+(defvar bongo-mode-line-playing-icon-11
+  '`(image :type xpm :ascent center :data ,(concat "/* XPM */
+static char *playing_11[] = {
+/* width  height  number of colors  number of characters per pixel */
+\" 10     11      2                 1\",
+/* colors */
+\"# c " bongo-mode-line-icon-color  "\",
+\". c None\",
+/* pixels */
+\"..........\",
+\"...#......\",
+\"...##.....\",
+\"...###....\",
+\"...####...\",
+\"...#####..\",
+\"...####...\",
+\"...###....\",
+\"...##.....\",
+\"...#......\",
+\"..........\"
+};"))
+  "Bongo ``playing'' icon (11 pixels tall).")
+
+(defun bongo-mode-line-playback-status ()
+  "Return the string to use as Bongo playback status indicator."
   (let* ((font-size (aref (font-info (face-font 'mode-line)) 3))
          (icon-size (if (>= font-size 18) 18 11)))
     (cond ((bongo-paused-p)
-           (propertize " " 'display
+           (propertize bongo-mode-line-paused-string 'display
                        (cond ((= icon-size 18)
-                              bongo-mode-line-icon-paused-18)
+                              (eval bongo-mode-line-paused-icon-18))
                              ((= icon-size 11)
-                              bongo-mode-line-icon-paused-11))))
+                              (eval bongo-mode-line-paused-icon-11)))))
           ((bongo-playing-p)
-           (propertize " " 'display
+           (propertize bongo-mode-line-playing-string 'display
                        (cond ((= icon-size 18)
-                              bongo-mode-line-icon-playing-18)
+                              (eval bongo-mode-line-playing-icon-18))
                              ((= icon-size 11)
-                              bongo-mode-line-icon-playing-11))))
+                              (eval bongo-mode-line-playing-icon-11)))))
           (t ""))))
 
-(defvar bongo-mode-line-scroll-position 0)
+(defvar bongo-mode-line-indicator-string nil
+  "Bongo mode line indicator string.
+Value is derived from `bongo-mode-line-indicator-format'.
+The name of this variable should go in, e.g., `global-mode-string'.")
 
-(defun bongo-make-blank-string (length)
-  (make-string length 32))
+;; This is needed for text properties to work in the mode line.
+(put 'bongo-mode-line-indicator-string 'risky-local-variable t)
 
-(defun bongo-mode-line-time-string ()
-  (with-bongo-buffer
-    (when (bongo-elapsed-time)
-      (concat (bongo-format-seconds
-               (bongo-elapsed-time))
-              (when (bongo-total-time)
-                (concat "/" (bongo-format-seconds
-                             (bongo-total-time))))))))
+(defun bongo-update-mode-line-indicator-string (&rest dummy)
+  "Update `bongo-mode-line-indicator-string'.
+If Bongo is not playing anything, set the indicator string to nil.
+Otherwise, evalutate elements of `bongo-mode-line-indicator-format'.
+Accept DUMMY arguments to ease hook usage."
+  (setq bongo-mode-line-indicator-string
+        (with-bongo-buffer
+          (when (bongo-playing-p)
+            (apply 'concat
+                   (mapcar 'eval bongo-mode-line-indicator-format))))))
 
-(defun bongo-mode-line-track-string ()
-  (with-bongo-buffer
-    (let ((original-string
-            (bongo-format-infoset
-             (bongo-player-infoset bongo-player))))
-      (when (> bongo-mode-line-scroll-position
-               (length original-string))
-        (setq bongo-mode-line-scroll-position
-              (- bongo-mode-line-max-track-width)))
-      (let* ((scrolled-string
-              (if (>= bongo-mode-line-scroll-position 0)
-                  (substring original-string
-                             bongo-mode-line-scroll-position)
-                (concat (bongo-make-blank-string
-                         (- bongo-mode-line-scroll-position))
-                        original-string)))
-             (cropped-string
-              (if (and bongo-mode-line-max-track-width
-                       (> (length scrolled-string)
-                          bongo-mode-line-max-track-width))
-                  (substring scrolled-string 0
-                             bongo-mode-line-max-track-width)
-                (concat scrolled-string
-                        (bongo-make-blank-string
-                         (- bongo-mode-line-max-track-width
-                            (length scrolled-string)))))))
-        cropped-string))))
+(defun bongo-mode-line-indicator-mode (argument)
+  "Toggle display of Bongo mode line indicator on or off.
+With ARGUMENT equal to `toggle', or interactively
+  with no prefix argument, toggle the mode.
+With zero or negative ARGUMENT, turn the mode off.
+With any other ARGUMENT, turn the mode on."
+  ;; Use `toggle' rather than (if mode 0 1) so that using
+  ;; `repeat-command' still does the toggling correctly.
+  (interactive (list (or current-prefix-arg 'toggle)))
+  (setq bongo-mode-line-indicator-mode
+        (if (eq argument 'toggle)
+            (not bongo-mode-line-indicator-mode)
+          (> (prefix-numeric-value argument) 0)))
+  (when (called-interactively-p)
+    (customize-mark-as-set 'bongo-mode-line-indicator-mode))
+  (when bongo-mode-line-indicator-parent
+    (let ((variable (if (consp bongo-mode-line-indicator-parent)
+                        (car bongo-mode-line-indicator-parent)
+                      bongo-mode-line-indicator-parent)))
+      (if bongo-mode-line-indicator-mode
+          (add-to-list variable 'bongo-mode-line-indicator-string
+                       (consp bongo-mode-line-indicator-parent))
+        (set variable (remq 'bongo-mode-line-indicator-string
+                            (symbol-value variable))))))
+  (if bongo-mode-line-indicator-mode
+      (progn
+        (add-hook 'bongo-player-started-functions
+                  'bongo-update-mode-line-indicator-string)
+        (add-hook 'bongo-player-finished-functions
+                  'bongo-update-mode-line-indicator-string)
+        (add-hook 'bongo-player-stopped-functions
+                  'bongo-update-mode-line-indicator-string)
+        (add-hook 'bongo-player-paused/resumed-functions
+                  'bongo-update-mode-line-indicator-string)
+        (add-hook 'bongo-player-times-changed-functions
+                  'bongo-update-mode-line-indicator-string))
+    (remove-hook 'bongo-player-started-functions
+                 'bongo-update-mode-line-indicator-string)
+    (remove-hook 'bongo-player-finished-functions
+                 'bongo-update-mode-line-indicator-string)
+    (remove-hook 'bongo-player-stopped-functions
+                 'bongo-update-mode-line-indicator-string)
+    (remove-hook 'bongo-player-paused/resumed-functions
+                 'bongo-update-mode-line-indicator-string)
+    (remove-hook 'bongo-player-times-changed-functions
+                 'bongo-update-mode-line-indicator-string))
+  (when (interactive-p)
+    (message "Bongo mode line indicator mode %s."
+             (if bongo-mode-line-indicator-mode
+                 "enabled" "disabled")))
+  bongo-mode-line-indicator-mode)
 
-(defun bongo-mode-line-string ()
-  (with-bongo-buffer
-    (when (bongo-playing-p)      
-      (format-spec bongo-mode-line-format
-                   `((?s . ,(bongo-mode-line-track-string))
-                     (?i . ,(bongo-mode-line-icon-string))
-                     (?e . ,(with-bongo-buffer
-                              (when (bongo-elapsed-time)
-                                (bongo-format-seconds
-                                 (bongo-elapsed-time)))))
-                     (?r . ,(with-bongo-buffer
-                              (when (bongo-remaining-time)
-                                (bongo-format-seconds
-                                 (bongo-remaining-time)))))
-                     (?E . ,(with-bongo-buffer
-                              (when (bongo-elapsed-time)
-                                (concat "+" (bongo-format-seconds
-                                             (bongo-elapsed-time))))))
-                     (?R . ,(with-bongo-buffer
-                              (when (bongo-remaining-time)
-                                (concat "-" (bongo-format-seconds
-                                             (bongo-remaining-time))))))
-                     (?t . ,(bongo-mode-line-time-string)))))))
-
-(defun bongo-update-mode-line ()
-  (setq bongo-mode-line-string
-        (bongo-mode-line-string))
-  (setq bongo-mode-line-scroll-position
-        (+ bongo-mode-line-scroll-position
-           (cond ((< bongo-mode-line-scroll-position 0)
-                  (max 1 (/ bongo-mode-line-scroll-position -5)))
-                 ((< (- (length (with-bongo-buffer
-                                  (bongo-format-infoset
-                                   (bongo-player-infoset bongo-player))))
-                        bongo-mode-line-scroll-position)
-                     bongo-mode-line-max-track-width)
-                  (max 1 (/ (- bongo-mode-line-max-track-width
-                               (- (length
-                                   (with-bongo-buffer
-                                     (bongo-format-infoset
-                                      (bongo-player-infoset bongo-player))))
-                                  bongo-mode-line-scroll-position))
-                            5)))
-                 (t 1)))))
-
-(defvar bongo-mode-line-update-interval 10)
-
-(defun bongo-enable-mode-line-display ()
-  (interactive)
-  (add-to-list 'global-mode-string 'bongo-mode-line-string 'append)
-  (when bongo-mode-line-timer
-    (cancel-timer bongo-mode-line-timer))
-  (setq bongo-mode-line-timer
-        (run-with-timer 0 bongo-mode-line-update-interval
-                        'bongo-update-mode-line))
-  (setq bongo-enable-mode-line-display t))
-
-(defun bongo-disable-mode-line-display ()
-  (interactive)
-  (when bongo-mode-line-timer
-    (cancel-timer bongo-mode-line-timer)
-    (setq bongo-mode-line-timer nil))
-  (setq bongo-mode-line-string nil)
-  (setq bongo-enable-mode-line-display nil))
-
-(defun bongo-toggle-mode-line-display ()
-  (interactive)
-  (if bongo-enable-mode-line-display
-      (bongo-disable-mode-line-display)
-    (bongo-enable-mode-line-display))
-  (message "Bongo mode line display %s."
-           (if bongo-enable-mode-line-display
-               "enabled" "disabled")))
+(bongo-mode-line-indicator-mode
+ (if bongo-mode-line-indicator-mode +1 -1))
 
 (defgroup bongo-infosets nil
   "Structured track information in Bongo."
@@ -1952,17 +1953,20 @@ Otherwise, signal an error."
 ;;;; Players
 
 (defvar bongo-player nil
-  "The currently active player for this buffer, or nil.")
+  "The currently active player for this buffer, or nil.
+This variable is only used in Bongo mode buffers.")
 (make-variable-buffer-local 'bongo-player)
 
 (defcustom bongo-player-started-hook '(bongo-show)
-  "Normal hook run when a Bongo player is started in Bongo mode."
+  "Normal hook run when a Bongo player is started.
+This hook is only run for players started in Bongo buffers."
   :options '(bongo-show)
   :type 'hook
   :group 'bongo)
 
 (defcustom bongo-player-finished-hook nil
-  "Normal hook run when a Bongo player finishes in Bongo mode."
+  "Normal hook run when a Bongo player in Bongo mode finishes.
+This hook is only run for players started in Bongo buffers."
   :options '((lambda () (bongo-show) (sit-for 2)))
   :type 'hook
   :group 'bongo)
@@ -2009,9 +2013,10 @@ Otherwise, signal an error."
   "Perform the next Bongo action, if any.
 The next action is specified by `bongo-next-action'."
   (interactive)
-  (when bongo-next-action
-    (let ((bongo-avoid-interrupting-playback nil))
-      (funcall bongo-next-action))))
+  (with-bongo-playlist-buffer
+    (when bongo-next-action
+      (let ((bongo-avoid-interrupting-playback nil))
+        (funcall bongo-next-action)))))
 
 (defun bongo-player-finished (player)
   "Run the hooks appropriate for when PLAYER has finished.
@@ -2021,12 +2026,49 @@ You should not call this function directly."
     (when (buffer-live-p (bongo-player-buffer player))
       (set-buffer (bongo-player-buffer player)))
     (run-hook-with-args 'bongo-player-finished-functions player)
-    (run-hooks 'bongo-player-finished-hook)
     (when (bongo-buffer-p)
+      (run-hooks 'bongo-player-finished-hook)
       (bongo-perform-next-action))))
 
+(defcustom bongo-player-stopped-hook nil
+  "Normal hook run after a Bongo player is explicitly stopped.
+This hook is only run for players started in Bongo buffers."
+  :type 'hook
+  :group 'bongo)
+
+(defvar bongo-player-stopped-functions nil
+  "Abnormal hook run after a Bongo player is explicitly stopped.")
+
+(defun bongo-player-stopped (player)
+  "Run the hooks appropriate for when PLAYER was explicitly stopped."
+  (save-current-buffer
+    (when (buffer-live-p (bongo-player-buffer player))
+      (set-buffer (bongo-player-buffer player)))
+    (run-hook-with-args 'bongo-player-stopped-functions player)
+    (when (bongo-buffer-p)
+      (run-hooks 'bongo-player-stopped-hook))))
+
+(defcustom bongo-player-paused/resumed-hook nil
+  "Normal hook run after a Bongo player is paused or resumed.
+This hook is only run for players started in Bongo buffers."
+  :type 'hook
+  :group 'bongo)
+
+(defvar bongo-player-paused/resumed-functions nil
+  "Abnormal hook run after a Bongo player is paused or resumed.")
+
+(defun bongo-player-paused/resumed (player)
+  "Run the hooks appropriate for when PLAYER has paused or resumed."
+  (save-current-buffer
+    (when (buffer-live-p (bongo-player-buffer player))
+      (set-buffer (bongo-player-buffer player)))
+    (run-hook-with-args 'bongo-player-paused/resumed-functions player)
+    (when (bongo-buffer-p)
+      (run-hooks 'bongo-player-paused/resumed-hook))))
+
 (defcustom bongo-player-sought-hook nil
-  "Normal hook run after a Bongo player seeks in Bongo mode."
+  "Normal hook run after a Bongo player seeks.
+This hook is only run for players started in Bongo buffers."
   :type 'hook
   :group 'bongo)
 
@@ -2039,7 +2081,19 @@ You should not call this function directly."
     (when (buffer-live-p (bongo-player-buffer player))
       (set-buffer (bongo-player-buffer player)))
     (run-hook-with-args 'bongo-player-sought-functions player)
-    (run-hooks 'bongo-player-sought-hook)))
+    (when (bongo-buffer-p)
+      (run-hooks 'bongo-player-sought-hook))))
+
+(defvar bongo-player-times-changed-functions nil
+  "Abnormal hook run after one of the times of a Bongo player changes.
+By ``one of the times'' is meant elapsed time or total time.")
+
+(defun bongo-player-times-changed (player)
+  "Run the hooks for when one of the times of PLAYER has changed."
+  (save-current-buffer
+    (when (buffer-live-p (bongo-player-buffer player))
+      (set-buffer (bongo-player-buffer player)))
+    (run-hook-with-args 'bongo-player-times-changed-functions player)))
 
 (defun bongo-play (file-name &optional backend)
   "Start playing FILE-NAME and return the new player.
@@ -2204,7 +2258,8 @@ If the player backend cannot report this, return nil."
 
 (defun bongo-default-player-stop (player)
   "Delete the process associated with PLAYER."
-  (delete-process (bongo-player-process player)))
+  (delete-process (bongo-player-process player))
+  (bongo-player-stopped player))
 
 (defun bongo-default-player-pause/resume (player)
   "Signal an error explaining that PLAYER does not support pausing."
@@ -2335,7 +2390,7 @@ If the player backend cannot report this, return nil."
                    `(add-to-list 'bongo-backend-matchers
                       (cons ',name ,matcher) t))
                  matchers)
-       
+
        (put ',name 'bongo-backend
             '(,name (constructor . ,constructor)
                     (program-name . ,(or program-name-variable
@@ -2431,7 +2486,8 @@ Interactive mpg123 processes support pausing and seeking."
       (progn
         (process-send-string (bongo-player-process player) "PAUSE\n")
         (bongo-player-put player 'paused-flag
-                          (not (bongo-mpg123-player-paused-p player))))
+                          (not (bongo-mpg123-player-paused-p player)))
+        (bongo-player-paused/resumed player))
     (error "This mpg123 process does not support pausing")))
 
 (defun bongo-mpg123-player-seek-to (player position)
@@ -2470,7 +2526,8 @@ Interactive mpg123 processes support pausing and seeking."
                  (total-time (+ elapsed-time (string-to-number
                                               (match-string 2)))))
             (bongo-player-put player 'elapsed-time elapsed-time)
-            (bongo-player-put player 'total-time total-time))))
+            (bongo-player-put player 'total-time total-time))
+          (bongo-player-times-changed player)))
         (forward-line)))))
 
 (defun bongo-start-mpg123-player (file-name)
@@ -2610,7 +2667,8 @@ Interactive mplayer processes support pausing and seeking."
       (progn
         (process-send-string (bongo-player-process player) "pause\n")
         (bongo-player-put player 'paused-flag
-                          (not (bongo-mplayer-player-paused-p player))))
+                          (not (bongo-mplayer-player-paused-p player)))
+        (bongo-player-paused/resumed player))
     (error "This mplayer process does not support pausing")))
 
 (defun bongo-mplayer-player-seek-to (player position)
@@ -2663,10 +2721,12 @@ Interactive mplayer processes support pausing and seeking."
        (cond
         ((looking-at "^ANS_TIME_POSITION=\\(.+\\)$")
          (bongo-player-put player 'elapsed-time
-                           (string-to-number (match-string 1))))
+                           (string-to-number (match-string 1)))
+         (bongo-player-times-changed player))
         ((looking-at "^ANS_LENGTH=\\(.+\\)$")
          (bongo-player-put player 'total-time
-                           (string-to-number (match-string 1)))))
+                           (string-to-number (match-string 1)))
+         (bongo-player-times-changed player)))
        (forward-line)))))
 
 (defun bongo-start-mplayer-player (file-name)
@@ -3658,15 +3718,17 @@ If TIME is any other string, return nil."
   "Return a user-friendly string representing N seconds.
 If N < 3600, the string will look like \"mm:ss\".
 Otherwise, it will look like \"hhh:mm:ss\", the first field
-being arbitrarily long."
-  (setq n (floor n))
-  (let ((hours (/ n 3600))
-        (minutes (% (/ n 60) 60))
-        (seconds (% n 60)))
-    (let ((result (format "%02d:%02d" minutes seconds)))
-      (unless (zerop hours)
-        (setq result (format "%d:%s" hours result)))
-      result)))
+  being arbitrarily long.
+If N is nil, just return nil."
+  (when n
+    (setq n (floor n))
+    (let ((hours (/ n 3600))
+          (minutes (% (/ n 60) 60))
+          (seconds (% n 60)))
+      (let ((result (format "%02d:%02d" minutes seconds)))
+        (unless (zerop hours)
+          (setq result (format "%d:%s" hours result)))
+        result))))
 
 (defun bongo-show (&optional insert-flag)
   "Display what Bongo is playing in the minibuffer.
