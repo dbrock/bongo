@@ -5,7 +5,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: September 24, 2006
+;; Updated: September 25, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -2534,24 +2534,28 @@ Interactive mpg123 processes support pausing and seeking."
 ;;; XXX: What happens if a record is split between two calls
 ;;;      to the process filter?
 (defun bongo-mpg123-process-filter (process string)
-  (let ((player (bongo-process-get process 'bongo-player)))
-    (with-temp-buffer
-      (insert string)
-      (goto-char (point-min))
-      (while (not (eobp))
-        (cond
-         ((looking-at "^@P 0$")
-          (bongo-player-succeeded player)
-          (set-process-sentinel process nil)
-          (delete-process process))
-         ((looking-at "^@F .+ .+ \\(.+\\) \\(.+\\)$")
-          (let* ((elapsed-time (string-to-number (match-string 1)))
-                 (total-time (+ elapsed-time (string-to-number
-                                              (match-string 2)))))
-            (bongo-player-put player 'elapsed-time elapsed-time)
-            (bongo-player-put player 'total-time total-time))
-          (bongo-player-times-changed player)))
-        (forward-line)))))
+  (condition-case condition
+      (let ((player (bongo-process-get process 'bongo-player)))
+        (with-temp-buffer
+          (insert string)
+          (goto-char (point-min))
+          (while (not (eobp))
+            (cond
+             ((looking-at "^@P 0$")
+              (bongo-player-succeeded player)
+              (set-process-sentinel process nil)
+              (delete-process process))
+             ((looking-at "^@F .+ .+ \\(.+\\) \\(.+\\)$")
+              (let* ((elapsed-time (string-to-number (match-string 1)))
+                     (total-time (+ elapsed-time (string-to-number
+                                                  (match-string 2)))))
+                (bongo-player-put player 'elapsed-time elapsed-time)
+                (bongo-player-put player 'total-time total-time))
+              (bongo-player-times-changed player)))
+            (forward-line))))
+    ;; Getting errors in process filters is not fun, so stop.
+    (error (bongo-stop)
+           (signal (car condition) (cdr condition)))))
 
 (defun bongo-start-mpg123-player (file-name)
   (let* ((process-connection-type nil)
@@ -2736,21 +2740,25 @@ Interactive mplayer processes support pausing and seeking."
 ;;; XXX: What happens if a record is split between two calls
 ;;;      to the process filter?
 (defun bongo-mplayer-process-filter (process string)
-  (let ((player (bongo-process-get process 'bongo-player)))
-    (with-temp-buffer
-      (insert string)
-      (goto-char (point-min))
-      (while (not (eobp))
-       (cond
-        ((looking-at "^ANS_TIME_POSITION=\\(.+\\)$")
-         (bongo-player-put player 'elapsed-time
-                           (string-to-number (match-string 1)))
-         (bongo-player-times-changed player))
-        ((looking-at "^ANS_LENGTH=\\(.+\\)$")
-         (bongo-player-put player 'total-time
-                           (string-to-number (match-string 1)))
-         (bongo-player-times-changed player)))
-       (forward-line)))))
+  (condition-case condition
+      (let ((player (bongo-process-get process 'bongo-player)))
+        (with-temp-buffer
+          (insert string)
+          (goto-char (point-min))
+          (while (not (eobp))
+            (cond
+             ((looking-at "^ANS_TIME_POSITION=\\(.+\\)$")
+              (bongo-player-put player 'elapsed-time
+                                (string-to-number (match-string 1)))
+              (bongo-player-times-changed player))
+             ((looking-at "^ANS_LENGTH=\\(.+\\)$")
+              (bongo-player-put player 'total-time
+                                (string-to-number (match-string 1)))
+              (bongo-player-times-changed player)))
+            (forward-line))))
+    ;; Getting errors in process filters is not fun, so stop.
+    (error (bongo-stop)
+           (signal (car condition) (cdr condition)))))
 
 (defun bongo-start-mplayer-player (file-name)
   (let* ((process-connection-type nil)
