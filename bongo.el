@@ -495,13 +495,13 @@ If nil, `bongo-mode-line-indicator-string' is not put anywhere."
   :type 'string
   :group 'bongo-mode-line)
 
-(defcustom bongo-mode-line-playing-string "Playing: "
+(defcustom bongo-mode-line-playing-string "Playing:"
   "Fallback string for Bongo ``playing'' icon.
 This must not be the empty string, or the icon will not appear."
   :type 'string
   :group 'bongo-mode-line)
 
-(defcustom bongo-mode-line-paused-string "Paused: "
+(defcustom bongo-mode-line-paused-string "Paused:"
   "Fallback string for Bongo ``paused'' icon.
 This must not be the empty string, or the icon will not appear."
   :type 'string
@@ -612,23 +612,42 @@ static char *playing_11[] = {
 };"))
   "Bongo ``playing'' icon (11 pixels tall).")
 
+(defvar bongo-mode-line-playback-map
+  (let ((map (make-sparse-keymap)))
+    (prog1 map
+      (define-key map [mode-line mouse-1]
+        (lambda (e)
+          (interactive "e")
+          (bongo-pause/resume))))))
+
 (defun bongo-mode-line-playback-status ()
   "Return the string to use as Bongo playback status indicator."
   (let* ((font-size (aref (font-info (face-font 'mode-line)) 3))
          (icon-size (if (>= font-size 18) 18 11)))
-    (cond ((bongo-paused-p)
+    (when (bongo-playing-p)
+      (propertize
+       (if (bongo-paused-p)
            (propertize bongo-mode-line-paused-string 'display
                        (cond ((= icon-size 18)
                               (eval bongo-mode-line-paused-icon-18))
                              ((= icon-size 11)
-                              (eval bongo-mode-line-paused-icon-11)))))
-          ((bongo-playing-p)
-           (propertize bongo-mode-line-playing-string 'display
-                       (cond ((= icon-size 18)
-                              (eval bongo-mode-line-playing-icon-18))
-                             ((= icon-size 11)
-                              (eval bongo-mode-line-playing-icon-11)))))
-          (t ""))))
+                              (eval bongo-mode-line-paused-icon-11))))
+         (propertize bongo-mode-line-playing-string 'display
+                     (cond ((= icon-size 18)
+                            (eval bongo-mode-line-playing-icon-18))
+                           ((= icon-size 11)
+                            (eval bongo-mode-line-playing-icon-11)))))
+       'help-echo (concat (if (bongo-paused-p)
+                              "Paused: "
+                            "Playing: ")
+                          (bongo-format-infoset
+                           (bongo-player-infoset bongo-player))
+                          (when (bongo-pausing-supported-p)
+                            (if (bongo-paused-p)
+                                " (click mouse-1 to resume)"
+                              " (click mouse-1 to pause)")))
+       'local-map bongo-mode-line-playback-map
+       'mouse-face 'highlight))))
 
 (defvar bongo-mode-line-indicator-string nil
   "Bongo mode line indicator string.
