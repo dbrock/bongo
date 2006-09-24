@@ -140,11 +140,13 @@ See `bongo-custom-backend-matchers' for more information.")
 This should be done whenever `bongo-backends' changes, so that
 the `defcustom' options can be updated."
   (custom-declare-variable 'bongo-enabled-backends
-    `',(mapcan (lambda (backend-name)
-                 (when (executable-find (bongo-backend-program-name
-                                         (bongo-backend backend-name)))
-                   (list backend-name)))
-               bongo-backends)
+    `',(apply 'nconc
+              (mapcar (lambda (backend-name)
+                        (when (executable-find
+                               (bongo-backend-program-name
+                                (bongo-backend backend-name)))
+                          (list backend-name)))
+                      bongo-backends))
     "List of names of enabled Bongo player backends.
 See `bongo-backends' for a list of available backends."
     :type `(list (set :inline t :format "%v"
@@ -1949,10 +1951,11 @@ Otherwise, signal an error."
 
 (defun bongo-backend-matchers ()
   (append bongo-custom-backend-matchers
-          (mapcan (lambda (matcher)
-                    (when (memq (car matcher) bongo-enabled-backends)
-                      (list matcher)))
-                  bongo-backend-matchers)))
+          (apply 'nconc
+                 (mapcar (lambda (matcher)
+                           (when (memq (car matcher) bongo-enabled-backends)
+                             (list matcher)))
+                         bongo-backend-matchers))))
 
 (defun bongo-backend-for-file (file-name)
   "Return the name of the backend to use for playing FILE-NAME."
