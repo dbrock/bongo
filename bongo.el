@@ -2876,6 +2876,13 @@ See `bongo-dwim'."
     (and (not (null bongo-player))
          (bongo-player-running-p bongo-player))))
 
+(defun bongo-formatted-infoset ()
+  "Return the formatted infoset of the active player, or nil."
+  (with-bongo-playlist-buffer
+    (when bongo-player
+      (bongo-format-infoset
+       (bongo-player-infoset bongo-player)))))
+
 (defun bongo-pausing-supported-p ()
   "Return non-nil if the active player supports pausing."
   (with-bongo-playlist-buffer
@@ -2898,20 +2905,23 @@ See `bongo-dwim'."
   "Return the number of seconds played so far of the current track.
 Return nil if the active player cannot report this."
   (with-bongo-playlist-buffer
-    (and bongo-player (bongo-player-elapsed-time bongo-player))))
+    (when bongo-player
+      (bongo-player-elapsed-time bongo-player))))
 
 (defun bongo-remaining-time ()
   "Return the number of seconds remaining of the current track.
 Return nil if the active player cannot report this."
   (let ((elapsed-time (bongo-elapsed-time))
         (total-time (bongo-total-time)))
-    (and elapsed-time total-time (- total-time elapsed-time))))
+    (when (and elapsed-time total-time)
+      (- total-time elapsed-time))))
 
 (defun bongo-total-time ()
   "Return the length of the currently playing track in seconds.
 Return nil if the active player cannot report this."
   (with-bongo-playlist-buffer
-    (and bongo-player (bongo-player-total-time bongo-player))))
+    (when bongo-player
+      (bongo-player-total-time bongo-player))))
 
 (defvar bongo-active-track-marker nil
   "Marker pointing at the currently playing track, if any.")
@@ -2919,8 +2929,8 @@ Return nil if the active player cannot report this."
 
 (defun bongo-active-track-position (&optional point)
   "Return the position of `bongo-active-track-marker'."
-  (and bongo-active-track-marker
-       (marker-position bongo-active-track-marker)))
+  (when bongo-active-track-marker
+    (marker-position bongo-active-track-marker)))
 
 (defun bongo-set-active-track (&optional point)
   "Make `bongo-active-track-marker' point to the line at POINT."
