@@ -32,8 +32,6 @@
 
 ;; Fix `E' when the playing song is not in the playlist.
 
-;; Fix formatting of tracks whose titles contain percent signs.
-
 ;;; Code:
 
 (eval-when-compile
@@ -3896,7 +3894,7 @@ Return the description string."
         (prog1 string
           (if insert-flag
               (insert string)
-            (message string)))))))
+            (message "%s" string)))))))
 
 
 ;;;; Killing/yanking
