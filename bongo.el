@@ -5,7 +5,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: September 25, 2006
+;; Updated: September 27, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -31,6 +31,9 @@
 ;; enqueue operation.
 
 ;; Fix `E' when the playing song is not in the playlist.
+
+;; Customizing `bongo-header-line-mode' should have
+;; immediate effect on existing Bongo playlist buffers.
 
 ;;; Code:
 
@@ -437,13 +440,15 @@ This is used by the function `bongo-default-format-field'.
   :group 'bongo-display)
 
 (defgroup bongo-header-line nil
-  "Display of Bongo header lines."
+  "Display of header lines in Bongo playlist buffers."
   :group 'bongo
   :group 'bongo-display)
 
 (defcustom bongo-header-line-mode t
   "Display header lines in Bongo playlist buffers."
   :type 'boolean
+  :initialize 'custom-initialize-default
+  :set 'custom-set-minor-mode
   :group 'bongo-header-line)
 
 (defcustom bongo-header-line-playing-string "Playing:"
@@ -480,15 +485,30 @@ The values of the expressions are concatenated."
            (sexp :tag "Value of arbitrary expression")))
   :group 'bongo-header-line)
 
-(defun bongo-update-header-line (&rest dummy)
-  "Update `header-line-format' using `bongo-header-line-format'.
-If Bongo is not playing anything, set the header line format to nil.
+(defvar bongo-header-line-string nil
+  "Bongo header line string.
+Value is derived from `bongo-header-line-format'.
+The name of this variable should go in `header-line-format'.")
+(make-variable-buffer-local 'bongo-header-line-string)
+
+(defun bongo-update-header-line-string (&rest dummy)
+  "Update `bongo-header-line-string' using `bongo-header-line-format'.
+If Bongo is not playing anything, set the header line string to nil.
 Accept DUMMY arguments to ease hook usage."
-  (setq header-line-format
-        (with-bongo-buffer
+  (when (bongo-buffer-p)
+    (if bongo-header-line-mode
+        (progn
+          (when (null header-line-format)
+            (setq header-line-format '("")))
+          (add-to-list 'header-line-format
+            'bongo-header-line-string t))
+      (setq header-line-format
+            (remq 'bongo-header-line-string header-line-format))
+      (when (equal header-line-format '(""))
+        (setq header-line-format nil)))
+    (setq bongo-header-line-string
           (when (bongo-playing-p)
-            (apply 'concat
-                   (mapcar 'eval bongo-header-line-format))))))
+            (apply 'concat (mapcar 'eval bongo-header-line-format))))))
 
 (defun bongo-header-line-mode (argument)
   "Toggle display of Bongo mode line indicator on or off.
@@ -508,25 +528,25 @@ With any other ARGUMENT, turn the mode on."
   (if bongo-header-line-mode
       (progn
         (add-hook 'bongo-player-started-functions
-                  'bongo-update-header-line)
+                  'bongo-update-header-line-string)
         (add-hook 'bongo-player-finished-functions
-                  'bongo-update-header-line)
+                  'bongo-update-header-line-string)
         (add-hook 'bongo-player-stopped-functions
-                  'bongo-update-header-line)
+                  'bongo-update-header-line-string)
         (add-hook 'bongo-player-paused/resumed-functions
-                  'bongo-update-header-line)
+                  'bongo-update-header-line-string)
         (add-hook 'bongo-player-times-changed-functions
-                  'bongo-update-header-line))
+                  'bongo-update-header-line-string))
     (remove-hook 'bongo-player-started-functions
-                 'bongo-update-header-line)
+                 'bongo-update-header-line-string)
     (remove-hook 'bongo-player-finished-functions
-                 'bongo-update-header-line)
+                 'bongo-update-header-line-string)
     (remove-hook 'bongo-player-stopped-functions
-                 'bongo-update-header-line)
+                 'bongo-update-header-line-string)
     (remove-hook 'bongo-player-paused/resumed-functions
-                 'bongo-update-header-line)
+                 'bongo-update-header-line-string)
     (remove-hook 'bongo-player-times-changed-functions
-                 'bongo-update-header-line))
+                 'bongo-update-header-line-string))
   (when (interactive-p)
     (message "Bongo header line mode %s."
              (if bongo-header-line-mode
@@ -534,7 +554,7 @@ With any other ARGUMENT, turn the mode on."
   bongo-header-line-mode)
 
 (bongo-header-line-mode
- (if bongo-header-line-mode +1 -1))
+ (if bongo-header-line-mode 1 0))
 
 (defgroup bongo-mode-line nil
   "Display of Bongo mode line indicator."
@@ -545,6 +565,8 @@ With any other ARGUMENT, turn the mode on."
   "Display a Bongo status indicator in the mode line.
 See `bongo-mode-line-indicator-format'."
   :type 'boolean
+  :initialize 'custom-initialize-default
+  :set 'custom-set-minor-mode
   :group 'bongo-mode-line)
 
 (defcustom bongo-mode-line-indicator-format
@@ -559,7 +581,7 @@ The values of the expressions are concatenated."
           (choice
            (const :tag "Space" " ")
            string
-           (const :tag "Playback status (if playing or paused)"
+           (const :tag "Playback status"
                   (bongo-mode-line-playback-status))
            (const :tag "Elapsed time"
                   (bongo-format-seconds (bongo-elapsed-time)))
@@ -578,19 +600,15 @@ The values of the expressions are concatenated."
            (sexp :tag "Value of arbitrary expression")))
   :group 'bongo-mode-line)
 
-(defcustom bongo-mode-line-indicator-parent '(global-mode-string . append)
+(defcustom bongo-mode-line-indicator-parent 'global-mode-string
   "List variable in which to put the Bongo mode line indicator.
-Value is either LIST-VARIABLE or (LIST-VARIABLE . append) or nil,
-  where LIST-VARIABLE is the name of a variable whose value is a list.
+Value is the name of a variable whose value is a list.
 If nil, `bongo-mode-line-indicator-string' is not put anywhere."
-  :type '(choice (const :tag "None" nil)
-                 (symbol :tag "Prepend to list")
-                 (cons :tag "Append to list" :format "%v"
-                       (symbol :tag "Append to list")
-                       (const append)))
+  :type '(choice (const :tag "None" nil) variable)
   :group 'bongo-mode-line)
 
-(defcustom bongo-mode-line-icon-color "black"
+(defcustom bongo-mode-line-icon-color
+  (face-foreground 'mode-line nil 'default)
   "Color of Bongo mode line icons."
   :type 'string
   :group 'bongo-mode-line)
@@ -762,8 +780,8 @@ The name of this variable should go in, e.g., `global-mode-string'.")
 If Bongo is not playing anything, set the indicator string to nil.
 Otherwise, evalutate elements of `bongo-mode-line-indicator-format'.
 Accept DUMMY arguments to ease hook usage."
-  (setq bongo-mode-line-indicator-string
-        (with-bongo-buffer
+  (when (bongo-buffer-p)
+    (setq bongo-mode-line-indicator-string
           (when (bongo-playing-p)
             (apply 'concat
                    (mapcar 'eval bongo-mode-line-indicator-format))))))
@@ -784,14 +802,14 @@ With any other ARGUMENT, turn the mode on."
   (when (called-interactively-p)
     (customize-mark-as-set 'bongo-mode-line-indicator-mode))
   (when bongo-mode-line-indicator-parent
-    (let ((variable (if (consp bongo-mode-line-indicator-parent)
-                        (car bongo-mode-line-indicator-parent)
-                      bongo-mode-line-indicator-parent)))
-      (if bongo-mode-line-indicator-mode
-          (add-to-list variable 'bongo-mode-line-indicator-string
-                       (consp bongo-mode-line-indicator-parent))
-        (set variable (remq 'bongo-mode-line-indicator-string
-                            (symbol-value variable))))))
+    (if (not bongo-mode-line-indicator-mode)
+        (set bongo-mode-line-indicator-parent
+             (remq 'bongo-mode-line-indicator-string
+                   (symbol-value bongo-mode-line-indicator-parent)))
+      (when (null (symbol-value bongo-mode-line-indicator-parent))
+        (set bongo-mode-line-indicator-parent '("")))
+      (add-to-list bongo-mode-line-indicator-parent
+        'bongo-mode-line-indicator-string 'append)))
   (if bongo-mode-line-indicator-mode
       (progn
         (add-hook 'bongo-player-started-functions
@@ -821,7 +839,7 @@ With any other ARGUMENT, turn the mode on."
   bongo-mode-line-indicator-mode)
 
 (bongo-mode-line-indicator-mode
- (if bongo-mode-line-indicator-mode +1 -1))
+ (if bongo-mode-line-indicator-mode 1 0))
 
 (defgroup bongo-infosets nil
   "Structured track information in Bongo."
