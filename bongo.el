@@ -496,19 +496,20 @@ The name of this variable should go in `header-line-format'.")
 If Bongo is not playing anything, set the header line string to nil.
 Accept DUMMY arguments to ease hook usage."
   (when (bongo-buffer-p)
+    (when (null header-line-format)
+      (setq header-line-format '("")))
     (if bongo-header-line-mode
-        (progn
-          (when (null header-line-format)
-            (setq header-line-format '("")))
-          (add-to-list 'header-line-format
-            'bongo-header-line-string t))
+        (add-to-list 'header-line-format
+          'bongo-header-line-string t)
       (setq header-line-format
-            (remq 'bongo-header-line-string header-line-format))
-      (when (equal header-line-format '(""))
-        (setq header-line-format nil)))
+            (remq 'bongo-header-line-string header-line-format)))
     (setq bongo-header-line-string
           (when (bongo-playing-p)
-            (apply 'concat (mapcar 'eval bongo-header-line-format))))))
+            (apply 'concat (mapcar 'eval bongo-header-line-format))))
+    (when (or (equal header-line-format '(""))
+              (and (equal header-line-format '("" bongo-header-line-string))
+                   (null bongo-header-line-string)))
+      (setq header-line-format nil))))
 
 (defun bongo-header-line-mode (argument)
   "Toggle display of Bongo mode line indicator on or off.
