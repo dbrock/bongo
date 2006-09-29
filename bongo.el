@@ -5,7 +5,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: September 27, 2006
+;; Updated: September 29, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -740,32 +740,35 @@ static char *playing_11[] = {
 
 (defun bongo-mode-line-playback-status ()
   "Return the string to use as Bongo playback status indicator."
-  (let* ((font-size (aref (font-info (face-font 'mode-line)) 3))
-         (icon-size (if (>= font-size 18) 18 11)))
-    (when (bongo-playing-p)
-      (propertize
-       (if (bongo-paused-p)
-           (propertize bongo-mode-line-paused-string 'display
-                       (cond ((= icon-size 18)
-                              (eval bongo-mode-line-paused-icon-18))
-                             ((= icon-size 11)
-                              (eval bongo-mode-line-paused-icon-11))))
-         (propertize bongo-mode-line-playing-string 'display
-                     (cond ((= icon-size 18)
-                            (eval bongo-mode-line-playing-icon-18))
-                           ((= icon-size 11)
-                            (eval bongo-mode-line-playing-icon-11)))))
-       'help-echo (concat (if (bongo-paused-p)
-                              "Paused: "
-                            "Playing: ")
-                          (bongo-format-infoset
-                           (bongo-player-infoset bongo-player))
-                          (when (bongo-pausing-supported-p)
-                            (if (bongo-paused-p)
-                                " (click mouse-1 to resume)"
-                              " (click mouse-1 to pause)")))
-       'local-map bongo-mode-line-playback-map
-       'mouse-face 'highlight))))
+  (when (bongo-playing-p)
+    (if window-system
+        (let* ((font-size (aref (font-info (face-font 'mode-line)) 3))
+               (icon-size (if (>= font-size 18) 18 11)))
+          (propertize
+           " "
+           'display (if (bongo-paused-p)
+                        (cond ((= icon-size 18)
+                               (eval bongo-mode-line-paused-icon-18))
+                              ((= icon-size 11)
+                               (eval bongo-mode-line-paused-icon-11)))
+                      (cond ((= icon-size 18)
+                             (eval bongo-mode-line-playing-icon-18))
+                            ((= icon-size 11)
+                             (eval bongo-mode-line-playing-icon-11))))
+           'help-echo (concat (if (bongo-paused-p)
+                                  "Paused: "
+                                "Playing: ")
+                              (bongo-format-infoset
+                               (bongo-player-infoset bongo-player))
+                              (when (bongo-pausing-supported-p)
+                                (if (bongo-paused-p)
+                                    " (click mouse-1 to resume)"
+                                  " (click mouse-1 to pause)")))
+           'local-map bongo-mode-line-playback-map
+           'mouse-face 'highlight))
+      (if (bongo-paused-p)
+          bongo-mode-line-paused-string
+        bongo-mode-line-playing-string))))
 
 (defvar bongo-mode-line-indicator-string nil
   "Bongo mode line indicator string.
