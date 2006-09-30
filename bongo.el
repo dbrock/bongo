@@ -5,7 +5,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: September 29, 2006
+;; Updated: September 30, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -1608,7 +1608,7 @@ Comparisons are done with `eq'.  Order is preserved."
 
 (defun bongo-set-equal-p (a b)
   "Return non-nil if A and B have equal elements.
-Comparisons are done with `eq'.  Order is not significant."
+Comparisons are done with `eq'.  Element order is not significant."
   (null (bongo-set-exclusive-or a b)))
 
 (defun bongo-subset-p (a b)
@@ -4416,7 +4416,7 @@ Do not use this mode directly.  Instead, use Bongo Playlist mode (see
   (run-mode-hooks 'bongo-mode-hook))
 
 (define-derived-mode bongo-library-mode bongo-mode
-  "Bongo Library"
+  "Library"
   "Major mode for Bongo library buffers.
 Contrary to playlist buffers, library buffers cannot directly
 play tracks.  Instead, they are used to insert tracks into
@@ -4426,7 +4426,7 @@ playlist buffers.
     :group 'bongo :syntax-table nil :abbrev-table nil)
 
 (define-derived-mode bongo-playlist-mode bongo-mode
-  "Bongo Playlist"
+  "Playlist"
   "Major mode for Bongo playlist buffers.
 Playlist buffers are the most important feature of Bongo, as
 they have the ability to play tracks.
