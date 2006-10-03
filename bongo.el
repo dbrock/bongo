@@ -5,7 +5,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: September 30, 2006
+;; Updated: October 4, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -2442,10 +2442,10 @@ If the player backend cannot report this, return nil."
    ((stringp argument) (list argument))
    ((symbolp argument)
     (let ((value (symbol-value argument)))
-      (if (listp value) value (list value))))
+      (if (listp value) (copy-sequence value) (list value))))
    ((listp argument)
     (let ((value (eval argument)))
-      (if (listp value) value (list value))))
+      (if (listp value) (copy-sequence value) (list value))))
    (t (error "Invalid program argument specifier: `%s'" argument))))
 
 (defun bongo-evaluate-program-arguments (arguments)
