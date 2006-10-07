@@ -880,28 +880,31 @@ static char *next_11[] = {
   (when (bongo-playing-p)
     (if window-system
         (let ((icon-size (bongo-mode-line-icon-size)))
-          (propertize
-           (if (bongo-paused-p) "[Resume]" "[Pause]")
-           'display (if (bongo-paused-p)
-                        (cond ((= icon-size 18)
-                               (eval bongo-mode-line-paused-icon-18))
-                              ((= icon-size 11)
-                               (eval bongo-mode-line-paused-icon-11)))
-                      (cond ((= icon-size 18)
-                             (eval bongo-mode-line-playing-icon-18))
-                            ((= icon-size 11)
-                             (eval bongo-mode-line-playing-icon-11))))
-           'help-echo (concat (if (bongo-paused-p)
-                                  "Paused: "
-                                "Playing: ")
-                              (bongo-format-infoset
-                               (bongo-player-infoset bongo-player))
-                              (when (bongo-pausing-supported-p)
-                                (if (bongo-paused-p)
-                                    " (click mouse-1 to resume)"
-                                  " (click mouse-1 to pause)")))
-           'local-map bongo-mode-line-pause/resume-map
-           'mouse-face 'highlight))
+          (concat
+           (propertize " " 'display '(space :width (1)))
+           (propertize
+            (if (bongo-paused-p) "[Resume]" "[Pause]")
+            'display (if (bongo-paused-p)
+                         (cond ((= icon-size 18)
+                                (eval bongo-mode-line-paused-icon-18))
+                               ((= icon-size 11)
+                                (eval bongo-mode-line-paused-icon-11)))
+                       (cond ((= icon-size 18)
+                              (eval bongo-mode-line-playing-icon-18))
+                             ((= icon-size 11)
+                              (eval bongo-mode-line-playing-icon-11))))
+            'help-echo (concat (if (bongo-paused-p)
+                                   "Paused: "
+                                 "Playing: ")
+                               (bongo-format-infoset
+                                (bongo-player-infoset bongo-player))
+                               (when (bongo-pausing-supported-p)
+                                 (if (bongo-paused-p)
+                                     " (click mouse-1 to resume)"
+                                   " (click mouse-1 to pause)")))
+            'local-map bongo-mode-line-pause/resume-map
+            'mouse-face 'highlight)
+           (propertize " " 'display '(space :width (1)))))
       (if (bongo-paused-p)
           bongo-mode-line-paused-string
         bongo-mode-line-playing-string))))
@@ -910,43 +913,49 @@ static char *next_11[] = {
   "Return the string to use as [Previous] button in the mode line."
   (when (and window-system (bongo-playing-p))
     (let ((icon-size (bongo-mode-line-icon-size)))
-      (propertize "[Previous]"
-                  'display (cond ((= icon-size 18)
-                                  (eval bongo-mode-line-previous-icon-18))
-                                 ((= icon-size 11)
-                                  (eval bongo-mode-line-previous-icon-11)))
-                  'help-echo
-                  (let ((position (bongo-point-at-previous-track-line
-                                   (bongo-active-track-position))))
-                    (if position
-                        (concat "Previous: "
-                                (bongo-format-infoset
-                                 (bongo-line-infoset position))
-                                " (click mouse-1 to play)")
-                      "No previous track"))
-                  'local-map bongo-mode-line-previous-map
-                  'mouse-face 'highlight))))
+      (concat
+       (propertize " " 'display '(space :width (1))) 
+       (propertize "[Previous]"
+                   'display (cond ((= icon-size 18)
+                                   (eval bongo-mode-line-previous-icon-18))
+                                  ((= icon-size 11)
+                                   (eval bongo-mode-line-previous-icon-11)))
+                   'help-echo
+                   (let ((position (bongo-point-at-previous-track-line
+                                    (bongo-active-track-position))))
+                     (if position
+                         (concat "Previous: "
+                                 (bongo-format-infoset
+                                  (bongo-line-infoset position))
+                                 " (click mouse-1 to play)")
+                       "No previous track"))
+                   'local-map bongo-mode-line-previous-map
+                   'mouse-face 'highlight)
+       (propertize " " 'display '(space :width (1)))))))
 
 (defun bongo-mode-line-next-button ()
   "Return the string to use as [Next] button in the mode line."
   (when (and window-system (bongo-playing-p))
     (let ((icon-size (bongo-mode-line-icon-size)))
-      (propertize "[Next]"
-                  'display (cond ((= icon-size 18)
-                                  (eval bongo-mode-line-next-icon-18))
-                                 ((= icon-size 11)
-                                  (eval bongo-mode-line-next-icon-11)))
-                  'help-echo
-                  (let ((position (bongo-point-at-next-track-line
-                                   (bongo-active-track-position))))
-                    (if position
-                        (concat "Next: "
-                                (bongo-format-infoset
-                                 (bongo-line-infoset position))
-                                " (click mouse-1 to play)")
-                      "No next track"))
-                  'local-map bongo-mode-line-next-map
-                  'mouse-face 'highlight))))
+      (concat
+       (propertize " " 'display '(space :width (1))) 
+       (propertize "[Next]"
+                   'display (cond ((= icon-size 18)
+                                   (eval bongo-mode-line-next-icon-18))
+                                  ((= icon-size 11)
+                                   (eval bongo-mode-line-next-icon-11)))
+                   'help-echo
+                   (let ((position (bongo-point-at-next-track-line
+                                    (bongo-active-track-position))))
+                     (if position
+                         (concat "Next: "
+                                 (bongo-format-infoset
+                                  (bongo-line-infoset position))
+                                 " (click mouse-1 to play)")
+                       "No next track"))
+                   'local-map bongo-mode-line-next-map
+                   'mouse-face 'highlight)
+       (propertize " " 'display '(space :width (1)))))))
 
 (defvar bongo-mode-line-indicator-string nil
   "Bongo mode line indicator string.
