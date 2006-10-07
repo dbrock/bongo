@@ -896,7 +896,7 @@ static char *next_11[] = {
                                 (if (bongo-paused-p)
                                     " (click mouse-1 to resume)"
                                   " (click mouse-1 to pause)")))
-           'local-map bongo-mode-line-playback-map
+           'local-map bongo-mode-line-pause/resume-map
            'mouse-face 'highlight))
       (if (bongo-paused-p)
           bongo-mode-line-paused-string
