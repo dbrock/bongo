@@ -574,7 +574,7 @@ See `bongo-mode-line-indicator-format'."
   :group 'bongo-mode-line)
 
 (defcustom bongo-mode-line-indicator-format
-  '(" " (bongo-mode-line-playback-status) " "
+  '(" " (bongo-mode-line-pause/resume-button) " "
     (when (and (bongo-elapsed-time) (bongo-total-time))
       (format "%d%%" (/ (* 100.0 (bongo-elapsed-time))
                         (bongo-total-time)))))
@@ -585,8 +585,12 @@ The values of the expressions are concatenated."
           (choice
            (const :tag "Space" " ")
            string
-           (const :tag "Playback status"
-                  (bongo-mode-line-playback-status))
+           (const :tag "[Pause] or [Resume] button"
+                  (bongo-mode-line-pause/resume-button))
+           (const :tag "[Previous] button"
+                  (bongo-mode-line-previous-button))
+           (const :tag "[Next] button"
+                  (bongo-mode-line-next-button))
            (const :tag "Elapsed time"
                   (bongo-format-seconds (bongo-elapsed-time)))
            (const :tag "Remaining time"
@@ -618,14 +622,12 @@ If nil, `bongo-mode-line-indicator-string' is not put anywhere."
   :group 'bongo-mode-line)
 
 (defcustom bongo-mode-line-playing-string "Playing:"
-  "Fallback string for Bongo ``playing'' icon.
-This must not be the empty string, or the icon will not appear."
+  "Fallback string for the Bongo ``playing'' icon."
   :type 'string
   :group 'bongo-mode-line)
 
 (defcustom bongo-mode-line-paused-string "Paused:"
-  "Fallback string for Bongo ``paused'' icon.
-This must not be the empty string, or the icon will not appear."
+  "Fallback string for the Bongo ``paused'' icon."
   :type 'string
   :group 'bongo-mode-line)
 
@@ -734,7 +736,113 @@ static char *playing_11[] = {
 };"))
   "Bongo ``playing'' icon (11 pixels tall).")
 
-(defvar bongo-mode-line-playback-map
+(defvar bongo-mode-line-previous-icon-18
+  '`(image :type xpm :ascent center :data ,(concat "/* XPM */
+static char *previous_18[] = {
+/* width  height  number of colors  number of characters per pixel */
+\" 20     18      2                 1\",
+/* colors */
+\"# c " bongo-mode-line-icon-color  "\",
+\". c None\",
+/* pixels */
+\"....................\",
+\"....................\",
+\"....................\",
+\"....................\",
+\"....................\",
+\"......##......##....\",
+\".....###.....###....\",
+\"....####....####....\",
+\"...#####...#####....\",
+\"...#####...#####....\",
+\"....####....####....\",
+\".....###.....###....\",
+\"......##......##....\",
+\"....................\",
+\"....................\",
+\"....................\",
+\"....................\",
+\"....................\"
+};"))
+  "Bongo ``previous'' icon (18 pixels tall)")
+
+(defvar bongo-mode-line-previous-icon-11
+  '`(image :type xpm :ascent center :data ,(concat "/* XPM */
+static char *previous_11[] = {
+/* width  height  number of colors  number of characters per pixel */
+\" 11     11      2                 1\",
+/* colors */
+\"# c " bongo-mode-line-icon-color  "\",
+\". c None\",
+/* pixels */
+\"...........\",
+\"...........\",
+\"...........\",
+\"....#...#..\",
+\"...##..##..\",
+\"..###.###..\",
+\"...##..##..\",
+\"....#...#..\",
+\"...........\",
+\"...........\",
+\"...........\"
+};"))
+  "Bongo ``previous'' icon (11 pixels tall).")
+
+(defvar bongo-mode-line-next-icon-18
+  '`(image :type xpm :ascent center :data ,(concat "/* XPM */
+static char *next_18[] = {
+/* width  height  number of colors  number of characters per pixel */
+\" 20     18      2                 1\",
+/* colors */
+\"# c " bongo-mode-line-icon-color  "\",
+\". c None\",
+/* pixels */
+\"....................\",
+\"....................\",
+\"....................\",
+\"....................\",
+\"....................\",
+\"....##......##......\",
+\"....###.....###.....\",
+\"....####....####....\",
+\"....#####...#####...\",
+\"....#####...#####...\",
+\"....####....####....\",
+\"....###.....###.....\",
+\"....##......##......\",
+\"....................\",
+\"....................\",
+\"....................\",
+\"....................\",
+\"....................\"
+};"))
+  "Bongo ``next'' icon (18 pixels tall)")
+
+(defvar bongo-mode-line-next-icon-11
+  '`(image :type xpm :ascent center :data ,(concat "/* XPM */
+static char *next_11[] = {
+/* width  height  number of colors  number of characters per pixel */
+\" 11     11      2                 1\",
+/* colors */
+\"# c " bongo-mode-line-icon-color  "\",
+\". c None\",
+/* pixels */
+\"...........\",
+\"...........\",
+\"...........\",
+\"..#...#....\",
+\"..##..##...\",
+\"..###.###..\",
+\"..##..##...\",
+\"..#...#....\",
+\"...........\",
+\"...........\",
+\"...........\"
+};"))
+  "Bongo ``next'' icon (11 pixels tall).")
+
+(defvar bongo-mode-line-pause/resume-map
   (let ((map (make-sparse-keymap)))
     (prog1 map
       (define-key map [mode-line mouse-1]
@@ -742,14 +850,34 @@ static char *playing_11[] = {
           (interactive "e")
           (bongo-pause/resume))))))
 
-(defun bongo-mode-line-playback-status ()
-  "Return the string to use as Bongo playback status indicator."
+(defvar bongo-mode-line-previous-map
+  (let ((map (make-sparse-keymap)))
+    (prog1 map
+      (define-key map [mode-line mouse-1]
+        (lambda (e)
+          (interactive "e")
+          (bongo-play-previous))))))
+
+(defvar bongo-mode-line-next-map
+  (let ((map (make-sparse-keymap)))
+    (prog1 map
+      (define-key map [mode-line mouse-1]
+        (lambda (e)
+          (interactive "e")
+          (bongo-play-next))))))
+
+(defun bongo-mode-line-icon-size ()
+  "Return the size to use for mode line icons."
+  (let ((font-size (aref (font-info (face-font 'mode-line)) 3)))
+    (if (>= font-size 18) 18 11)))
+
+(defun bongo-mode-line-pause/resume-button ()
+  "Return the string to use as [Pause] or [Resume] button."
   (when (bongo-playing-p)
     (if window-system
-        (let* ((font-size (aref (font-info (face-font 'mode-line)) 3))
-               (icon-size (if (>= font-size 18) 18 11)))
+        (let ((icon-size (bongo-mode-line-icon-size)))
           (propertize
-           " "
+           (if (bongo-paused-p) "[Resume]" "[Pause]")
            'display (if (bongo-paused-p)
                         (cond ((= icon-size 18)
                                (eval bongo-mode-line-paused-icon-18))
@@ -773,6 +901,48 @@ static char *playing_11[] = {
       (if (bongo-paused-p)
           bongo-mode-line-paused-string
         bongo-mode-line-playing-string))))
+
+(defun bongo-mode-line-previous-button ()
+  "Return the string to use as [Previous] button in the mode line."
+  (when (and window-system (bongo-playing-p))
+    (let ((icon-size (bongo-mode-line-icon-size)))
+      (propertize "[Previous]"
+                  'display (cond ((= icon-size 18)
+                                  (eval bongo-mode-line-previous-icon-18))
+                                 ((= icon-size 11)
+                                  (eval bongo-mode-line-previous-icon-11)))
+                  'help-echo
+                  (let ((position (bongo-point-at-previous-track-line
+                                   (bongo-active-track-position))))
+                    (if position
+                        (concat "Previous: "
+                                (bongo-format-infoset
+                                 (bongo-line-infoset position))
+                                " (click mouse-1 to play)")
+                      "No previous track"))
+                  'local-map bongo-mode-line-previous-map
+                  'mouse-face 'highlight))))
+
+(defun bongo-mode-line-next-button ()
+  "Return the string to use as [Next] button in the mode line."
+  (when (and window-system (bongo-playing-p))
+    (let ((icon-size (bongo-mode-line-icon-size)))
+      (propertize "[Next]"
+                  'display (cond ((= icon-size 18)
+                                  (eval bongo-mode-line-next-icon-18))
+                                 ((= icon-size 11)
+                                  (eval bongo-mode-line-next-icon-11)))
+                  'help-echo
+                  (let ((position (bongo-point-at-next-track-line
+                                   (bongo-active-track-position))))
+                    (if position
+                        (concat "Next: "
+                                (bongo-format-infoset
+                                 (bongo-line-infoset position))
+                                " (click mouse-1 to play)")
+                      "No next track"))
+                  'local-map bongo-mode-line-next-map
+                  'mouse-face 'highlight))))
 
 (defvar bongo-mode-line-indicator-string nil
   "Bongo mode line indicator string.
