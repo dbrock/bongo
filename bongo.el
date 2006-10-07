@@ -5,7 +5,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: October 4, 2006
+;; Updated: October 7, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -490,6 +490,9 @@ The values of the expressions are concatenated."
 Value is derived from `bongo-header-line-format'.
 The name of this variable should go in `header-line-format'.")
 (make-variable-buffer-local 'bongo-header-line-string)
+
+;; This is needed for text properties to work in the header line.
+(put 'bongo-header-line-string 'risky-local-variable t)
 
 (defun bongo-update-header-line-string (&rest dummy)
   "Update `bongo-header-line-string' using `bongo-header-line-format'.
@@ -2438,6 +2441,8 @@ If the player backend cannot report this, return nil."
 ;;;; Backends
 
 (defun bongo-evaluate-program-argument (argument)
+  ;; Lists returned by this function will be destroyed by
+  ;; the `nconc' in `bongo-evaluate-program-argument'.
   (cond
    ((stringp argument) (list argument))
    ((symbolp argument)
@@ -2452,7 +2457,7 @@ If the player backend cannot report this, return nil."
   (apply 'nconc (mapcar 'bongo-evaluate-program-argument arguments)))
 
 (defun bongo-start-simple-player (backend file-name)
-  ;; Don't change the name of the `file-name' parameter.
+  ;; Do not change the name of the `file-name' parameter.
   ;; The simple constructor argument list relies on that
   ;; symbol being dynamically bound to the file name.
   (let* ((process-connection-type nil)
@@ -4415,8 +4420,7 @@ Do not use this mode directly.  Instead, use Bongo Playlist mode (see
     (setq default-directory bongo-default-directory))
   (run-mode-hooks 'bongo-mode-hook))
 
-(define-derived-mode bongo-library-mode bongo-mode
-  "Library"
+(define-derived-mode bongo-library-mode bongo-mode "Library"
   "Major mode for Bongo library buffers.
 Contrary to playlist buffers, library buffers cannot directly
 play tracks.  Instead, they are used to insert tracks into
@@ -4425,11 +4429,10 @@ playlist buffers.
 \\{bongo-library-mode-map}"
     :group 'bongo :syntax-table nil :abbrev-table nil)
 
-(define-derived-mode bongo-playlist-mode bongo-mode
-  "Playlist"
+(define-derived-mode bongo-playlist-mode bongo-mode "Playlist"
   "Major mode for Bongo playlist buffers.
-Playlist buffers are the most important feature of Bongo, as
-they have the ability to play tracks.
+Playlist buffers are the most important elements of Bongo,
+as they have the ability to play tracks.
 
 \\{bongo-playlist-mode-map}"
   :group 'bongo :syntax-table nil :abbrev-table nil
