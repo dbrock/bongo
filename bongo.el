@@ -574,7 +574,11 @@ See `bongo-mode-line-indicator-format'."
   :group 'bongo-mode-line)
 
 (defcustom bongo-mode-line-indicator-format
-  '(" " (bongo-mode-line-pause/resume-button) " "
+  '(" "
+    (bongo-mode-line-previous-button)
+    (bongo-mode-line-pause/resume-button)
+    (bongo-mode-line-next-button)
+    " "
     (when (and (bongo-elapsed-time) (bongo-total-time))
       (format "%d%%" (/ (* 100.0 (bongo-elapsed-time))
                         (bongo-total-time)))))
@@ -597,7 +601,7 @@ The values of the expressions are concatenated."
                   (bongo-format-seconds (bongo-remaining-time)))
            (const :tag "Total time"
                   (bongo-format-seconds (bongo-total-time)))
-           (const :tag "Elapsed percent"
+           (const :tag "Elapsed time in percent of total time"
                   (when (and (bongo-elapsed-time) (bongo-total-time))
                     (format "%d%%" (/ (* 100.0 (bongo-elapsed-time))
                                       (bongo-total-time)))))
