@@ -5,7 +5,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: October 7, 2006
+;; Updated: October 9, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -35,10 +35,13 @@
 ;; Customizing `bongo-header-line-mode' should have
 ;; immediate effect on existing Bongo playlist buffers.
 
+;; Fix strange race condition related to pausing.
+
 ;;; Code:
 
 (eval-when-compile
-  (require 'cl))
+  (require 'cl)
+  (require 'rx))
 
 (defgroup bongo nil
   "Buffer-oriented media player."
@@ -306,13 +309,13 @@ This is used by `bongo-default-infoset-from-file-name'."
   :group 'bongo-file-names)
 
 (defcustom bongo-file-name-album-year-regexp
-  "^\\([0-9]\\{4\\}\\|'?[0-9]\\{2\\}\\)$"
+  "\\`\\([0-9]\\{4\\}\\|'?[0-9]\\{2\\}\\)\\'"
   "Regexp matching album years.
 This is used by `bongo-default-infoset-from-file-name'."
   :type 'regexp
   :group 'bongo-file-names)
 
-(defcustom bongo-file-name-track-index-regexp "^[0-9]+$"
+(defcustom bongo-file-name-track-index-regexp "\\`[0-9]+\\'"
   "Regexp matching track indices.
 This is used by `bongo-default-infoset-from-file-name'."
   :type 'regexp
@@ -2936,7 +2939,14 @@ Interactive mpg123 processes support pausing and seeking."
                                 (cond ((eq type 'audio) "audio")
                                       ((eq type 'video) "video"))
                                 " output drivers:\n"))
-        (while (looking-at "^[ \t]+\\(\\w+\\)[ \t]+\\(.*\\)$")
+        (while (looking-at
+                (eval-when-compile
+                  (rx line-start
+                      (one-or-more space)
+                      (submatch (one-or-more word))
+                      (one-or-more space)
+                      (submatch (zero-or-more not-newline))
+                      line-end)))
           (setq result (cons (cons (match-string 1)
                                    (match-string 2))
                              result))
@@ -3121,17 +3131,14 @@ Interactive mplayer processes support pausing and seeking."
   :pretty-name "MikMod"
   :extra-program-arguments '("-q" "-P" "1" "-X")
   :matcher `(local-file
-             . ,(concat
-                 "\\."
-                 (regexp-opt
-                  '("669" "amf" "dsm" "far" "gdm" "imf"
-                    "it" "med" "mod" "mtm" "okt" "s3m"
-                    "stm" "stx" "ult" "uni" "apun" "xm") t)
-                 "\\(\\."
-                 (regexp-opt
-                  '("zip" "lha" "lhz" "zoo" "gz" "bz2"
-                    "tar" "tar.gz" "tar.bz2" "rar") t)
-                 "\\)?$")))
+             . ,(eval-when-compile
+                  (rx "." (or "669" "amf" "dsm" "far" "gdm" "imf"
+                              "it" "med" "mod" "mtm" "okt" "s3m"
+                              "stm" "stx" "ult" "uni" "apun" "xm")
+                      (optional
+                       "." (or "zip" "lha" "lhz" "zoo" "gz" "bz2"
+                               "tar" "tar.gz" "tar.bz2" "rar"))
+                      string-end))))
 
 
 ;;;; DWIM commands
@@ -3721,7 +3728,7 @@ Do not examine subdirectories of DIRECTORY-NAME."
       (error "File is not a directory: %s" directory-name))
     (when bongo-insert-album-covers
       (bongo-maybe-insert-album-cover directory-name))
-    (let ((file-names (directory-files directory-name t "^[^.]")))
+    (let ((file-names (directory-files directory-name t "\\`[^.]")))
       (when (null file-names)
         (error "Directory contains no playable files"))
       (let ((beginning (point)))
@@ -3746,7 +3753,7 @@ and modified by `bongo-insert-directory-tree-1'.")
   "Helper function for `bongo-insert-directory-tree'."
   (when bongo-insert-album-covers
     (bongo-maybe-insert-album-cover directory-name))
-  (let ((file-names (directory-files directory-name t "^[^.]")))
+  (let ((file-names (directory-files directory-name t "\\`[^.]")))
     (let ((bongo-inside-insert-directory-tree t))
       (dolist (file-name file-names)
         (if (file-directory-p file-name)
@@ -4051,8 +4058,18 @@ If TIME is a string of the form [[H:]M:]S[.F], where H, M, S and F
   may each be any number of digits, return 3600H + 60M + S.F.
 If TIME is any other string, return nil."
   (when (string-match
-         (concat "^\\(?:\\(?:\\([0-9]+\\):\\)?\\([0-9]+\\):\\)?"
-                 "\\([0-9]+\\(?:\\.[0-9]+\\)?\\)$") time)
+         (eval-when-compile
+           (rx string-start
+               (optional (optional
+                          ;; Hours.
+                          (submatch (one-or-more digit)) ":")
+                         ;; Minutes.
+                         (submatch (one-or-more digit)) ":")
+               ;; Seconds.
+               (submatch (one-or-more digit)
+                         (optional "." (one-or-more digit)))
+               string-end))
+         time)
     (let ((hours (match-string 1 time))
           (minutes (match-string 2 time))
           (seconds (match-string 3 time)))
@@ -4418,7 +4435,13 @@ instead, use high-level functions such as `find-file'."
           (widen)
           (goto-char beg)
           (let ((case-fold-match t))
-            (when (and (bobp) (not (looking-at ".* -\\*- *\\w+ *-\\*-")))
+            (when (and (bobp)
+                       (not (looking-at
+                             (eval-when-compile
+                               (rx (zero-or-more not-newline)
+                                   " -*-" (zero-or-more space)
+                                   (one-or-more word)
+                                   (zero-or-more space) "-*-")))))
               (insert-char #x20 (- fill-column (length mode-tag) 1))
               (insert mode-tag "\n")
               (forward-line -1)
@@ -4445,7 +4468,14 @@ instead, use high-level functions such as `save-buffer'."
       (narrow-to-region beg end)
       (bongo-ensure-final-newline)
       (goto-char (point-min))
-      (when (re-search-forward " *-\\*- *\\w+ *-\\*-\n?" nil t)
+      (when (re-search-forward
+             (eval-when-compile
+               (rx (zero-or-more space) "-*-"
+                   (zero-or-more space)
+                   (one-or-more word)
+                   (zero-or-more space) "-*-"
+                   (optional "\n")))
+             nil 'no-error)
         (replace-match ""))
       (goto-char (point-min))
       (insert (if (bongo-playlist-buffer-p)
