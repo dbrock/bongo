@@ -5,7 +5,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: October 9, 2006
+;; Updated: October 14, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -1395,10 +1395,22 @@ An empty line at the end of the buffer doesn't count."
 
 (defun bongo-point-after-line (&optional point)
   "Return the first character position after the line at POINT.
-For lines that end with newlines, the point after the line
-is the same as the point before the next line."
+In the normal case, for lines that end with newlines, the point
+after a line is the same as the point before the next line."
   (let ((eol (bongo-point-at-eol point)))
     (if (= eol (point-max)) eol (1+ eol))))
+
+(defalias 'bongo-point-snapped-backwards #'bongo-point-at-bol
+  "Return the first position before POINT that is ``between lines''.
+This is simply the first character position of the line at POINT.")
+
+(defun bongo-point-snapped-forwards (&optional point)
+  "Return the first position after POINT that is ``between lines''.
+If POINT is at the beginning of a line, just return POINT.
+Otherwise, return the first character position after the line at POINT."
+  (if (= point (bongo-point-at-bol point))
+      point
+    (bongo-point-after-line point)))
 
 (defun bongo-point-before-previous-line (&optional point)
   "Return the first point of the line before the one at POINT.
@@ -1838,6 +1850,10 @@ Key comparisons are done with `eq'.  Order is *not* preserved."
         (setq result `(,(car plist) ,(cadr plist) ,@result)))
       (setq plist (cddr plist)))
     result))
+
+(defun bongo-region-active-p ()
+  "Return non-nil if the region is active."
+  (and transient-mark-mode mark-active))
 
 
 ;;;; Fallback implementations of `process-{get,put}'.
@@ -2925,7 +2941,7 @@ Interactive mpg123 processes support pausing and seeking."
   :matcher '(("mms:" "mmst:" "rtp:" "rtsp:" "unsv:") . t))
 
 (defun bongo-mplayer-available-drivers (type)
-  (unless (member type '(audio video))
+  (unless (memq type '(audio video))
     (error "Invalid device type"))
   (when (executable-find bongo-mplayer-program-name)
     (let ((result nil))
@@ -3143,6 +3159,7 @@ Interactive mplayer processes support pausing and seeking."
 
 ;;;; DWIM commands
 
+;; XXX: Should interpret numerical prefix argument as count.
 (defun bongo-dwim (&optional prefix-argument)
   "In Bongo, do what the user means to the object at point.
 
@@ -3257,7 +3274,7 @@ Return nil if the active player cannot report this."
   (move-marker bongo-active-track-marker nil))
 
 (defun bongo-active-track-line-p (&optional point)
-  "Return non-nil if the line at POINT is the active track."
+  "Return non-nil if the line at POINT is the active track line."
   (when (bongo-active-track-position)
     (and (>= (bongo-active-track-position)
              (bongo-point-before-line point))
@@ -3914,7 +3931,7 @@ This function creates a new header if necessary."
 
 (defun bongo-join (&optional skip)
   "Join the fields around point or in the region.
-If Transient Mark mode is enabled, delegate to `bongo-join-region'.
+If the region is active, delegate to `bongo-join-region'.
 Otherwise, find all common fields at point, and join all tracks around
 point that share those fields.  (See `bongo-common-fields-at-point'.)
 
@@ -3924,7 +3941,7 @@ If SKIP is non-nil, leave point at the first object line after
 If there are no common fields at point and SKIP is nil, signal an error.
 When called interactively, SKIP is always non-nil."
   (interactive "p")
-  (if (and transient-mark-mode mark-active)
+  (if (bongo-region-active-p)
       (bongo-join-region (region-beginning) (region-end))
     (when line-move-ignore-invisible
       (bongo-skip-invisible))
@@ -4005,7 +4022,8 @@ If called interactively, SKIP is always non-nil."
         (properties (bongo-line-get-semantic-properties)))
     (save-excursion
       (bongo-clear-line)
-      (dotimes (_ indentation) (insert bongo-indentation-string))
+      (dotimes (dummy indentation)
+        (insert bongo-indentation-string))
       (let ((content (bongo-format-infoset infoset)))
         (insert (if (not header) content
                   (bongo-format-header content collapsed))))
@@ -4014,30 +4032,36 @@ If called interactively, SKIP is always non-nil."
 ;;;                                        'bongo-track))
       )))
 
-(defun bongo-redisplay (&optional arg)
-  "Redisplay every line in the entire buffer.
-With prefix argument ARG, remove all indentation and headers."
-  (interactive "P")
+(defun bongo-redisplay-region (beg end)
+  "Redisplay the Bongo objects in the region."
+  (interactive "r")
   (unless (bongo-buffer-p)
     (error "Not a Bongo buffer"))
-  (save-excursion
-    (message "Rendering buffer...")
-    (goto-char (point-min))
-    (bongo-maybe-forward-object-line)
-    (while (not (eobp))
-      (message "Rendering buffer...%d%%"
-               (/ (* 100 (point)) (point-max)))
-      (cond
-       ((and arg (bongo-header-line-p))
-        (bongo-delete-line)
-        (bongo-maybe-forward-object-line))
-       ((and arg (bongo-track-line-p))
-        (bongo-line-set-external-fields nil)
-        (bongo-forward-object-line))
-       ((bongo-object-line-p)
-        (bongo-redisplay-line)
-        (bongo-forward-object-line))))
-    (message "Rendering buffer...done")))
+  (let ((target-string (if (and (= beg (point-min))
+                                (= end (point-max)))
+                           "buffer" "region")))
+    (save-excursion
+     (when (interactive-p)
+       (message "Rendering %s..." target-string))
+     (goto-char (point-min))
+     (bongo-maybe-forward-object-line)
+     (while (not (eobp))
+       (when (interactive-p)
+         (message "Rendering %s...%d%%" target-string
+                  (/ (* 100 (point)) (point-max))))
+       (when (bongo-object-line-p)
+         (bongo-redisplay-line))
+       (bongo-forward-object-line))
+     (when (interactive-p)
+       (message "Rendering %s...done" target-string)))))
+
+(defun bongo-redisplay ()
+  "Redisplay the current Bongo buffer.
+If the region is active, redisplay just the objects in the region."
+  (interactive)
+  (if (bongo-region-active-p)
+      (bongo-redisplay-region (region-beginning) (region-end))
+    (bongo-redisplay-region (point-min) (point-max))))
 
 (defun bongo-recenter ()
   "Move point to the currently playing track and recenter.
@@ -4124,7 +4148,7 @@ Return the description string."
             (message "%s" string)))))))
 
 
-;;;; Killing/yanking
+;;;; Killing and yanking commands
 
 (defun bongo-kill-line ()
   "In Bongo, kill the current line.
@@ -4220,13 +4244,15 @@ See `kill-region'."
         (bongo-externalize-fields))
       (move-marker end nil))))
 
-(defun bongo-insert (text)
+(defun bongo-insert (text &optional redisplay-flag)
   (let ((inhibit-read-only t))
     (beginning-of-line)
     (when line-move-ignore-invisible
       (bongo-skip-invisible))
     (let ((beg (point)))
       (insert text)
+      (when redisplay-flag
+        (bongo-redisplay-region beg (point)))
       (bongo-clean-up-after-insertion beg (point)))))
 
 (defun bongo-yank (&optional arg)
@@ -4258,62 +4284,118 @@ See `undo'."
   (let ((inhibit-read-only t))
     (undo arg)))
 
-(defun bongo-enqueue-line (mode &optional skip)
-  "Insert the current line into the Bongo playlist.
-If MODE is `insert', implement `bongo-insert-enqueue-line'.
-If MODE is `append', implement `bongo-append-enqueue-line'."
-  (let* ((section-flag (bongo-header-line-p))
-         (section-text (when section-flag
-                         (buffer-substring
-                          (bongo-point-before-line)
-                          (bongo-point-after-section))))
-         (track-file-name (unless section-flag
-                            (bongo-line-file-name)))
-         (position
-          (with-bongo-playlist-buffer
-            (save-excursion
-              (case mode
-                (insert (if (bongo-active-track-position)
-                            (bongo-goto-point
-                             (bongo-point-after-line
-                              (bongo-active-track-position)))
-                          (goto-char (point-min))))
-                (append (goto-char (point-max)))
-                (t (error "Invalid argument")))
-              (prog1 (point)
-                (if section-flag
-                    (bongo-insert section-text)
-                  (bongo-insert-line 'bongo-file-name
-                                     track-file-name)))))))
-      (prog1 position
-        (when skip
-          (bongo-forward-section))
-        (when (and (bongo-library-buffer-p)
-                   (or (get-buffer-window (bongo-playlist-buffer))
-                       bongo-display-playlist-after-enqueue))
-          (let ((original-window (selected-window)))
-            (select-window (display-buffer (bongo-playlist-buffer)))
-            (goto-char position)
-            (recenter)
-            (select-window original-window))))))
+
+;;;; Enqueuing commands
 
-(defun bongo-insert-enqueue-line (&optional skip)
-  "Insert the current line immediately after the track being played.
-In Bongo Playlist mode, insert into the current buffer.
-In Bongo Library mode, insert into the playlist buffer
-  \(see the function `bongo-playlist-buffer').
-If point is on a section header, insert the whole section."
-  (interactive "d")
-  (bongo-enqueue-line 'insert skip))
+(defun bongo-enqueue-text (mode text)
+  "Insert TEXT into the Bongo playlist.
+If MODE is `insert', insert TEXT just below the active track.
+If MODE is `append', append TEXT to the end of the playlist."
+  (let ((insertion-point
+         (with-bongo-playlist-buffer
+           (save-excursion
+             (ecase mode
+               (insert (if (bongo-active-track-position)
+                           (bongo-goto-point
+                            (bongo-point-after-line
+                             (bongo-active-track-position)))
+                         (goto-char (point-min))))
+               (append (goto-char (point-max))))
+             (prog1 (point) 
+               (bongo-insert text 'redisplay))))))
+    (prog1 insertion-point
+      (when (and (bongo-library-buffer-p)
+                 (or (get-buffer-window (bongo-playlist-buffer))
+                     bongo-display-playlist-after-enqueue))
+        (let ((original-window (selected-window)))
+          (select-window (display-buffer (bongo-playlist-buffer)))
+          (goto-char insertion-point)
+          (recenter)
+          (select-window original-window))))))
 
-(defun bongo-append-enqueue-line (&optional skip)
-  "Append the current line to the Bongo playlist buffer.
-In Bongo Playlist mode, append to the current buffer.
-In Bongo Library mode, append to the playlist buffer
-  \(see the function `bongo-playlist-buffer').
-If point is on a section header, append the whole section."
-  (interactive "d")
-  (bongo-enqueue-line 'append skip))
+;;; The following functions ignore point and operate on all
+;;; tracks in a given region.
+
+(defun bongo-enqueue-region (mode beg end)
+  "Insert the tracks between BEG and END into the Bongo playlist.
+If MODE is `insert', insert the tracks just below the active track.
+If MODE is `append', append the tracks to the end of the playlist."
+  (bongo-enqueue-text mode (buffer-substring
+                            (bongo-point-snapped-backwards beg)
+                            (bongo-point-snapped-forwards end))))
+
+(defun bongo-insert-enqueue-region (beg end)
+  "Insert the region just below the active Bongo track."
+  (interactive "r")
+  (bongo-enqueue-region 'insert beg end))
+
+(defun bongo-append-enqueue-region (beg end)
+  "Append the region to the end of the Bongo playlist."
+  (interactive "r")
+  (bongo-enqueue-region 'append beg end))
+
+;;; The following functions operate on a given number of
+;;; tracks or sections right after point.
+
+(defun bongo-enqueue-line (mode &optional n skip)
+  "Insert the next N tracks or sections into the Bongo playlist.
+If SKIP is non-nil, move point past the next N tracks or sections afterwards.
+If MODE is `insert', insert just below the active track.
+If MODE is `append', append to the end of the playlist.
+Return the playlist position of the newly-inserted text."
+  (let* ((end (save-excursion
+                (dotimes (dummy (or n 1))
+                  (bongo-forward-section))
+                (point)))
+         (text (buffer-substring (bongo-point-before-line) end)))
+    (remove-text-properties 0 (length text) '(bongo-external-fields nil) text)
+    (prog1 (bongo-enqueue-text mode text)
+      (when skip (goto-char end)))))
+
+(defun bongo-insert-enqueue-line (&optional n)
+  "Insert the next N tracks or sections just below the active track.
+When called interactively, leave point after the enqueued tracks or sections.
+Return the playlist position of the newly-inserted text."
+  (interactive "p")
+  (bongo-enqueue-line 'insert n (called-interactively-p)))
+
+(defun bongo-append-enqueue-line (&optional n)
+  "Append the next N tracks or sections to the Bongo playlist buffer.
+When called interactively, leave point after the enqueued tracks or sections.
+Return the playlist position of the newly-inserted text. "
+  (interactive "p")
+  (bongo-enqueue-line 'append n (called-interactively-p)))
+
+;;; The following functions are contingent on whether or not
+;;; the region is active.  That is, whether Transient Mark
+;;; mode is enabled and `mark-active' is non-nil.
+;;;
+;;; Note that recent Emacs versions let you temporarily
+;;; enable Transient Mark mode by hitting C-SPC C-SPC.
+
+(defun bongo-enqueue (mode &optional n)
+  "Insert the next N tracks or sections into the Bongo playlist.
+If the region is active, ignore N and enqueue the region instead.
+If MODE is `insert', insert just below the active track.
+If MODE is `append', append to the end of the playlist."
+  (if (bongo-region-active-p)
+      (bongo-enqueue-region mode (region-beginning) (region-end))
+    (bongo-enqueue-line mode n 'skip)))
+
+(defun bongo-append-enqueue (&optional n)
+  "Append the next N tracks or sections to the Bongo playlist buffer.
+If the region is active, ignore N and enqueue the region instead."
+  (interactive "p")
+  (bongo-enqueue 'append n))
+
+(defun bongo-insert-enqueue (&optional n)
+  "Insert the next N tracks or sections just below the active track.
+If the region is active, ignore N and enqueue the region instead."
+  (interactive "p")
+  (bongo-enqueue 'insert n))
+
+
+;;;; Miscellaneous commands
 
 (defun bongo-flush-playlist ()
   "Delete everything above the currently playing track.
@@ -4532,8 +4614,8 @@ instead, use high-level functions such as `save-buffer'."
     (define-key map "if" 'bongo-insert-file)
     (define-key map "id" 'bongo-insert-directory)
     (define-key map "it" 'bongo-insert-directory-tree)
-    (define-key map "e" 'bongo-append-enqueue-line)
-    (define-key map "E" 'bongo-insert-enqueue-line)
+    (define-key map "e" 'bongo-append-enqueue)
+    (define-key map "E" 'bongo-insert-enqueue)
     (define-key map "f" 'bongo-flush-playlist)
     (define-key map "r" 'bongo-rename-line)
     (define-key map "d" 'bongo-dired-line)
@@ -4594,10 +4676,10 @@ instead, use high-level functions such as `save-buffer'."
         '("Cut Track" . bongo-kill-line))
       (define-key menu-map [bongo-copy-track]
         '("Copy Track" . bongo-copy-line-as-kill))
-      (define-key menu-map [bongo-insert-enqueue-track]
-        '("Enqueue Track Urgently" . bongo-insert-enqueue-line))
-      (define-key menu-map [bongo-append-enqueue-track]
-        '("Enqueue Track" . bongo-append-enqueue-line))
+      (define-key menu-map [bongo-insert-enqueue]
+        '("Enqueue Track(s) Urgently" . bongo-insert-enqueue))
+      (define-key menu-map [bongo-append-enqueue]
+        '("Enqueue Track(s)" . bongo-append-enqueue))
       (define-key menu-map [bongo-play-track]
         '("Play Track" . bongo-play-line))
       (define-key menu-map [bongo-selected-track]
