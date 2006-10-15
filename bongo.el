@@ -5,7 +5,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: October 14, 2006
+;; Updated: October 15, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -917,7 +917,7 @@ static char *next_11[] = {
   (when (and window-system (bongo-playing-p))
     (let ((icon-size (bongo-mode-line-icon-size)))
       (concat
-       (propertize " " 'display '(space :width (1))) 
+       (propertize " " 'display '(space :width (1)))
        (propertize "[Previous]"
                    'display (cond ((= icon-size 18)
                                    (eval bongo-mode-line-previous-icon-18))
@@ -941,7 +941,7 @@ static char *next_11[] = {
   (when (and window-system (bongo-playing-p))
     (let ((icon-size (bongo-mode-line-icon-size)))
       (concat
-       (propertize " " 'display '(space :width (1))) 
+       (propertize " " 'display '(space :width (1)))
        (propertize "[Next]"
                    'display (cond ((= icon-size 18)
                                    (eval bongo-mode-line-next-icon-18))
@@ -1515,11 +1515,38 @@ Return non-nil if point was moved to an object line."
     (prog1 (not (null position))
       (goto-char (or position (point-max))))))
 
+(defun bongo-backward-header-line (&optional n)
+  "Move N header lines forward.
+With negative N, move backward instead."
+  (interactive "p")
+  (if (< n 0)
+      (bongo-forward-header-line (- n))
+    (dotimes (dummy n)
+      (let ((position (bongo-point-at-previous-line-satisfying
+                       'bongo-header-line-p)))
+        (cond (position (goto-char position))
+              ((interactive-p) (ding))
+              (t (signal 'beginning-of-buffer nil)))))))
+
+(defun bongo-forward-header-line (&optional n)
+  "Move N header lines backward.
+With negative N, move forward instead."
+  (interactive "p")
+  (if (< n 0)
+      (bongo-backward-header-line (- n))
+    (dotimes (dummy n)
+      (let ((position (bongo-point-at-next-line-satisfying
+                       'bongo-header-line-p)))
+        (cond (position (goto-char position))
+              ((interactive-p) (ding))
+              (t (signal 'end-of-buffer nil)))))))
+
 (defun bongo-backward-section (&optional n)
   "Move backward across N balanced expressions.
 Here, a balanced expression is a track or a section."
   (interactive "p")
-  (when (null n) (setq n 1))
+  (when (null n)
+    (setq n 1))
   (if (< n 0)
       (bongo-forward-section (- n))
     (when line-move-ignore-invisible
@@ -4301,7 +4328,7 @@ If MODE is `append', append TEXT to the end of the playlist."
                              (bongo-active-track-position)))
                          (goto-char (point-min))))
                (append (goto-char (point-max))))
-             (prog1 (point) 
+             (prog1 (point)
                (bongo-insert text 'redisplay))))))
     (prog1 insertion-point
       (when (and (bongo-library-buffer-p)
@@ -4587,6 +4614,12 @@ instead, use high-level functions such as `save-buffer'."
     (define-key map "g" 'bongo-redisplay)
     (define-key map "h" 'bongo-switch-buffers)
     (define-key map "l" 'bongo-recenter)
+    (substitute-key-definition
+     'backward-paragraph 'bongo-backward-header-line map global-map)
+    (substitute-key-definition
+     'forward-paragraph 'bongo-forward-header-line map global-map)
+    (define-key map "\M-p" 'bongo-backward-header-line)
+    (define-key map "\M-n" 'bongo-forward-header-line)
     (define-key map "k" 'bongo-copy-line-as-kill)
     (substitute-key-definition
      'kill-line 'bongo-kill-line map global-map)
