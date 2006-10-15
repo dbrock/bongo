@@ -4347,9 +4347,36 @@ If MODE is `append', append TEXT to the end of the playlist."
   "Insert the tracks between BEG and END into the Bongo playlist.
 If MODE is `insert', insert the tracks just below the active track.
 If MODE is `append', append the tracks to the end of the playlist."
-  (bongo-enqueue-text mode (buffer-substring
-                            (bongo-point-snapped-backwards beg)
-                            (bongo-point-snapped-forwards end))))
+  (let* ((original-buffer (current-buffer))
+         (text (with-temp-buffer
+                 ;; This is complicated because we want to remove the
+                 ;; `bongo-external-fields' property from all tracks
+                 ;; and headers before enqueuing them, but we want to
+                 ;; keep the property for everything *within* sections. 
+                 (let ((temp-buffer (current-buffer)))
+                   (set-buffer original-buffer)
+                   (goto-char (bongo-point-before-line beg))
+                   (while (< (point) end)
+                     (let ((point-before-first-line (point))
+                           (point-after-first-line (bongo-point-after-line)))
+                       (bongo-forward-section)
+                       (when (> (point) end)
+                         (goto-char (bongo-point-snapped-forwards end)))
+                       (let ((first-line
+                              (buffer-substring point-before-first-line
+                                                point-after-first-line))
+                             (other-lines
+                              (buffer-substring point-after-first-line
+                                                (point))))
+                         (remove-text-properties 0 (length first-line)
+                                                 '(bongo-external-fields nil)
+                                                 first-line)
+                         (with-current-buffer temp-buffer
+                           (insert first-line)
+                           (insert other-lines)))))
+                   (with-current-buffer temp-buffer
+                     (buffer-string))))))
+    (bongo-enqueue-text mode text)))
 
 (defun bongo-insert-enqueue-region (beg end)
   "Insert the region just below the active Bongo track."
@@ -4366,18 +4393,16 @@ If MODE is `append', append the tracks to the end of the playlist."
 
 (defun bongo-enqueue-line (mode &optional n skip)
   "Insert the next N tracks or sections into the Bongo playlist.
-If SKIP is non-nil, move point past the next N tracks or sections afterwards.
+Afterwards, if SKIP is non-nil, move point past the enqueued objects.
 If MODE is `insert', insert just below the active track.
 If MODE is `append', append to the end of the playlist.
 Return the playlist position of the newly-inserted text."
-  (let* ((end (save-excursion
-                (dotimes (dummy (or n 1))
-                  (bongo-forward-section))
-                (point)))
-         (text (buffer-substring (bongo-point-before-line) end)))
-    (remove-text-properties 0 (length text) '(bongo-external-fields nil) text)
-    (prog1 (bongo-enqueue-text mode text)
-      (when skip (goto-char end)))))
+  (let ((beg (point))
+        (end (dotimes (dummy (or n 1) (point))
+               (bongo-forward-section))))
+    (when (not skip)
+      (goto-char beg))
+    (bongo-enqueue-region mode beg end)))
 
 (defun bongo-insert-enqueue-line (&optional n)
   "Insert the next N tracks or sections just below the active track.
