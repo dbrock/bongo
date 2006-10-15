@@ -4933,8 +4933,7 @@ as they have the ability to play tracks.
   (setq bongo-playing-track-marker (make-marker))
   (setq bongo-paused-track-marker (make-marker))
   (setq bongo-current-track-marker bongo-stopped-track-marker)
-  (when (and window-system
-             (= (bongo-fringe-icon-size) 18))
+  (when window-system
     (setq left-fringe-width
           (* 2 (aref (font-info (face-font 'fringe)) 2))))
   (setq bongo-queued-track-marker (make-marker))
