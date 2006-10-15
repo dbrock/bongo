@@ -3804,10 +3804,11 @@ and modified by `bongo-insert-directory-tree-1'.")
             (bongo-insert-directory-tree-1 file-name)
           (when (bongo-backend-for-file file-name)
             (bongo-insert-file file-name))
-          (when (zerop (% bongo-insert-directory-tree-current-file-count 10))
-            (message "Inserting directory tree...%d%%"
-                     (/ (* 100 bongo-insert-directory-tree-current-file-count)
-                        bongo-insert-directory-tree-total-file-count)))
+          (unless (zerop bongo-insert-directory-tree-total-file-count)
+            (when (zerop (% bongo-insert-directory-tree-current-file-count 10))
+              (message "Inserting directory tree...%d%%"
+                       (/ (* 100 bongo-insert-directory-tree-current-file-count)
+                          bongo-insert-directory-tree-total-file-count))))
           (setq bongo-insert-directory-tree-current-file-count
                 (+ 1 bongo-insert-directory-tree-current-file-count)))))))
 
@@ -3839,8 +3840,9 @@ This function descends each subdirectory of DIRECTORY-NAME recursively."
           (bongo-insert-directory-tree-total-file-count
            (with-temp-buffer
              (insert directory-name)
-             (call-process-region (point-min) (point-max) "sh" t t nil
-                                  "-c" "xargs -0i find {} -type f | wc -l")
+             (call-process-region
+              (point-min) (point-max) "sh" t t nil
+              "-c" "xargs -0i find {} -type f -o -type l | wc -l")
              (string-to-number (buffer-string)))))
       (bongo-insert-directory-tree-1 directory-name)
       (bongo-maybe-join-inserted-tracks beginning (point))))
