@@ -5,7 +5,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: October 15, 2006
+;; Updated: October 16, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -4779,6 +4779,8 @@ instead, use high-level functions such as `save-buffer'."
     (define-key map "g" 'bongo-redisplay)
     (define-key map "h" 'bongo-switch-buffers)
     (define-key map "l" 'bongo-recenter)
+    (define-key map "p" 'previous-line)
+    (define-key map "n" 'next-line)
     (substitute-key-definition
      'backward-paragraph 'bongo-backward-header-line map global-map)
     (substitute-key-definition
@@ -4799,13 +4801,12 @@ instead, use high-level functions such as `save-buffer'."
     (substitute-key-definition
      'undo 'bongo-undo map global-map)
     (define-key map " " 'bongo-pause/resume)
-    (define-key map "pc" 'bongo-replay-current)
-    (define-key map "pn" 'bongo-play-next)
-    (define-key map "pp" 'bongo-play-previous)
-    (define-key map "pr" 'bongo-play-random)
-    (define-key map "ps" 'bongo-stop)
-    (define-key map "p\C-i" 'bongo-perform-next-action)
-    (define-key map "p\C-m" 'bongo-play-line)
+    (define-key map "\C-c\C-a" 'bongo-replay-current)
+    (define-key map "\C-c\C-i" 'bongo-perform-next-action)
+    (define-key map "\C-c\C-p" 'bongo-play-previous)
+    (define-key map "\C-c\C-n" 'bongo-play-next)
+    (define-key map "\C-c\C-r" 'bongo-play-random)
+    (define-key map "\C-c\C-s" 'bongo-stop)
     (define-key map "sf" 'bongo-seek-forward)
     (define-key map "sb" 'bongo-seek-backward)
     (define-key map "st" 'bongo-seek-to)
