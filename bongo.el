@@ -4185,7 +4185,6 @@ If called interactively, SKIP is always non-nil."
         (header (bongo-header-line-p))
         (collapsed (bongo-collapsed-header-line-p))
         (current (bongo-current-track-line-p))
-        (played (bongo-played-track-line-p))
         (properties (bongo-line-get-semantic-properties)))
     (save-excursion
       (bongo-clear-line)
