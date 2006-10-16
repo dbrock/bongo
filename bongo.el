@@ -4043,18 +4043,21 @@ If called interactively, SKIP is always non-nil."
       (while (and (> (bongo-line-indentation) indentation)
                   (not (eobp)))
         (if (bongo-collapsed-header-line-p)
-            (bongo-collapse t)
+            (bongo-collapse 'skip)
           (bongo-forward-object-line))))
     (when (not skip)
       (goto-char start))))
 
 (defun bongo-toggle-collapsed ()
-  "Collapse or expand the section below the header line at point.
-If the section is expanded, collapse it; if it is collapsed, expand it.
-If point is not on a header line, signal an error."
+  "Collapse or expand the section at point.
+If point is on a header line, operate on the section below point.
+Otherwise, if point is in a section, operate on the section around point.
+If point is neither on a header line nor in a section, signal an error."
   (interactive)
-  (unless (bongo-header-line-p)
-    (error "Not on a header line"))
+  (condition-case nil
+      (when (not (bongo-header-line-p))
+        (bongo-backward-up-section))
+    (error (error "No section here")))
   (when line-move-ignore-invisible
     (bongo-skip-invisible))
   (if (bongo-collapsed-header-line-p)
@@ -4780,6 +4783,7 @@ instead, use high-level functions such as `save-buffer'."
     (define-key map "g" 'bongo-redisplay)
     (define-key map "h" 'bongo-switch-buffers)
     (define-key map "l" 'bongo-recenter)
+    (define-key map "\C-i" 'bongo-toggle-collapsed)
     (define-key map "p" 'previous-line)
     (define-key map "n" 'next-line)
     (substitute-key-definition
