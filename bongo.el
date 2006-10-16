@@ -5090,7 +5090,7 @@ in another window."
     (let* ((buffer (if (bongo-library-buffer-p)
                        (bongo-playlist-buffer)
                     (bongo-library-buffer)))
-           (window (get-buffer-window buffer t)))
+           (window (get-buffer-window buffer)))
       (if window
           (select-window window)
         (if other-window
