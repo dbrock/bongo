@@ -3441,10 +3441,12 @@ Return nil if the active player cannot report this."
   "Marker pointing at the queued track, if any.
 This is used by `bongo-play-queued'.
 
-The functions `bongo-set-queued-track' and `bongo-unset-queued-track'
-  can properly manipulate this variable and its value.
+The functions `bongo-set-queued-track-position' and
+`bongo-unset-queued-track-position' can properly manipulate this
+variable and its value.
+
 If `bongo-avoid-interrupting-playback' is non-nil and a track is
-  currently being played, `bongo-play-line' sets the queued track.")
+currently being played, `bongo-play-line' sets the queued track.")
 (make-variable-buffer-local 'bongo-queued-track-marker)
 
 (defun bongo-point-at-queued-track ()
@@ -4786,7 +4788,8 @@ instead, use high-level functions such as `save-buffer'."
      'forward-paragraph 'bongo-forward-header-line map global-map)
     (define-key map "\M-p" 'bongo-backward-header-line)
     (define-key map "\M-n" 'bongo-forward-header-line)
-    (define-key map "k" 'bongo-copy-line-as-kill)
+    (define-key map "c" 'bongo-copy-line-as-kill)
+    (define-key map "k" 'bongo-kill-line)
     (substitute-key-definition
      'kill-line 'bongo-kill-line map global-map)
     (define-key map "w" 'bongo-kill-region)
@@ -5080,8 +5083,8 @@ This function stores the current window configuration in
 
 (defun bongo-switch-buffers (&optional other-window)
   "Switch from a Bongo playlist to a Bongo library, or vice versa.
-If OTHER-WINDOW (prefix argument if interactive) is non-nil,
-  display the other buffer in another window."
+If prefix argument OTHER-WINDOW is non-nil, display the other buffer
+in another window."
   (interactive "P")
   (with-bongo-buffer
     (let* ((buffer (if (bongo-library-buffer-p)
