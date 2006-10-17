@@ -5,7 +5,7 @@
 # Author: Daniel Brockman <daniel@brockman.se>
 # URL: http://www.brockman.se/software/bongo/
 # Created: April 24, 2006
-# Updated: April 27, 2006
+# Updated: October 17, 2006
 
 # This file is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
@@ -69,6 +69,8 @@ def parse_data (data)
   at = data[:album_title]
   ti = data[:track_index]
   tt = data[:track_title]
+
+  ay = nil if ay == "0"
 
   case
   when an && ay && at && ti && tt
