@@ -37,6 +37,10 @@
 
 ;; Fix strange race condition related to pausing.
 
+;; Saving a playlist buffer and reopening it turns it into a
+;; library buffer.  In addition, saving a buffer twice
+;; leaves two "-*- Bongo-Library -*-" headers.
+
 ;;; Code:
 
 (eval-when-compile
@@ -4333,7 +4337,7 @@ See also `bongo-copy-line-as-kill'."
         ;; Use a text property to communicate with
         ;; `bongo-clean-up-after-insertion'.
         (bongo-line-set-property 'bongo-queued-track-flag t)
-        (bongo-unset-queued-track)
+        (bongo-unset-queued-track-position)
         (bongo-line-remove-property 'bongo-queued-track-flag))
       (let ((kill-whole-line t))
         (beginning-of-line)
@@ -5011,12 +5015,7 @@ If BUFFER is nil, test the current buffer instead."
   To insert a media directory, use `i d'.
   To insert a whole directory tree, use `i t'.
 
-  Library buffers like this one cannot actually play anything.
-  To do that, you need a playlist buffer.  Use `h' to switch
-  back and forth between your library and playlist buffers.
-  If you don't have any, a default one will be created for you.
-  Go on, try that now.  Use `h' (or just `C-x b') to get back.
-
+  To hop to the nearest playlist buffer, use `h'.
   To enqueue tracks in the playlist buffer, use `e'.
   To enqueue and immediately start playing a track, use `RET'.
 
@@ -5041,24 +5040,21 @@ If BUFFER is nil, test the current buffer instead."
           (with-current-buffer buffer
             (bongo-playlist-mode)
             (bongo-insert-comment "\n\
-  This is a Bongo playlist buffer.  It holds tracks that have
-  already been played or are currently playing, and tracks that
-  have not been played but may soon be.
-
-  You can insert tracks into playlist buffers from the file
-  system using the commands `i f', `i d' and `i t', but it is
-  often more convenient to insert tracks from a library buffer.
-
-  If you have inserted some tracks into your library buffer,
-  you can switch to it and use `e' to enqueue tracks here.
-  Use `h' (or just `C-x b') to switch to your library buffer.
+  This is a Bongo playlist buffer.  It holds things that are
+  about to be played, and things that have already been played.
 
   To start playing a track, use `RET'.
-  To stop playback, use `C-c C-s'.
-  To start playing the next track, use `C-c C-n'.
+  To play the previous or next track, use `C-c C-p' or `C-c C-n'.
   To play the current track from the beginning, use `C-c C-a'.
-  To pause playback, use `SPC' (not supported for all backends).
+
+  You can use `i f', `i d' and `i t' to insert files and
+  directories directly into playlist buffers, but it is often
+  more convenient to enqueue from library buffers (using `e').
+
+  To stop playback, use `C-c C-s'; to pause or resume, use `SPC'.
+  To seek, use `s b' to go backward and `s f' to go forward.
   To change the volume, use `v' (requires `volume.el').
+  To hop to the nearest library buffer, use `h'.
 
   The kill and yank commands work as usual in Bongo buffers.
   So to get rid of this message, just kill the text.\n\n"))))))
