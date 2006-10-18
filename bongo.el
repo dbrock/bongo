@@ -5,7 +5,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: October 16, 2006
+;; Updated: October 18, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -104,7 +104,7 @@ If there is no next track line, signal an error."
        (when (not (bongo-track-line-p))
          (bongo-goto-point (bongo-point-at-next-track-line)))
        (when (not (bongo-track-line-p))
-        (error "No track at point"))
+         (error "No track at point"))
        ,@body)))
 
 (defmacro bongo-until (test &rest body)
@@ -3918,9 +3918,7 @@ Do not examine subdirectories of DIRECTORY-NAME."
             (bongo-insert-file file-name)))
         (bongo-maybe-join-inserted-tracks beginning (point)))
       (when (and (interactive-p) (not (bongo-buffer-p)))
-        (message "Inserted %d files." (length file-names))))
-    (let ((inhibit-read-only t))
-      (insert "\n"))))
+        (message "Inserted %d files." (length file-names))))))
 
 (defvar bongo-insert-directory-tree-total-file-count nil
   "The total number of files to be inserted.
@@ -4426,6 +4424,12 @@ See `kill-region'."
         (bongo-redisplay-region beg (point)))
       (bongo-clean-up-after-insertion beg (point)))))
 
+(defun bongo-insert-comment (text)
+  (let ((inhibit-read-only t)
+        (beginning (point)))
+    (bongo-insert text)
+    (put-text-property beginning (point) 'face 'bongo-comment)))
+
 (defun bongo-yank (&optional arg)
   "In Bongo, reinsert the last sequence of killed lines.
 See `yank'."
@@ -4721,10 +4725,7 @@ instead, use high-level functions such as `find-file'."
                                    (one-or-more word)
                                    (zero-or-more space) "-*-")))))
               (insert-char #x20 (- fill-column (length mode-tag) 1))
-              (insert mode-tag "\n")
-              (forward-line -1)
-              (put-text-property (point-at-bol) (point-at-eol)
-                                 'face 'bongo-comment))))
+              (bongo-insert-comment (concat mode-tag "\n")))))
         (point-max)))))
 
 (defvar bongo-line-serializable-properties
@@ -4987,6 +4988,64 @@ If BUFFER is nil, test the current buffer instead."
   (with-current-buffer (or buffer (current-buffer))
     (eq 'bongo-playlist-mode major-mode)))
 
+(defun bongo-default-library-buffer ()
+  (or (get-buffer bongo-default-library-buffer-name)
+      (let ((buffer (get-buffer-create bongo-default-library-buffer-name)))
+        (prog1 buffer
+          (with-current-buffer buffer
+            (bongo-library-mode)
+            (bongo-insert-comment "\n\
+  Welcome to Bongo, the buffer-oriented media player!
+
+  This is a Bongo library buffer.  It's empty now, but in a
+  few moments it could hold your entire media collection ---
+  or just the parts that you are currently interested in.
+
+  To insert a single media file, use `i f'.
+  To insert a media directory, use `i d'.
+  To insert a whole directory tree, use `i t'.
+
+  Library buffers like this one cannot actually play anything.
+  To do that, you need a playlist buffer.  Use `h' to switch
+  back and forth between your library and playlist buffers.
+  If you don't have any, a default one will be created for you.
+  Go on, try that now.  Use `h' (or just `C-x b') to get back.
+
+  To enqueue tracks in the playlist buffer, use `e'.
+  To enqueue and immediately start playing a track, use `RET'.
+
+  Bongo is free software licensed under the GNU GPL.
+  Report bugs to Daniel Brockman <daniel@brockman.se>.\n\n"))))))
+
+(defun bongo-default-playlist-buffer ()
+  (or (get-buffer bongo-default-playlist-buffer-name)
+      (let ((buffer (get-buffer-create bongo-default-playlist-buffer-name)))
+        (prog1 buffer
+          (with-current-buffer buffer
+            (bongo-playlist-mode)
+            (bongo-insert-comment "\n\
+  This is a Bongo playlist buffer.  It holds tracks that have
+  already been played or are currently playing, and tracks that
+  have not been played but may soon be.
+
+  You can insert tracks into playlist buffers from the file
+  system using the commands `i f', `i d' and `i t', but it is
+  often more convenient to insert tracks from a library buffer.
+
+  If you have inserted some tracks into your library buffer,
+  you can switch to it and use `e' to enqueue tracks here.
+  Use `h' (or just `C-x b') to switch to your library buffer.
+
+  To start playing a track, use `RET'.
+  To stop playback, use `C-c C-s'.
+  To start playing the next track, use `C-c C-n'.
+  To play the current track from the beginning, use `C-c C-a'.
+  To pause playback, use `SPC' (not supported for all backends).
+  To change the volume, use `v' (requires `volume.el').
+
+  The kill and yank commands work as usual in Bongo buffers.
+  So to get rid of this message, just kill the text.\n\n"))))))
+
 (defun bongo-buffer ()
   "Return an interesting Bongo buffer, creating it if necessary.
 
@@ -5005,15 +5064,9 @@ This function respects the value of `bongo-prefer-library-buffers'."
             (setq result (car list)))
           (setq list (cdr list)))
         result)
-      (let ((buffer (get-buffer-create
-                     (if bongo-prefer-library-buffers
-                         bongo-default-library-buffer-name
-                       bongo-default-playlist-buffer-name))))
-        (prog1 buffer
-          (with-current-buffer buffer
-            (if bongo-prefer-library-buffers
-              (bongo-library-mode)
-              (bongo-playlist-mode)))))))
+      (if bongo-prefer-library-buffers
+          (bongo-default-library-buffer)
+        (bongo-default-playlist-buffer))))
 
 (defun bongo-playlist-buffer ()
   "Return a Bongo playlist buffer.
@@ -5029,11 +5082,7 @@ the new buffer will be the value of `bongo-default-playlist-buffer-name'."
             (setq result (car list)))
           (setq list (cdr list)))
         result)
-      (let ((buffer (get-buffer-create
-                     bongo-default-playlist-buffer-name)))
-        (prog1 buffer
-          (with-current-buffer buffer
-            (bongo-playlist-mode))))))
+      (bongo-default-playlist-buffer)))
 
 (defun bongo-library-buffer ()
   "Return a Bongo library buffer.
@@ -5049,11 +5098,7 @@ the new buffer will be the value of `bongo-default-library-buffer-name'."
             (setq result (car list)))
           (setq list (cdr list)))
         result)
-      (let ((buffer (get-buffer-create
-                     bongo-default-library-buffer-name)))
-        (prog1 buffer
-          (with-current-buffer buffer
-            (bongo-library-mode))))))
+      (bongo-default-library-buffer)))
 
 (defun bongo-playlist ()
   "Switch to a Bongo playlist buffer.
