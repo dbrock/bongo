@@ -4430,6 +4430,12 @@ See `kill-region'."
     (bongo-insert text)
     (put-text-property beginning (point) 'face 'bongo-comment)))
 
+(defun bongo-insert-warning (text)
+  (let ((inhibit-read-only t)
+        (beginning (point)))
+    (bongo-insert text)
+    (put-text-property beginning (point) 'face 'font-lock-warning-face)))
+
 (defun bongo-yank (&optional arg)
   "In Bongo, reinsert the last sequence of killed lines.
 See `yank'."
@@ -5015,7 +5021,18 @@ If BUFFER is nil, test the current buffer instead."
   To enqueue and immediately start playing a track, use `RET'.
 
   Bongo is free software licensed under the GNU GPL.
-  Report bugs to Daniel Brockman <daniel@brockman.se>.\n\n"))))))
+  Report bugs to Daniel Brockman <daniel@brockman.se>.\n\n")
+            (if bongo-enabled-backends
+                (bongo-insert-comment
+                 (format
+                  "  [Enabled backends: %s]\n\n"
+                  (mapconcat (lambda (backend-name)
+                               (bongo-backend-pretty-name backend-name))
+                             bongo-enabled-backends ", ")))
+              (bongo-insert-warning "\
+  Warning:  No backends are enabled.  You will not be able to
+            insert tracks or play anything.  Please customize
+            the variable `bongo-enabled-backends'.\n\n")))))))
 
 (defun bongo-default-playlist-buffer ()
   (or (get-buffer bongo-default-playlist-buffer-name)
