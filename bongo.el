@@ -5,7 +5,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: October 20, 2006
+;; Updated: October 21, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -543,8 +543,6 @@ With any other ARGUMENT, turn the mode on."
       (progn
         (add-hook 'bongo-player-started-functions
                   'bongo-update-header-line-string)
-        (add-hook 'bongo-player-finished-functions
-                  'bongo-update-header-line-string)
         (add-hook 'bongo-player-stopped-functions
                   'bongo-update-header-line-string)
         (add-hook 'bongo-player-paused/resumed-functions
@@ -552,8 +550,6 @@ With any other ARGUMENT, turn the mode on."
         (add-hook 'bongo-player-times-changed-functions
                   'bongo-update-header-line-string))
     (remove-hook 'bongo-player-started-functions
-                 'bongo-update-header-line-string)
-    (remove-hook 'bongo-player-finished-functions
                  'bongo-update-header-line-string)
     (remove-hook 'bongo-player-stopped-functions
                  'bongo-update-header-line-string)
@@ -1014,8 +1010,6 @@ With any other ARGUMENT, turn the mode on."
       (progn
         (add-hook 'bongo-player-started-functions
                   'bongo-update-mode-line-indicator-string)
-        (add-hook 'bongo-player-finished-functions
-                  'bongo-update-mode-line-indicator-string)
         (add-hook 'bongo-player-stopped-functions
                   'bongo-update-mode-line-indicator-string)
         (add-hook 'bongo-player-paused/resumed-functions
@@ -1023,8 +1017,6 @@ With any other ARGUMENT, turn the mode on."
         (add-hook 'bongo-player-times-changed-functions
                   'bongo-update-mode-line-indicator-string))
     (remove-hook 'bongo-player-started-functions
-                 'bongo-update-mode-line-indicator-string)
-    (remove-hook 'bongo-player-finished-functions
                  'bongo-update-mode-line-indicator-string)
     (remove-hook 'bongo-player-stopped-functions
                  'bongo-update-mode-line-indicator-string)
@@ -1189,6 +1181,16 @@ This is used by `bongo-default-format-infoset'."
 (defface bongo-track-index
   '((t (:inherit bongo-track)))
   "Face used for Bongo track indices."
+  :group 'bongo-faces)
+
+(defface bongo-played-track
+  '((t (:strike-through "#808080" :inherit bongo-track)))
+  "Face used for already played Bongo tracks."
+  :group 'bongo-faces)
+
+(defface bongo-currently-playing-track
+  '((t (:weight bold :inherit bongo-track)))
+  "Face used for the currently playing Bongo track."
   :group 'bongo-faces)
 
 
@@ -1750,6 +1752,16 @@ This will be nil for header lines and non-nil for track lines."
   "Return non-nil if the line at POINT is a track line."
   (not (null (bongo-line-file-name point))))
 
+(defun bongo-currently-playing-track-line-p (&optional point)
+  "Return non-nil if the line at POINT is currently playing."
+  (and (bongo-current-track-line-p point)
+       (bongo-playing-p)))
+
+(defun bongo-played-track-line-p (&optional point)
+  "Return non-nil if the line at POINT is a played track line."
+  (and (bongo-track-line-p point)
+       (bongo-line-get-property 'bongo-played point)))
+
 (defun bongo-track-lines-exist-p ()
   "Return non-nil if the buffer contains any track lines.
 This function does not care about the visibility of the lines."
@@ -1967,11 +1979,11 @@ If BEG and END are the same, return 0.
 If they are distinct but on the same line, return 1."
   (save-excursion
     (goto-char beg)
-    (let ((size 0))
+    (let ((result 0))
       (while (< (point) end)
-        (setq size (1+ size))
+        (setq result (1+ result))
         (forward-line))
-      size)))
+      result)))
 
 
 ;;;; Text properties
@@ -1984,7 +1996,7 @@ Actually only look at the terminating newline."
 (defvar bongo-line-semantic-properties
   (list 'bongo-file-name 'bongo-header 'bongo-collapsed
         'bongo-fields 'bongo-external-fields
-        'bongo-player)
+        'bongo-player 'bongo-played)
   "The list of semantic text properties used in Bongo buffers.
 When redisplaying lines, semantic text properties are preserved,
 whereas all other text properties (e.g., `face') are discarded.")
@@ -2415,7 +2427,8 @@ Bongo will try to find the best player for FILE-NAME.
 
 This function runs `bongo-player-started-functions'.
 See also `bongo-play'."
-  (setq backend (if backend (bongo-backend backend)
+  (setq backend (if backend
+                    (bongo-backend backend)
                   (bongo-backend-for-file file-name)))
   (when (null backend)
     (error "Don't know how to play `%s'" file-name))
@@ -2490,27 +2503,53 @@ You should not call this function directly."
       (set-buffer (bongo-player-buffer player)))
     (run-hook-with-args 'bongo-player-finished-functions player)
     (when (bongo-buffer-p)
-      (run-hooks 'bongo-player-finished-hook)
+      (run-hooks 'bongo-player-finished-hook))
+    (bongo-player-stopped player)
+    (when (bongo-buffer-p)
       (bongo-perform-next-action))))
 
-(defcustom bongo-player-stopped-hook nil
+(defcustom bongo-player-explicitly-stopped-hook nil
   "Normal hook run after a Bongo player is explicitly stopped.
 This hook is only run for players started in Bongo buffers."
   :type 'hook
   :group 'bongo)
 
-(defvar bongo-player-stopped-functions nil
+(defvar bongo-player-explicitly-stopped-functions nil
   "Abnormal hook run after a Bongo player is explicitly stopped.")
 
-(defun bongo-player-stopped (player)
+(defun bongo-player-explicitly-stopped (player)
   "Run the hooks appropriate for when PLAYER was explicitly stopped."
+  (save-current-buffer
+    (when (buffer-live-p (bongo-player-buffer player))
+      (set-buffer (bongo-player-buffer player)))
+    (run-hook-with-args 'bongo-player-explicitly-stopped-functions player)
+    (when (bongo-buffer-p)
+      (run-hooks 'bongo-player-explicitly-stopped-hook))
+    (bongo-player-stopped player)))
+
+(defvar bongo-player-stopped-functions nil
+  "Abnormal hook run when a player exits or is stopped.")
+
+(defcustom bongo-player-stopped-hook nil
+  "Normal hook run after a Bongo player exits or is stopped.
+This hook is only run for players started in Bongo buffers."
+  :type 'hook
+  :group 'bongo)
+
+(defun bongo-player-stopped (player)
+  "Run the hooks appropriate for when PLAYER exited or was stopped."
   (save-current-buffer
     (when (buffer-live-p (bongo-player-buffer player))
       (set-buffer (bongo-player-buffer player)))
     (run-hook-with-args 'bongo-player-stopped-functions player)
     (when (bongo-buffer-p)
-      (bongo-set-current-track-marker bongo-stopped-track-marker)
-      (run-hooks 'bongo-player-stopped-hook))))
+      (save-excursion
+        (let ((position (bongo-point-at-current-track)))
+          (when position
+            (bongo-line-set-property 'bongo-played t position)
+            (bongo-redisplay-line position)))
+        (bongo-set-current-track-marker bongo-stopped-track-marker)
+        (run-hooks 'bongo-player-stopped-hook)))))
 
 (defcustom bongo-player-paused/resumed-hook nil
   "Normal hook run after a Bongo player is paused or resumed.
@@ -2687,7 +2726,7 @@ If the player backend cannot report this, return nil."
 (defun bongo-default-player-stop (player)
   "Delete the process associated with PLAYER."
   (delete-process (bongo-player-process player))
-  (bongo-player-stopped player))
+  (bongo-player-explicitly-stopped player))
 
 (defun bongo-default-player-pause/resume (player)
   "Signal an error explaining that PLAYER does not support pausing."
@@ -3336,7 +3375,9 @@ Return nil if the active player cannot report this."
       (bongo-player-total-time bongo-player))))
 
 (defvar bongo-current-track-marker nil
-  "Marker pointing at the currently playing track, if any.")
+  "Marker pointing at the current track line, if any.
+The current track line is the line of the currently playing track,
+or that of the last played track if no track is currently playing.")
 (make-variable-buffer-local 'bongo-current-track-marker)
 
 (define-obsolete-variable-alias 'bongo-active-track-marker
@@ -3344,7 +3385,8 @@ Return nil if the active player cannot report this."
 
 (defun bongo-point-at-current-track ()
   (when bongo-current-track-marker
-    (marker-position bongo-current-track-marker)))
+    (let ((position (marker-position bongo-current-track-marker)))
+      (and (bongo-track-line-p position) position))))
 
 (define-obsolete-function-alias 'bongo-active-track-position
   'bongo-point-at-current-track)
@@ -3574,9 +3616,15 @@ If there is no track on the line at POINT, signal an error."
             (bongo-unset-queued-track-position)
           (bongo-set-queued-track-position))
       ;; Nothing is being played or we should interrupt it.
+      (when bongo-player
+        (bongo-player-stop bongo-player))
       (bongo-set-current-track-position)
-      (let ((player (bongo-play (bongo-line-file-name))))
-        (bongo-line-set-property 'bongo-player player)))))
+      (let ((player (bongo-start-player (bongo-line-file-name))))
+        (setq bongo-player player)
+        (bongo-line-set-property 'bongo-player player) 
+        (bongo-set-current-track-marker bongo-playing-track-marker)
+        (run-hooks 'bongo-player-started-hook)
+        (bongo-redisplay-line)))))
 
 (defun bongo-blink-queued-track-arrow ()
   "Blink the overlay arrow indicating the queued track.
@@ -3607,8 +3655,9 @@ If TOGGLE-INTERRUPT (prefix argument if interactive) is non-nil,
         ;; track from the beginning.
         (let ((position (bongo-point-at-current-track))
               (bongo-avoid-interrupting-playback nil))
-          (if position (bongo-play-line position)
-            (error "No track is currently playing")))
+          (if position
+              (bongo-play-line position)
+            (error "No current track")))
       ;; We should not interrupt playback.
       (if (eq bongo-next-action 'bongo-replay-current)
           (message (concat "Switched to repeating playback "
@@ -3633,7 +3682,7 @@ If there is no next track to play, signal an error."
               (position (bongo-point-at-current-track))
               (bongo-avoid-interrupting-playback nil))
           (when (null position)
-            (error "No track is currently playing"))
+            (error "No current track"))
           (if (setq position (bongo-point-at-next-track-line position))
               (bongo-play-line position)
             (error "No next track")))
@@ -3661,7 +3710,7 @@ If there is no next track to play, stop playback."
               (position (bongo-point-at-current-track))
               (bongo-avoid-interrupting-playback nil))
           (when (null position)
-            (error "No track is currently playing"))
+            (error "No current track"))
           (let ((next-position (bongo-point-at-next-track-line position)))
             (if next-position
                 (bongo-play-line next-position)
@@ -3692,7 +3741,7 @@ If TOGGLE-INTERRUPT (prefix argument if interactive) is non-nil,
               (position (bongo-point-at-current-track))
               (bongo-avoid-interrupting-playback nil))
           (when (null position)
-            (error "No track is currently playing"))
+            (error "No current track"))
           (let ((previous-position
                  (bongo-point-at-previous-track-line position)))
             (if previous-position
@@ -4210,8 +4259,9 @@ If the value is a symbol, treat it as if it were a singleton list."
                              'face (append new-faces old-faces) string)
           (setq index next-index))))))
 
-(defun bongo-redisplay-line ()
-  "Redisplay the current line, preserving semantic text properties."
+(defun bongo-redisplay-line (&optional point)
+  "Redisplay the line at POINT, preserving semantic text properties."
+  (bongo-goto-point point)
   (when line-move-ignore-invisible
     (bongo-skip-invisible))
   (let ((inhibit-read-only t)
@@ -4219,19 +4269,23 @@ If the value is a symbol, treat it as if it were a singleton list."
         (infoset (bongo-line-internal-infoset))
         (header (bongo-header-line-p))
         (collapsed (bongo-collapsed-header-line-p))
-        (current (bongo-current-track-line-p))
+        (currently-playing (bongo-currently-playing-track-line-p))
+        (played (bongo-played-track-line-p))
         (properties (bongo-line-get-semantic-properties)))
     (save-excursion
       (bongo-clear-line)
       (dotimes (dummy indentation)
         (insert bongo-indentation-string))
       (let ((content (bongo-format-infoset infoset)))
-        (insert (if (not header) content
-                  (bongo-format-header content collapsed))))
-      (bongo-line-set-properties properties)
-;;;       (bongo-line-set-property 'face (if header 'bongo-header
-;;;                                        'bongo-track))
-      )))
+        (insert
+         (cond (header
+                (bongo-format-header content collapsed))
+               (currently-playing
+                (bongo-facify content 'bongo-currently-playing-track))
+               (played
+                (bongo-facify content 'bongo-played-track))
+               (t content))))
+      (bongo-line-set-properties properties))))
 
 (defun bongo-redisplay-region (beg end)
   "Redisplay the Bongo objects in the region."
@@ -4327,26 +4381,22 @@ If INSERT-FLAG (prefix argument if interactive) is non-nil,
   insert the description at point.
 Return the description string."
   (interactive "P")
-  (let (player infoset)
-    (with-bongo-playlist-buffer
-      (setq player bongo-player)
-      (let ((position (bongo-point-at-current-track))
-            (line-move-ignore-invisible nil))
-        (when (null position)
-          (error "No track is currently playing"))
-        (setq infoset (bongo-line-infoset position))))
-    (let ((elapsed-time (when player (bongo-player-elapsed-time player)))
-          (total-time (when player (bongo-player-total-time player)))
-          (description (bongo-format-infoset infoset)))
-      (let ((string (if (not (and elapsed-time total-time))
-                        description
-                      (format "%s [%s/%s]" description
-                              (bongo-format-seconds elapsed-time)
-                              (bongo-format-seconds total-time)))))
-        (prog1 string
-          (if insert-flag
-              (insert string)
-            (message "%s" string)))))))
+  (let* ((player (with-bongo-playlist-buffer
+                   (or bongo-player
+                       (error "No currently playing track"))))
+         (elapsed-time (when player (bongo-player-elapsed-time player)))
+         (total-time (when player (bongo-player-total-time player)))
+         (description (bongo-format-infoset
+                       (bongo-player-infoset player)))
+         (string (if (not (and elapsed-time total-time))
+                     description
+                   (format "%s [%s/%s]" description
+                           (bongo-format-seconds elapsed-time)
+                           (bongo-format-seconds total-time)))))
+    (prog1 string
+      (if insert-flag
+          (insert string)
+        (message "%s" string)))))
 
 
 ;;;; Killing and yanking commands
@@ -4642,17 +4692,35 @@ If the region is active, ignore N and enqueue the region instead."
 ;;;; Miscellaneous commands
 
 (defun bongo-flush-playlist ()
-  "Delete everything above the currently playing track.
-If no track is playing, delete everything in the playlist."
+  "Delete all played tracks from the playlist.
+If there are no played tracks, clear the entire playlist."
   (interactive)
-  (when (yes-or-no-p "Really flush playlist? ")
-    (with-bongo-playlist-buffer
-      (let ((inhibit-read-only t))
-        (delete-region (point-min)
-                       (if (bongo-playing-p)
-                           (bongo-point-before-line
-                            (bongo-point-at-current-track))
-                         (point-max)))))))
+  (with-bongo-playlist-buffer
+    (let ((inhibit-read-only t))
+      (save-excursion
+        (goto-char (point-min))
+        (let ((played-tracks-exist
+               (or (bongo-played-track-line-p)
+                   (bongo-point-at-next-line-satisfying
+                    'bongo-played-track-line-p))))
+          (when (yes-or-no-p (if played-tracks-exist
+                                 "Flush all played tracks? "
+                               "Erase entire playlist? "))
+            (if (not played-tracks-exist)
+                (erase-buffer)
+              (bongo-maybe-forward-object-line)
+              (while (bongo-object-line-p)
+                (if (not (bongo-played-track-line-p))
+                    (bongo-forward-object-line)
+                  (bongo-delete-line)
+                  (bongo-maybe-forward-object-line)))
+              (goto-char (point-min))
+              (bongo-maybe-forward-object-line)
+              (while (bongo-object-line-p)
+                (if (not (bongo-empty-section-p))
+                    (bongo-forward-object-line)
+                  (bongo-delete-line)
+                  (bongo-maybe-forward-object-line))))))))))
 
 (defun bongo-rename-line (new-name &optional point)
   "Rename the file corresponding to the track at POINT to NEW-NAME.
