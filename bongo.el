@@ -5,7 +5,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: October 18, 2006
+;; Updated: October 20, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -1365,6 +1365,7 @@ If `line-move-ignore-invisible' is non-nil, ignore invisible text."
     (if (not line-move-ignore-invisible)
         (point-at-bol)
       (move-beginning-of-line nil)
+      (bongo-skip-invisible)
       (point))))
 
 (defun bongo-point-at-eol (&optional point)
@@ -1627,7 +1628,8 @@ You should use `bongo-line-infoset' most of the time."
 You should use `bongo-line-infoset' most of the time."
   (unless (bongo-header-line-p point)
     (error "Point is not on a header line"))
-  (let ((next-track (bongo-point-at-next-track-line)))
+  (let* ((line-move-ignore-invisible nil)
+         (next-track (bongo-point-at-next-track-line)))
     (if (null next-track)
         (error "Dangling header line")
       (bongo-filter-alist (bongo-line-fields)
@@ -3496,7 +3498,7 @@ See `bongo-queued-track-marker'."
     (when line-move-ignore-invisible
       (bongo-skip-invisible))
     (equal (bongo-point-at-queued-track)
-           (point-at-bol))))
+           (bongo-point-at-bol))))
 
 (defun bongo-unset-queued-track-position ()
   "Make `bongo-queued-track-marker' point nowhere.
@@ -4056,12 +4058,12 @@ If point is on a header line, operate on the section below point.
 Otherwise, if point is in a section, operate on the section around point.
 If point is neither on a header line nor in a section, signal an error."
   (interactive)
+  (when line-move-ignore-invisible
+    (bongo-skip-invisible))
   (condition-case nil
       (when (not (bongo-header-line-p))
         (bongo-backward-up-section))
     (error (error "No section here")))
-  (when line-move-ignore-invisible
-    (bongo-skip-invisible))
   (if (bongo-collapsed-header-line-p)
       (bongo-expand)
     (bongo-collapse)))
@@ -4186,6 +4188,8 @@ If called interactively, SKIP is always non-nil."
 
 (defun bongo-redisplay-line ()
   "Redisplay the current line, preserving semantic text properties."
+  (when line-move-ignore-invisible
+    (bongo-skip-invisible))
   (let ((inhibit-read-only t)
         (indentation (bongo-line-indentation))
         (infoset (bongo-line-internal-infoset))
@@ -4341,6 +4345,8 @@ See also `bongo-copy-line-as-kill'."
         (bongo-line-remove-property 'bongo-queued-track-flag))
       (let ((kill-whole-line t))
         (beginning-of-line)
+        (when line-move-ignore-invisible
+          (bongo-skip-invisible))
         (kill-line)))
      ((bongo-header-line-p)
       (save-excursion
@@ -4425,7 +4431,8 @@ See `kill-region'."
     (let ((beg (point)))
       (insert text)
       (when redisplay-flag
-        (bongo-redisplay-region beg (point)))
+        (let ((line-move-ignore-invisible t))
+          (bongo-redisplay-region beg (point))))
       (bongo-clean-up-after-insertion beg (point)))))
 
 (defun bongo-insert-comment (text)
@@ -4487,6 +4494,10 @@ If MODE is `append', append TEXT to the end of the playlist."
                          (goto-char (point-min))))
                (append (goto-char (point-max))))
              (prog1 (point)
+               (remove-text-properties 0 (length text)
+                                       (list 'invisible nil
+                                             'bongo-collapsed nil)
+                                       text)
                (bongo-insert text 'redisplay))))))
     (prog1 insertion-point
       (when (and (bongo-library-buffer-p)
@@ -4511,7 +4522,8 @@ If MODE is `append', append the tracks to the end of the playlist."
                  ;; `bongo-external-fields' property from all tracks
                  ;; and headers before enqueuing them, but we want to
                  ;; keep the property for everything *within* sections. 
-                 (let ((temp-buffer (current-buffer)))
+                 (let ((temp-buffer (current-buffer))
+                       (line-move-ignore-invisible nil))
                    (set-buffer original-buffer)
                    (goto-char (bongo-point-before-line beg))
                    (while (< (point) end)
@@ -4526,9 +4538,10 @@ If MODE is `append', append the tracks to the end of the playlist."
                              (other-lines
                               (buffer-substring point-after-first-line
                                                 (point))))
-                         (remove-text-properties 0 (length first-line)
-                                                 '(bongo-external-fields nil)
-                                                 first-line)
+                         (remove-text-properties
+                          0 (length first-line)
+                          (list 'bongo-external-fields nil)
+                          first-line)
                          (with-current-buffer temp-buffer
                            (insert first-line)
                            (insert other-lines)))))
@@ -4555,12 +4568,15 @@ Afterwards, if SKIP is non-nil, move point past the enqueued objects.
 If MODE is `insert', insert just below the current track.
 If MODE is `append', append to the end of the playlist.
 Return the playlist position of the newly-inserted text."
-  (let ((beg (point))
-        (end (dotimes (dummy (or n 1) (point))
-               (bongo-forward-section))))
-    (when (not skip)
-      (goto-char beg))
-    (bongo-enqueue-region mode beg end)))
+  (when line-move-ignore-invisible
+    (bongo-skip-invisible))
+  (let ((line-move-ignore-invisible nil))
+    (let ((beg (point))
+          (end (dotimes (dummy (or n 1) (point))
+                 (bongo-forward-section))))
+      (when (not skip)
+        (goto-char beg))
+      (bongo-enqueue-region mode beg end))))
 
 (defun bongo-insert-enqueue-line (&optional n)
   "Insert the next N tracks or sections just below the current track.
