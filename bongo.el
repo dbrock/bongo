@@ -22,6 +22,9 @@
 ;; if not, write to the Free Software Foundation, 51 Franklin
 ;; Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
+;; The Bongo logo was created by Romain Francoise and
+;; subsequently placed into the public domain.
+
 ;;; Todo:
 
 ;; Streaming media support.
@@ -1148,6 +1151,11 @@ This is used by `bongo-default-format-infoset'."
 (defface bongo-comment
   '((t (:inherit font-lock-comment-face)))
   "Face used for comments in Bongo buffers."
+  :group 'bongo-faces)
+
+(defface bongo-warning
+  '((t (:inherit font-lock-warning-face)))
+  "Face used for warnings in Bongo buffers."
   :group 'bongo-faces)
 
 (defface bongo-artist
@@ -3877,7 +3885,7 @@ Album covers are files whose names are in `bongo-album-cover-file-names'."
           (error "Unrecognized file name extension: %s" cover-file-name))
         (let ((cover-file-type (cdr file-type-entry))
               (inhibit-read-only t))
-          (insert (propertize "(cover image)" 'display
+          (insert (propertize "[cover image]" 'display
                               `(image :type ,cover-file-type
                                       :file ,cover-file-name)))
           (insert "\n"))))))
@@ -4188,6 +4196,20 @@ If called interactively, SKIP is always non-nil."
 
 ;;;; Displaying
 
+(defun bongo-facify (string &rest new-faces)
+  "Add NEW-FACES to the `face' property of STRING.
+For each character in STRING, if the value of the `face' property is
+a list, append NEW-FACES to the old value and make that the new value.
+If the value is a symbol, treat it as if it were a singleton list."
+  (prog1 string
+    (let ((index 0))
+      (while index
+        (let ((next-index (next-single-property-change index 'face string))
+              (old-faces (get-text-property index 'face string)))
+          (put-text-property index (or next-index (length string))
+                             'face (append new-faces old-faces) string)
+          (setq index next-index))))))
+
 (defun bongo-redisplay-line ()
   "Redisplay the current line, preserving semantic text properties."
   (when line-move-ignore-invisible
@@ -4438,16 +4460,10 @@ See `kill-region'."
       (bongo-clean-up-after-insertion beg (point)))))
 
 (defun bongo-insert-comment (text)
-  (let ((inhibit-read-only t)
-        (beginning (point)))
-    (bongo-insert text)
-    (put-text-property beginning (point) 'face 'bongo-comment)))
+  (bongo-insert (bongo-facify text 'bongo-comment)))
 
 (defun bongo-insert-warning (text)
-  (let ((inhibit-read-only t)
-        (beginning (point)))
-    (bongo-insert text)
-    (put-text-property beginning (point) 'face 'font-lock-warning-face)))
+  (bongo-insert (bongo-facify text 'bongo-warning)))
 
 (defun bongo-yank (&optional arg)
   "In Bongo, reinsert the last sequence of killed lines.
@@ -5016,8 +5032,49 @@ If BUFFER is nil, test the current buffer instead."
   (with-current-buffer (or buffer (current-buffer))
     (eq 'bongo-playlist-mode major-mode)))
 
-(defimage bongo-logo
-  ((:type pbm :file "bongo-logo.pbm")))
+(defun bongo-embolden-quoted-substrings (string)
+  "Embolden each quoted `SUBSTRING' in STRING."
+  (with-temp-buffer
+    (insert string)
+    (goto-char (point-min))
+    (while (re-search-forward "\\(`\\)\\(.*?\\)\\('\\)" nil 'noerror)
+      (replace-match (concat (match-string 1)
+                             (bongo-facify (match-string 2) 'bold)
+                             (match-string 3))))
+    (buffer-string)))
+
+(defvar bongo-logo
+  (find-image
+   (list (list :type 'pbm :file "bongo-logo.pbm"
+               :foreground (face-foreground 'bongo-comment nil t)
+               :background (face-background 'bongo-comment nil t)))))
+
+(defun bongo-insert-enabled-backends-comment ()
+  (bongo-insert-comment "\
+  Bongo is free software licensed under the GNU GPL.
+  Report bugs to Daniel Brockman <daniel@brockman.se>.\n\n")
+  (if bongo-enabled-backends
+      (bongo-insert-comment
+       (format
+        "  Enabled backends: %s\n\n"
+        (mapconcat
+         (lambda (backend-name)
+           (bongo-facify
+            (bongo-backend-pretty-name backend-name) 'bold))
+         bongo-enabled-backends ", ")))
+    (bongo-insert-warning "\
+  Warning:  No backends are enabled.  You will not be able to
+            insert tracks or play anything.  Please customize
+            the variable `bongo-enabled-backends'.  Then kill
+            this buffer and restart Bongo.\n\n")
+    (when (fboundp 'help-xref-button)
+      (let ((inhibit-read-only t))
+        (save-excursion
+          (search-backward "customize")
+          (replace-match (bongo-facify (match-string 0)
+                                       'underline))
+          (help-xref-button 0 'help-customize-variable
+                            'bongo-enabled-backends))))))
 
 (defun bongo-default-library-buffer ()
   (or (get-buffer bongo-default-library-buffer-name)
@@ -5030,9 +5087,11 @@ If BUFFER is nil, test the current buffer instead."
                 (insert "\n  ")
                 (insert-image bongo-logo "[Bongo logo]")
                 (insert "\n")))
-            (bongo-insert-comment "
-  Welcome to Bongo, the buffer-oriented media player!
-
+            (when bongo-prefer-library-buffers
+              (bongo-insert-comment "
+  Welcome to Bongo, the buffer-oriented media player!\n"))
+            (bongo-insert-comment
+             (bongo-embolden-quoted-substrings "
   This is a Bongo library buffer.  It's empty now, but in a
   few moments it could hold your entire media collection ---
   or just the parts that you are currently interested in.
@@ -5045,19 +5104,9 @@ If BUFFER is nil, test the current buffer instead."
   To enqueue tracks in the playlist buffer, use `e'.
   To enqueue and immediately start playing a track, use `RET'.
 
-  Bongo is free software licensed under the GNU GPL.
-  Report bugs to Daniel Brockman <daniel@brockman.se>.\n\n")
-            (if bongo-enabled-backends
-                (bongo-insert-comment
-                 (format
-                  "  [Enabled backends: %s]\n\n"
-                  (mapconcat (lambda (backend-name)
-                               (bongo-backend-pretty-name backend-name))
-                             bongo-enabled-backends ", ")))
-              (bongo-insert-warning "\
-  Warning:  No backends are enabled.  You will not be able to
-            insert tracks or play anything.  Please customize
-            the variable `bongo-enabled-backends'.\n\n")))))))
+  To change the volume, use `v' (requires volume.el).\n\n"))
+            (when bongo-prefer-library-buffers
+              (bongo-insert-enabled-backends-comment)))))))
 
 (defun bongo-default-playlist-buffer ()
   (or (get-buffer bongo-default-playlist-buffer-name)
@@ -5065,25 +5114,31 @@ If BUFFER is nil, test the current buffer instead."
         (prog1 buffer
           (with-current-buffer buffer
             (bongo-playlist-mode)
-            (bongo-insert-comment "\n\
+            (when (and window-system bongo-logo)
+              (let ((inhibit-read-only t))
+                (insert "\n  ")
+                (insert-image bongo-logo "[Bongo logo]")
+                (insert "\n")))
+            (when (not bongo-prefer-library-buffers)
+              (bongo-insert-comment "
+  Welcome to Bongo, the buffer-oriented media player!\n"))
+            (bongo-insert-comment
+             (bongo-embolden-quoted-substrings "
   This is a Bongo playlist buffer.  It holds things that are
   about to be played, and things that have already been played.
 
   To start playing a track, use `RET'.
   To play the previous or next track, use `C-c C-p' or `C-c C-n'.
-  To play the current track from the beginning, use `C-c C-a'.
+  To seek, use `s b' to go backward and `s f' to go forward.
+  To stop playback, use `C-c C-s'; to pause or resume, use `SPC'.
 
   You can use `i f', `i d' and `i t' to insert files and
   directories directly into playlist buffers, but it is often
   more convenient to enqueue from library buffers (using `e').
 
-  To stop playback, use `C-c C-s'; to pause or resume, use `SPC'.
-  To seek, use `s b' to go backward and `s f' to go forward.
-  To change the volume, use `v' (requires `volume.el').
-  To hop to the nearest library buffer, use `h'.
-
-  The kill and yank commands work as usual in Bongo buffers.
-  So to get rid of this message, just kill the text.\n\n"))))))
+  To hop to the nearest library buffer, use `h'.\n\n"))
+            (when (not bongo-prefer-library-buffers)
+              (bongo-insert-enabled-backends-comment)))))))
 
 (defun bongo-buffer ()
   "Return an interesting Bongo buffer, creating it if necessary.
