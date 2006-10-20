@@ -586,8 +586,10 @@ See `bongo-mode-line-indicator-format'."
     (bongo-mode-line-next-button)
     " "
     (when (and (bongo-elapsed-time) (bongo-total-time))
-      (format "%d%%" (/ (* 100.0 (bongo-elapsed-time))
-                        (bongo-total-time)))))
+      (if (> (bongo-total-time) 0)
+          (format "%d%%" (/ (* 100.0 (bongo-elapsed-time))
+                            (bongo-total-time)))
+        (bongo-format-seconds (bongo-elapsed-time)))))
   "Template for the Bongo mode line indicator.
 Value is a list of expressions, each evaluating to a string or nil.
 The values of the expressions are concatenated."
@@ -609,8 +611,10 @@ The values of the expressions are concatenated."
                   (bongo-format-seconds (bongo-total-time)))
            (const :tag "Elapsed time in percent of total time"
                   (when (and (bongo-elapsed-time) (bongo-total-time))
-                    (format "%d%%" (/ (* 100.0 (bongo-elapsed-time))
-                                      (bongo-total-time)))))
+                    (if (> (bongo-total-time) 0)
+                        (format "%d%%" (/ (* 100.0 (bongo-elapsed-time))
+                                          (bongo-total-time)))
+                      (bongo-format-seconds (bongo-elapsed-time)))))
            (const :tag "Elapsed and total time"
                   (when (and (bongo-elapsed-time) (bongo-total-time))
                     (concat (bongo-format-seconds (bongo-elapsed-time)) "/"
