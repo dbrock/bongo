@@ -5016,13 +5016,21 @@ If BUFFER is nil, test the current buffer instead."
   (with-current-buffer (or buffer (current-buffer))
     (eq 'bongo-playlist-mode major-mode)))
 
+(defimage bongo-logo
+  ((:type pbm :file "bongo-logo.pbm")))
+
 (defun bongo-default-library-buffer ()
   (or (get-buffer bongo-default-library-buffer-name)
       (let ((buffer (get-buffer-create bongo-default-library-buffer-name)))
         (prog1 buffer
           (with-current-buffer buffer
             (bongo-library-mode)
-            (bongo-insert-comment "\n\
+            (when (and window-system bongo-logo)
+              (let ((inhibit-read-only t))
+                (insert "\n  ")
+                (insert-image bongo-logo "[Bongo logo]")
+                (insert "\n")))
+            (bongo-insert-comment "
   Welcome to Bongo, the buffer-oriented media player!
 
   This is a Bongo library buffer.  It's empty now, but in a
