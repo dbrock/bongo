@@ -1,6 +1,8 @@
 ;;; bongo.el --- buffer-oriented media player for Emacs
 ;; Copyright (C) 2005, 2006  Daniel Brockman
 ;; Copyright (C) 2005  Lars Öhrman
+;; Copyright (C) 1998, 2000, 2001, 2002, 2003, 2004, 2005
+;;   Free Software Foundation, Inc.
 
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
@@ -2423,7 +2425,9 @@ In Bongo mode, this function runs `bongo-player-started-hook'."
       (when (bongo-buffer-p)
         (setq bongo-player player)
         (bongo-set-current-track-marker bongo-playing-track-marker)
-        (run-hooks 'bongo-player-started-hook)))))
+        (run-hooks 'bongo-player-started-hook))))
+  (when (bufferp bongo-seek-buffer)
+    (bongo-seek-redisplay)))
 
 (defun bongo-start-player (file-name &optional backend)
   "Start and return a new Bongo player for FILE-NAME.
@@ -2555,7 +2559,9 @@ This hook is only run for players started in Bongo buffers."
             (bongo-line-set-property 'bongo-played t position)
             (bongo-redisplay-line position)))
         (bongo-set-current-track-marker bongo-stopped-track-marker)
-        (run-hooks 'bongo-player-stopped-hook)))))
+        (run-hooks 'bongo-player-stopped-hook)))
+    (when (bufferp bongo-seek-buffer)
+      (bongo-seek-redisplay))))
 
 (defcustom bongo-player-paused/resumed-hook nil
   "Normal hook run after a Bongo player is paused or resumed.
@@ -2605,7 +2611,9 @@ By ``one of the times'' is meant elapsed time or total time.")
   (save-current-buffer
     (when (buffer-live-p (bongo-player-buffer player))
       (set-buffer (bongo-player-buffer player)))
-    (run-hook-with-args 'bongo-player-times-changed-functions player)))
+    (run-hook-with-args 'bongo-player-times-changed-functions player)
+    (when (bufferp bongo-seek-buffer)
+      (bongo-seek-redisplay))))
 
 (defcustom bongo-player-process-priority nil
   "The desired scheduling priority of Bongo player processes.
@@ -3821,26 +3829,30 @@ This functionality may not be available for all backends."
 The time unit is currently backend-specific.
 This functionality may not be available for all backends."
   (interactive "p")
-  (with-bongo-playlist-buffer
-    (if (null bongo-player)
-        (error "No active player")
-      (bongo-player-seek-by bongo-player n)
-      (when (and (bongo-player-elapsed-time bongo-player)
-                 (bongo-player-total-time bongo-player))
-        (bongo-show)))))
+  (let ((seeking-interactively (eq major-mode 'bongo-seek-mode)))
+    (with-bongo-playlist-buffer
+      (if (null bongo-player)
+          (error "No active player")
+        (bongo-player-seek-by bongo-player n)
+        (unless seeking-interactively
+          (when (and (bongo-player-elapsed-time bongo-player)
+                     (bongo-player-total-time bongo-player))
+            (bongo-show)))))))
 
 (defun bongo-seek-backward (&optional n)
   "Seek N units backward in the currently playing track.
 The time unit it currently backend-specific.
 This functionality may not be available for all backends."
   (interactive "p")
-  (with-bongo-playlist-buffer
-    (if (null bongo-player)
-        (error "No active player")
-      (bongo-player-seek-by bongo-player (- n))
-      (when (and (bongo-player-elapsed-time bongo-player)
-                 (bongo-player-total-time bongo-player))
-        (bongo-show)))))
+  (let ((seeking-interactively (eq major-mode 'bongo-seek-mode)))
+    (with-bongo-playlist-buffer
+     (if (null bongo-player)
+         (error "No active player")
+       (bongo-player-seek-by bongo-player (- n))
+       (unless seeking-interactively
+         (when (and (bongo-player-elapsed-time bongo-player)
+                    (bongo-player-total-time bongo-player))
+           (bongo-show)))))))
 
 (defun bongo-seek-to (position)
   "Seek to POSITION in the currently playing track.
@@ -3868,13 +3880,256 @@ This functionality may not be available for all backends."
                   (message "Please enter a number or HH:MM:SS.")
                   (sit-for 2)))))))
        (error "No active player"))))
-  (with-bongo-playlist-buffer
-    (if (null bongo-player)
-        (error "No active player")
-      (bongo-player-seek-to bongo-player position)
-      (when (and (bongo-player-elapsed-time bongo-player)
-                 (bongo-player-total-time bongo-player))
-        (bongo-show)))))
+  (let ((seeking-interactively (eq major-mode 'bongo-seek-mode)))
+    (with-bongo-playlist-buffer
+     (if (null bongo-player)
+         (error "No active player")
+       (bongo-player-seek-to bongo-player position)
+       (unless seeking-interactively
+         (when (and (bongo-player-elapsed-time bongo-player)
+                    (bongo-player-total-time bongo-player))
+           (bongo-show)))))))
+
+
+;;;; Interactive seeking
+
+(defcustom bongo-seek-electric-mode t
+  "Run Bongo Seek electrically, in the echo area.
+Electric mode saves some space, but uses its own command loop."
+  :type 'boolean
+  :group 'bongo)
+
+(defvar bongo-seeking-electrically nil
+  "Non-nil in the dynamic scope of electric `bongo-seek'.
+That is, when `bongo-seek-electric-mode' is non-nil.")
+
+(defface bongo-seek-bar
+  '((t (:bold t)))
+  "Face used for the indicator bar in Bongo Seek mode."
+  :group 'bongo-faces)
+
+(defface bongo-filled-seek-bar
+  '((t (:inverse-video t :inherit bongo-seek-bar)))
+  "Face used for the filled part of the indicator bar."
+  :group 'bongo-faces)
+
+(defface bongo-unfilled-seek-bar
+  '((t (:background "#808080" :inherit bongo-seek-bar)))
+  "Face used for the unfilled part of the indicator bar."
+  :group 'bongo-faces)
+
+(defface bongo-seek-message '((t nil))
+  "Face used for messages in Bongo Seek mode."
+  :group 'bongo-faces)
+
+(defvar bongo-seek-buffer nil
+  "The current interactive Bongo Seek buffer, or nil.")
+
+(defun bongo-seek-quit ()
+  "Quit Bongo Seek mode."
+  (interactive)
+  (if bongo-seek-electric-mode
+      (throw 'bongo-seek-done nil)
+    (ignore-errors
+      (while (get-buffer-window bongo-seek-buffer)
+        (delete-window (get-buffer-window bongo-seek-buffer))))
+    (kill-buffer bongo-seek-buffer)
+    (setq bongo-seek-buffer nil)))
+
+(defun bongo-seek-mode ()
+  "Major mode for interactively seeking in Bongo tracks.
+
+\\{bongo-seek-mode-map}"
+  (interactive)
+  (kill-all-local-variables)
+  (setq major-mode 'bongo-seek-mode)
+  (setq mode-name "Bongo Seek")
+  (use-local-map bongo-seek-mode-map)
+  (run-mode-hooks 'bongo-seek-mode-hook))
+
+(defvar bongo-seek-mode-map
+  (let ((map (make-sparse-keymap))
+        (backward-more (lambda (n)
+                         (interactive "p")
+                         (bongo-seek-backward (* n 10))))
+        (forward-more (lambda (n)
+                        (interactive "p")
+                        (bongo-seek-forward (* n 10)))))
+    (suppress-keymap map)
+    (define-key map "b" 'bongo-seek-backward)
+    (define-key map "f" 'bongo-seek-forward)
+    (define-key map "\C-b" 'bongo-seek-backward)
+    (define-key map "\C-f" 'bongo-seek-forward)
+    (define-key map "\M-b" backward-more)
+    (define-key map "\M-f" forward-more)
+    (define-key map [left] 'bongo-seek-backward)
+    (define-key map [right] 'bongo-seek-forward)
+    (define-key map [(control left)] backward-more)
+    (define-key map [(control right)] forward-more)
+    (define-key map [(meta left)] backward-more)
+    (define-key map [(meta right)] forward-more)
+    ;; XXX: This does not work in the electric command loop,
+    ;;      because it rebinds the normal editing keys:
+    ;;
+    ;;         (define-key map "t" 'bongo-seek-to)
+    (define-key map "a" 'bongo-replay-current)
+    (define-key map "e" 'bongo-play-next)
+    (define-key map "\C-a" 'bongo-replay-current)
+    (define-key map "\C-e" 'bongo-play-next)
+    (define-key map [home] 'bongo-replay-current)
+    (define-key map [end] 'bongo-play-next)
+    (define-key map "p" 'bongo-play-previous)
+    (define-key map "n" 'bongo-play-next)
+    (define-key map "\C-p" 'bongo-play-previous)
+    (define-key map "\C-n" 'bongo-play-next)
+    (define-key map "\M-p" 'bongo-play-previous)
+    (define-key map "\M-n" 'bongo-play-next)
+    (define-key map [up] 'bongo-play-previous)
+    (define-key map [down] 'bongo-play-next)
+    (define-key map " " 'bongo-pause/resume)
+    (define-key map "\C-c\C-a" 'bongo-replay-current)
+    (define-key map "\C-c\C-i" 'bongo-perform-next-action)
+    (define-key map "\C-c\C-p" 'bongo-play-previous)
+    (define-key map "\C-c\C-n" 'bongo-play-next)
+    (define-key map "\C-c\C-r" 'bongo-play-random)
+    (define-key map "\C-c\C-s" 'bongo-stop)
+    (define-key map "l" 'bongo-seek-redisplay)
+    (define-key map "g" 'bongo-seek-quit)
+    (define-key map "\C-g" 'bongo-seek-quit)
+    (define-key map "\C-m" 'bongo-seek-quit)
+    (define-key map "q" 'bongo-seek-quit)
+    (define-key map "s" 'bongo-seek-quit)
+    (define-key map [escape escape] 'bongo-seek-quit)
+    map)
+  "Keymap for Bongo Seek mode.")
+
+(defvar bongo-seek-redisplaying nil
+  "Non-nil in the dynamic scope of `bongo-seek-redisplay'.")
+
+(defun bongo-seek-redisplay ()
+  "Update the Bongo Seek buffer to reflect the current track position."
+  (interactive)
+  (unless bongo-seek-redisplaying
+    (let ((bongo-seek-redisplaying t))
+      (let ((inhibit-read-only t))
+        (set-buffer bongo-seek-buffer)
+        (when (and bongo-seeking-electrically
+                   (current-message))
+          (sit-for 2)
+          (message nil))
+        (delete-region (point-min) (point-max))
+        (when (and (bongo-playing-p)
+                   (bongo-elapsed-time))
+          (insert " ")
+          (insert (bongo-format-seconds (bongo-elapsed-time)))
+          (insert " "))
+        (let* ((end-string (when (and (bongo-playing-p)
+                                      (bongo-remaining-time))
+                             (concat " -" (bongo-format-seconds
+                                           (bongo-remaining-time)))))
+               (bar-start (point))
+               (available-width (- (window-width)
+                                   bar-start
+                                   (length end-string))) 
+               (bar-width (if (and (bongo-playing-p)
+                                   (bongo-elapsed-time)
+                                   (bongo-total-time)
+                                   (> (bongo-total-time) 0))
+                              (round (* (/ (float (bongo-elapsed-time))
+                                           (bongo-total-time))
+                                        available-width)) 
+                            available-width))
+               (label (if (and (bongo-playing-p)
+                               (bongo-elapsed-time)
+                               (bongo-total-time)
+                               (> (bongo-total-time) 0))
+                          (format " %d%% "
+                                  (/ (* (bongo-elapsed-time) 100.0)
+                                     (bongo-total-time)))
+                        (cond ((not (bongo-playing-p))
+                               " (no currently playing track) ")
+                              ((or (null (bongo-total-time))
+                                   (not (> (bongo-total-time) 0)))
+                               " (track length not available) ")
+                              ((null (bongo-elapsed-time))
+                               " (elapsed time not available) "))))
+               (label-width (length label)))
+          (insert-char ?\  available-width)
+          (goto-char
+           (+ bar-start
+              (if (< bar-width label-width)
+                  (1+ bar-width)
+                (/ (1+ (- bar-width label-width)) 2))))
+          (delete-char label-width)
+          (insert label)
+          (put-text-property bar-start (+ bar-start bar-width)
+                             'face (if (and (bongo-playing-p)
+                                            (bongo-elapsed-time)
+                                            (bongo-total-time)
+                                            (> (bongo-total-time) 0)) 
+                                       'bongo-filled-seek-bar
+                                     'bongo-seek-message))
+          (put-text-property (+ bar-start bar-width)
+                             (+ bar-start available-width)
+                             'face 'bongo-unfilled-seek-bar)
+          (when end-string
+            (goto-char (point-max))
+            (insert end-string))
+          (goto-char (+ bar-start bar-width)))))))
+
+;; This function was based on the function `calculator' from
+;; calculator.el, which is copyrighted by the FSF.
+(defun bongo-seek ()
+  "Interactively seek in the current Bongo track."
+  (interactive)
+  (setq bongo-seek-buffer (get-buffer-create "*Bongo Seek*"))
+  (if bongo-seek-electric-mode
+      (unwind-protect
+          (save-window-excursion
+            (require 'electric)
+            (message nil)
+            (let ((echo-keystrokes 0)
+                  (garbage-collection-messages nil)
+                  (bongo-seeking-electrically t))
+              (set-window-buffer (minibuffer-window) bongo-seek-buffer)
+              (select-window (minibuffer-window))
+              (let ((old-local-map (current-local-map))
+                    (old-global-map (current-global-map)))
+                (use-local-map nil)
+                (use-global-map bongo-seek-mode-map)
+                (setq major-mode 'bongo-seek-mode)
+                (unwind-protect
+                    (progn
+                      (bongo-seek-redisplay)
+                      (run-hooks 'bongo-seek-mode-hook)
+                      (catch 'bongo-seek-done
+                        (Electric-command-loop
+                         'bongo-seek-done
+                         ;; Avoid `noprompt' due to
+                         ;; a bug in electric.el.
+                         '(lambda () 'noprompt)
+                         nil
+                         (lambda (x y) (bongo-seek-redisplay)))))
+                  (use-local-map old-local-map)
+                  (use-global-map old-global-map)))))
+        (when bongo-seek-buffer
+          (kill-buffer bongo-seek-buffer)
+          (setq bongo-seek-buffer nil)))
+    (cond
+     ((null (get-buffer-window bongo-seek-buffer))
+      (let ((window-min-height 2)
+            (split-window-keep-point nil))
+        (select-window
+         (split-window-vertically
+          (if (and (fboundp 'face-attr-construct)
+                   (plist-get (face-attr-construct 'modeline) :box))
+              -3 -2)))
+        (switch-to-buffer bongo-seek-buffer)))
+     ((not (eq (current-buffer) bongo-seek-buffer))
+      (select-window (get-buffer-window bongo-seek-buffer))))
+    (bongo-seek-mode)
+    (setq buffer-read-only t)
+    (bongo-seek-redisplay)))
 
 
 ;;;; Inserting
@@ -4933,9 +5188,7 @@ instead, use high-level functions such as `save-buffer'."
     (define-key map "\C-c\C-n" 'bongo-play-next)
     (define-key map "\C-c\C-r" 'bongo-play-random)
     (define-key map "\C-c\C-s" 'bongo-stop)
-    (define-key map "sf" 'bongo-seek-forward)
-    (define-key map "sb" 'bongo-seek-backward)
-    (define-key map "st" 'bongo-seek-to)
+    (define-key map "s" 'bongo-seek)
     (define-key map "if" 'bongo-insert-file)
     (define-key map "id" 'bongo-insert-directory)
     (define-key map "it" 'bongo-insert-directory-tree)
