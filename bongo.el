@@ -5475,15 +5475,12 @@ If BUFFER is nil, test the current buffer instead."
   few moments it could hold your entire media collection ---
   or just the parts that you are currently interested in.
 
-  To insert a single media file, use `i f'.
-  To insert a media directory, use `i d'.
+  To insert a single local media file, use `i f'.
   To insert a whole directory tree, use `i t'.
+  To insert the URL of a media file or stream, use `i u'.
 
-  To hop to the nearest playlist buffer, use `h'.
   To enqueue tracks in the playlist buffer, use `e'.
-  To enqueue and immediately start playing a track, use `RET'.
-
-  To change the volume, use `v' (requires volume.el).\n\n"))
+  To hop to the nearest playlist buffer, use `h'.\n\n"))
             (when bongo-prefer-library-buffers
               (bongo-insert-enabled-backends-comment)))))))
 
@@ -5506,16 +5503,13 @@ If BUFFER is nil, test the current buffer instead."
   This is a Bongo playlist buffer.  It holds things that are
   about to be played, and things that have already been played.
 
-  To start playing a track, use `RET'.
+  To start playing a track, use `RET'; to stop, use `C-c C-s'.
   To play the previous or next track, use `C-c C-p' or `C-c C-n'.
-  To seek, use `s b' to go backward and `s f' to go forward.
-  To stop playback, use `C-c C-s'; to pause or resume, use `SPC'.
+  To pause or resume, use `SPC', and to seek, use `s'.
 
-  You can use `i f', `i d' and `i t' to insert files and
-  directories directly into playlist buffers, but it is often
-  more convenient to enqueue from library buffers (using `e').
-
-  To hop to the nearest library buffer, use `h'.\n\n"))
+  You can use `i f', `i t' and `i u' to insert things directly
+  into playlist buffers, but enqueuing (using `e') from library
+  buffers is often more convenient.  Use `h' to hop to one.\n\n"))
             (when (not bongo-prefer-library-buffers)
               (bongo-insert-enabled-backends-comment)))))))
 
