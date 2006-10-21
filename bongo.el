@@ -3227,11 +3227,11 @@ Interactive mplayer processes support pausing and seeking."
                        (list "-ao" bongo-mplayer-audio-driver))
                      (when bongo-mplayer-video-driver
                        (list "-vo" bongo-mplayer-video-driver))
+                     (when bongo-mplayer-interactive
+                       (list "-quiet" "-slave"))
                      (bongo-evaluate-program-arguments
                       bongo-mplayer-extra-arguments)
-                     (if bongo-mplayer-interactive
-                         (list "-quiet" "-slave" file-name)
-                       (list file-name))))
+                     (list file-name)))
          (process (apply 'start-process "bongo-mplayer" nil
                          bongo-mplayer-program-name arguments))
          (player `(mplayer
