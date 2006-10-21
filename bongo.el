@@ -23,7 +23,7 @@
 ;; Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 ;; The Bongo logo was created by Romain Francoise and
-;; subsequently placed into the public domain.
+;; subsequently placed in the public domain.
 
 ;;; Todo:
 
@@ -197,8 +197,10 @@ Then you could use the following setting:
             (choice :tag "Backend"
                     (const :tag "Ignore matching files" ignore)
                     ,@(mapcar (lambda (backend-name)
-                                (list 'const (bongo-backend-pretty-name
-                                              (bongo-backend backend-name))))
+                                (list 'const
+                                      :tag (bongo-backend-pretty-name
+                                            (bongo-backend backend-name))
+                                      backend-name))
                               bongo-backends)
                     (symbol :tag "Other backend"))
             (cons :format "%v"
@@ -3070,13 +3072,14 @@ Interactive mpg123 processes support pausing and seeking."
     (let ((result nil))
       (with-temp-buffer
         (call-process bongo-mplayer-program-name nil t nil
-                      (cond ((eq type 'audio) "-ao")
-                            ((eq type 'video) "-vo"))
+                      (ecase type
+                        (audio "-ao")
+                        (video "-vo"))
                       "help")
         (goto-char (point-min))
-        (search-forward (concat "Available "
-                                (cond ((eq type 'audio) "audio")
-                                      ((eq type 'video) "video"))
+        (search-forward (concat "Available " (ecase type
+                                               (audio "audio")
+                                               (video "video"))
                                 " output drivers:\n"))
         (while (looking-at
                 (eval-when-compile
