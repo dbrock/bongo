@@ -29,7 +29,7 @@
 
 ;;; Todo:
 
-;; Streaming media support.
+;; Better support for streaming media.
 
 ;; Shuffle operations.  It would be nice to have both a
 ;; random shuffle operation and an interleaving
@@ -45,6 +45,9 @@
 ;; Saving a playlist buffer and reopening it turns it into a
 ;; library buffer.  In addition, saving a buffer twice
 ;; leaves two "-*- Bongo-Library -*-" headers.
+
+;; Fix bug related to collapsing the section containing the
+;; currently playing track.
 
 ;;; Code:
 
@@ -589,11 +592,11 @@ See `bongo-mode-line-indicator-format'."
     (bongo-mode-line-pause/resume-button)
     (bongo-mode-line-next-button)
     " "
-    (when (and (bongo-elapsed-time) (bongo-total-time))
-      (if (> (bongo-total-time) 0)
-          (format "%d%%" (/ (* 100.0 (bongo-elapsed-time))
-                            (bongo-total-time)))
-        (bongo-format-seconds (bongo-elapsed-time)))))
+    (cond ((and (bongo-elapsed-time) (bongo-total-time))
+           (format "%d%%" (/ (* 100.0 (bongo-elapsed-time))
+                             (bongo-total-time))))
+          ((bongo-elapsed-time)
+           (bongo-format-seconds (bongo-elapsed-time)))))
   "Template for the Bongo mode line indicator.
 Value is a list of expressions, each evaluating to a string or nil.
 The values of the expressions are concatenated."
@@ -614,11 +617,11 @@ The values of the expressions are concatenated."
            (const :tag "Total time"
                   (bongo-format-seconds (bongo-total-time)))
            (const :tag "Elapsed time in percent of total time"
-                  (when (and (bongo-elapsed-time) (bongo-total-time))
-                    (if (> (bongo-total-time) 0)
-                        (format "%d%%" (/ (* 100.0 (bongo-elapsed-time))
-                                          (bongo-total-time)))
-                      (bongo-format-seconds (bongo-elapsed-time)))))
+                  (cond ((and (bongo-elapsed-time) (bongo-total-time))
+                         (format "%d%%" (/ (* 100.0 (bongo-elapsed-time))
+                                           (bongo-total-time))))
+                        ((bongo-elapsed-time)
+                         (bongo-format-seconds (bongo-elapsed-time)))))
            (const :tag "Elapsed and total time"
                   (when (and (bongo-elapsed-time) (bongo-total-time))
                     (concat (bongo-format-seconds (bongo-elapsed-time)) "/"
@@ -1300,9 +1303,42 @@ This is used by `bongo-default-file-name-from-infoset'."
 (defun bongo-infoset-from-file-name (file-name)
   (funcall bongo-infoset-from-file-name-function file-name))
 
+(defun bongo-uri-scheme (file-name)
+  "Return the URI scheme of FILE-NAME, or nil if it has none."
+  (when (string-match (eval-when-compile
+                        (rx string-start
+                            (submatch
+                             (any "a-zA-Z")
+                             (zero-or-more
+                              (or (any "a-zA-Z0-9$_@.&!*\"'(),")
+                                  (and "%" (repeat 2 hex-digit)))))
+                            ":"))
+                      file-name)
+    (match-string 1 file-name)))
+
+(defun bongo-uri-p (file-name)
+  "Return non-nil if FILE-NAME is an URI."
+  (not (null (bongo-uri-scheme file-name))))
+
+(defun bongo-unescape-uri (uri)
+  "Replace all occurences of `%HH' in URI by the character HH."
+  (with-temp-buffer
+    (insert uri)
+    (goto-char (point-min))
+    (while (re-search-forward
+            (eval-when-compile
+              (rx (and "%" (submatch (repeat 2 hex-digit)))))
+            nil 'no-error)
+      (replace-match (char-to-string
+                      (string-to-number (match-string 1) 16))))
+    (buffer-string)))
+
 (defun bongo-default-infoset-from-file-name (file-name)
-  (let* ((base-name (file-name-sans-extension
-                     (file-name-nondirectory file-name)))
+  (let* ((unescaped-file-name (if (bongo-uri-p file-name)
+                                  (bongo-unescape-uri file-name)
+                                file-name))
+         (base-name (file-name-sans-extension
+                     (file-name-nondirectory unescaped-file-name)))
          (values (split-string base-name bongo-file-name-field-separator)))
     (when (> (length values) 5)
       (let ((fifth-and-rest (nthcdr 4 values)))
@@ -1348,7 +1384,10 @@ This is used by `bongo-default-file-name-from-infoset'."
 
 (defun bongo-simple-infoset-from-file-name (file-name)
   `((track (title . ,(file-name-sans-extension
-                      (file-name-nondirectory file-name))))))
+                      (file-name-nondirectory
+                       (if (bongo-uri-p file-name)
+                           (bongo-unescape-uri file-name)
+                         file-name)))))))
 
 (defun bongo-infoset-artist-name (infoset)
   (bongo-alist-get (bongo-alist-get infoset 'artist) 'name))
@@ -2321,9 +2360,14 @@ If it is a list, treat it as a set of file name extensions;
 Otherwise, signal an error."
   (let ((type-matcher (car matcher))
         (value-matcher (cdr matcher)))
-    (when (or (eq type-matcher 'local-file)
-              (and (listp type-matcher)
-                   (memq 'local-file type-matcher)))
+    (when (let* ((uri-scheme (bongo-uri-scheme file-name))
+                 (needed-type-matcher
+                  (if uri-scheme
+                      (concat uri-scheme ":")
+                    'local-file)))
+            (or (equal type-matcher needed-type-matcher)
+                (and (listp type-matcher)
+                     (member needed-type-matcher type-matcher))))
       (cond
        ((eq value-matcher t) t)
        ((stringp value-matcher) (string-match value-matcher file-name))
@@ -3387,7 +3431,8 @@ Return nil if the active player cannot report this."
 Return nil if the active player cannot report this."
   (with-bongo-playlist-buffer
     (when bongo-player
-      (bongo-player-total-time bongo-player))))
+      (let ((result (bongo-player-total-time bongo-player)))
+        (and result (> result 0) result)))))
 
 (defvar bongo-current-track-marker nil
   "Marker pointing at the current track line, if any.
@@ -3636,7 +3681,7 @@ If there is no track on the line at POINT, signal an error."
       (bongo-set-current-track-position)
       (let ((player (bongo-start-player (bongo-line-file-name))))
         (setq bongo-player player)
-        (bongo-line-set-property 'bongo-player player) 
+        (bongo-line-set-property 'bongo-player player)
         (bongo-set-current-track-marker bongo-playing-track-marker)
         (run-hooks 'bongo-player-started-hook)
         (bongo-redisplay-line)))))
@@ -4030,26 +4075,23 @@ That is, when `bongo-seek-electric-mode' is non-nil.")
                (bar-start (point))
                (available-width (- (window-width)
                                    bar-start
-                                   (length end-string))) 
+                                   (length end-string)))
                (bar-width (if (and (bongo-playing-p)
                                    (bongo-elapsed-time)
-                                   (bongo-total-time)
-                                   (> (bongo-total-time) 0))
+                                   (bongo-total-time))
                               (round (* (/ (float (bongo-elapsed-time))
                                            (bongo-total-time))
-                                        available-width)) 
+                                        available-width))
                             available-width))
                (label (if (and (bongo-playing-p)
                                (bongo-elapsed-time)
-                               (bongo-total-time)
-                               (> (bongo-total-time) 0))
+                               (bongo-total-time))
                           (format " %d%% "
                                   (/ (* (bongo-elapsed-time) 100.0)
                                      (bongo-total-time)))
                         (cond ((not (bongo-playing-p))
                                " (no currently playing track) ")
-                              ((or (null (bongo-total-time))
-                                   (not (> (bongo-total-time) 0)))
+                              ((null (bongo-total-time))
                                " (track length not available) ")
                               ((null (bongo-elapsed-time))
                                " (elapsed time not available) "))))
@@ -4065,8 +4107,7 @@ That is, when `bongo-seek-electric-mode' is non-nil.")
           (put-text-property bar-start (+ bar-start bar-width)
                              'face (if (and (bongo-playing-p)
                                             (bongo-elapsed-time)
-                                            (bongo-total-time)
-                                            (> (bongo-total-time) 0)) 
+                                            (bongo-total-time))
                                        'bongo-filled-seek-bar
                                      'bongo-seek-message))
           (put-text-property (+ bar-start bar-width)
@@ -4310,6 +4351,15 @@ This function descends each subdirectory of DIRECTORY-NAME recursively."
       (bongo-insert-directory-tree-1 directory-name)
       (bongo-maybe-join-inserted-tracks beginning (point))))
   (message "Inserting directory tree...done"))
+
+(defun bongo-insert-uri (uri)
+  "Insert a new track line corresponding to URI."
+  (interactive "sInsert URI: ")
+  (bongo-insert-line 'bongo-file-name uri)
+  (when (and (interactive-p) (not (bongo-buffer-p)))
+    (message "Inserted URI: %s"
+             (bongo-format-infoset
+              (bongo-infoset-from-file-name uri)))))
 
 
 ;;;; Collapsing and expanding
@@ -4851,7 +4901,7 @@ If MODE is `append', append the tracks to the end of the playlist."
                  ;; This is complicated because we want to remove the
                  ;; `bongo-external-fields' property from all tracks
                  ;; and headers before enqueuing them, but we want to
-                 ;; keep the property for everything *within* sections. 
+                 ;; keep the property for everything *within* sections.
                  (let ((temp-buffer (current-buffer))
                        (line-move-ignore-invisible nil))
                    (set-buffer original-buffer)
@@ -5192,6 +5242,7 @@ instead, use high-level functions such as `save-buffer'."
     (define-key map "if" 'bongo-insert-file)
     (define-key map "id" 'bongo-insert-directory)
     (define-key map "it" 'bongo-insert-directory-tree)
+    (define-key map "iu" 'bongo-insert-uri)
     (define-key map "e" 'bongo-append-enqueue)
     (define-key map "E" 'bongo-insert-enqueue)
     (define-key map "f" 'bongo-flush-playlist)
