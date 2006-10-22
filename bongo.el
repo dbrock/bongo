@@ -213,7 +213,8 @@ Then you could use the following setting:
                           :value (local-file)
                           (choice :tag "Type"
                                   (const :tag "Local file" local-file)
-                                  (string :tag "URI (specify scheme)")))
+                                  (string :tag "\
+URI (specify scheme followed by a colon)")))
                   (choice :tag "Matcher"
                           (repeat :tag "File extensions" string)
                           (regexp :tag "File name (regexp)")
