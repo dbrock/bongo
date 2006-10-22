@@ -49,6 +49,24 @@
 ;; Fix bug related to collapsing the section containing the
 ;; currently playing track.
 
+;; Prevent the header line from flashing away and back when
+;; going from one track to the next.
+
+;; Implement scrolling for the header line.
+
+;; Better mouse support.  Should be able to start playing a
+;; track by clicking on it.
+
+;; Support for drag-and-drop.
+
+;; Better error messages when players fail.
+
+;; Cache metadata?  Maybe even make it editable?  This would
+;; be a good way to let the user put titles on URLs.
+
+;; The user should have a way to say ``play this track using
+;; that backend.''
+
 ;;; Code:
 
 (eval-when-compile
