@@ -3108,14 +3108,20 @@ Interactive mpg123 processes support pausing and seeking."
   ;; We define this variable manually so that we can get
   ;; some other customization variables to appear before it.
   :extra-program-arguments-variable nil
-  ;; Play generic URLs and files only if the file extension
+  ;; Play generic URLs and files if the file extension
   ;; matches that of some potentially supported format.
   :matcher '((local-file "file:" "http:" "ftp:")
              "ogg" "flac" "mp3" "mka" "wav" "wma"
              "mpg" "mpeg" "avi" "ogm" "mp4" "mkv"
              "mov" "asf" "wmv" "rm" "rmvb")
   ;; Play media-specific URLs regardless of the file name.
-  :matcher '(("mms:" "mmst:" "rtp:" "rtsp:" "unsv:") . t))
+  :matcher '(("mms:" "mmst:" "rtp:" "rtsp:" "unsv:") . t)
+  ;; Play all HTTP URLs (necessary for many streams).
+  ;; XXX: This is not a good long-term solution.  (But it
+  ;;      would be good to keep this matcher as a fallback
+  ;;      if we could somehow declare that more specific
+  ;;      matchers should be tried first.)
+  :matcher '(("http:") . t))
 
 (defun bongo-mplayer-available-drivers (type)
   (unless (memq type '(audio video))
