@@ -1317,7 +1317,7 @@ This is used by `bongo-default-file-name-from-infoset'."
     (match-string 1 file-name)))
 
 (defun bongo-uri-p (file-name)
-  "Return non-nil if FILE-NAME is an URI."
+  "Return non-nil if FILE-NAME is a URI."
   (not (null (bongo-uri-scheme file-name))))
 
 (defun bongo-unescape-uri (uri)
@@ -1334,53 +1334,52 @@ This is used by `bongo-default-file-name-from-infoset'."
     (buffer-string)))
 
 (defun bongo-default-infoset-from-file-name (file-name)
-  (let* ((unescaped-file-name (if (bongo-uri-p file-name)
-                                  (bongo-unescape-uri file-name)
-                                file-name))
-         (base-name (file-name-sans-extension
-                     (file-name-nondirectory unescaped-file-name)))
-         (values (split-string base-name bongo-file-name-field-separator)))
-    (when (> (length values) 5)
-      (let ((fifth-and-rest (nthcdr 4 values)))
-        (setcar fifth-and-rest (bongo-join-fields fifth-and-rest))
-        (setcdr fifth-and-rest nil)))
-    (cond
-     ((= 5 (length values))
-      (if (string-match bongo-file-name-track-index-regexp (nth 3 values))
+  (if (bongo-uri-p file-name)
+      `((track (title . ,(bongo-unescape-uri file-name))))
+    (let* ((base-name (file-name-sans-extension
+                       (file-name-nondirectory file-name)))
+           (values (split-string base-name bongo-file-name-field-separator)))
+      (when (> (length values) 5)
+        (let ((fifth-and-rest (nthcdr 4 values)))
+          (setcar fifth-and-rest (bongo-join-fields fifth-and-rest))
+          (setcdr fifth-and-rest nil)))
+      (cond
+       ((= 5 (length values))
+        (if (string-match bongo-file-name-track-index-regexp (nth 3 values))
+            `((artist (name . ,(nth 0 values)))
+              (album (year . ,(nth 1 values))
+                     (title . ,(nth 2 values)))
+              (track (index . ,(nth 3 values))
+                     (title . ,(nth 4 values))))
           `((artist (name . ,(nth 0 values)))
             (album (year . ,(nth 1 values))
                    (title . ,(nth 2 values)))
-            (track (index . ,(nth 3 values))
-                   (title . ,(nth 4 values))))
+            (track (title . ,(bongo-join-fields (nthcdr 3 values)))))))
+       ((and (= 4 (length values))
+             (string-match bongo-file-name-track-index-regexp (nth 2 values)))
+        `((artist (name . ,(nth 0 values)))
+          (album (title . ,(nth 1 values)))
+          (track (index . ,(nth 2 values))
+                 (title . ,(nth 3 values)))))
+       ((and (= 4 (length values))
+             (string-match bongo-file-name-album-year-regexp (nth 1 values)))
         `((artist (name . ,(nth 0 values)))
           (album (year . ,(nth 1 values))
                  (title . ,(nth 2 values)))
-          (track (title . ,(bongo-join-fields (nthcdr 3 values)))))))
-     ((and (= 4 (length values))
-           (string-match bongo-file-name-track-index-regexp (nth 2 values)))
-      `((artist (name . ,(nth 0 values)))
-        (album (title . ,(nth 1 values)))
-        (track (index . ,(nth 2 values))
-               (title . ,(nth 3 values)))))
-     ((and (= 4 (length values))
-           (string-match bongo-file-name-album-year-regexp (nth 1 values)))
-      `((artist (name . ,(nth 0 values)))
-        (album (year  . ,(nth 1 values))
-               (title . ,(nth 2 values)))
-        (track (title . ,(nth 3 values)))))
-     ((= 4 (length values))
-      `((artist (name . ,(nth 0 values)))
-        (album (title . ,(nth 1 values)))
-        (track (title . ,(bongo-join-fields (nthcdr 2 values))))))
-     ((= 3 (length values))
-      `((artist (name . ,(nth 0 values)))
-        (album (title . ,(nth 1 values)))
-        (track (title . ,(nth 2 values)))))
-     ((= 2 (length values))
-      `((artist (name . ,(nth 0 values)))
-        (track (title . ,(nth 1 values)))))
-     ((= 1 (length values))
-      `((track (title . ,(nth 0 values))))))))
+          (track (title . ,(nth 3 values)))))
+       ((= 4 (length values))
+        `((artist (name . ,(nth 0 values)))
+          (album (title . ,(nth 1 values)))
+          (track (title . ,(bongo-join-fields (nthcdr 2 values))))))
+       ((= 3 (length values))
+        `((artist (name . ,(nth 0 values)))
+          (album (title . ,(nth 1 values)))
+          (track (title . ,(nth 2 values)))))
+       ((= 2 (length values))
+        `((artist (name . ,(nth 0 values)))
+          (track (title . ,(nth 1 values)))))
+       ((= 1 (length values))
+        `((track (title . ,(nth 0 values)))))))))
 
 (defun bongo-simple-infoset-from-file-name (file-name)
   `((track (title . ,(file-name-sans-extension
@@ -2352,11 +2351,11 @@ The possible values of VALUE-MATCHER are listed below.
 
 If it is t, return non-nil immediately.
 If it is a string, treat it as a regular expression;
-  return non-nil if FILE-NAME matches MATCHER.
+  return non-nil if FILE-NAME matches VALUE-MATCHER.
 If it is a symbol, treat it as a function name;
-  return non-nil if (MATCHER FILE-NAME) returns non-nil.
-If it is a list, treat it as a set of file name extensions;
-  return non-nil if the extension of FILE-NAME appears in MATCHER.
+  return non-nil if (VALUE-MATCHER FILE-NAME) returns non-nil.
+If it is a list of strings, treat it as a set of file name extensions;
+  return non-nil if the extension of FILE-NAME appears in VALUE-MATCHER.
 Otherwise, signal an error."
   (let ((type-matcher (car matcher))
         (value-matcher (cdr matcher)))
@@ -2372,7 +2371,7 @@ Otherwise, signal an error."
        ((eq value-matcher t) t)
        ((stringp value-matcher) (string-match value-matcher file-name))
        ((symbolp value-matcher) (funcall value-matcher file-name))
-       ((listp value-matcher)
+       ((and (listp value-matcher) (stringp (car value-matcher)))
         (let ((actual-extension
                (downcase (or (file-name-extension file-name) ""))))
           (catch 'match
