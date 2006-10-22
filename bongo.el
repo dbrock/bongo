@@ -4354,7 +4354,15 @@ This function descends each subdirectory of DIRECTORY-NAME recursively."
 
 (defun bongo-insert-uri (uri)
   "Insert a new track line corresponding to URI."
-  (interactive "sInsert URI: ")
+  (interactive
+   (list (let* ((primary (x-get-selection))
+                (clipboard (x-get-selection 'CLIPBOARD)) 
+                (default (cond ((bongo-uri-p primary) primary)
+                               ((bongo-uri-p clipboard) clipboard)))
+                (default-string (when default
+                                  (format " (default `%s')" default))))
+           (read-string (concat "Insert URI" default-string ": ")
+                        nil nil default))))
   (bongo-insert-line 'bongo-file-name uri)
   (when (and (interactive-p) (not (bongo-buffer-p)))
     (message "Inserted URI: %s"
