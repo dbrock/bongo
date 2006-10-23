@@ -5043,15 +5043,19 @@ If there are no played tracks, clear the entire playlist."
     (let ((inhibit-read-only t))
       (save-excursion
         (goto-char (point-min))
-        (let ((played-tracks-exist
-               (or (bongo-played-track-line-p)
-                   (bongo-point-at-next-line-satisfying
-                    'bongo-played-track-line-p))))
+        (let* ((played-track-line-p
+                (lambda ()
+                  (and (bongo-played-track-line-p)
+                       (not (bongo-currently-playing-track-line-p)))))
+               (played-tracks-exist
+                (or (funcall played-track-line-p)
+                    (bongo-point-at-next-line-satisfying
+                     played-track-line-p))))
           (if (not played-tracks-exist)
               (erase-buffer)
             (bongo-maybe-forward-object-line)
             (while (bongo-object-line-p)
-              (if (not (bongo-played-track-line-p))
+              (if (not (funcall played-track-line-p))
                   (bongo-forward-object-line)
                 (bongo-delete-line)
                 (bongo-maybe-forward-object-line)))
