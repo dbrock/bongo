@@ -4217,6 +4217,7 @@ That is, when `bongo-seek-electric-mode' is non-nil.")
 Externalize as many fields of the new line as possible and redisplay it.
 Point is left immediately after the new line."
   (let ((inhibit-read-only t))
+    (move-beginning-of-line nil)
     (insert (apply 'propertize "\n" properties)))
   (forward-line -1)
   (bongo-externalize-fields)
