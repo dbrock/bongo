@@ -4708,7 +4708,8 @@ If the value is a symbol, treat it as if it were a singleton list."
       (bongo-clear-line)
       (dotimes (dummy indentation)
         (insert bongo-indentation-string))
-      (let ((content (bongo-format-infoset infoset)))
+      (let ((content (propertize (bongo-format-infoset infoset)
+                                 'follow-link t 'mouse-face 'highlight)))
         (insert
          (cond (header
                 (bongo-format-header content collapsed))
@@ -5333,7 +5334,7 @@ instead, use high-level functions such as `save-buffer'."
                 bongo-library-magic-string) "\n")
       (while (not (eobp))
         (bongo-keep-text-properties (point-at-bol) (point-at-eol)
-                                    '(face display))
+                                    '(face mouse-face display follow-link))
         (bongo-keep-text-properties (point-at-eol) (1+ (point-at-eol))
                                     bongo-line-serializable-properties)
         (prin1 (bongo-extract-line) (current-buffer))
