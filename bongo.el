@@ -287,6 +287,14 @@ command act as if this variable was temporarily toggled.)"
   :group 'bongo
   :group 'bongo-file-names)
 
+(defcustom bongo-confirm-flush-playlist t
+  "If non-nil, ask for confirmation before flushing the playlist.
+This affects only the command `bongo-flush-playlist'.
+In particular, `bongo-erase-buffer' and `bongo-delete-played-tracks'
+never ask for confirmation, regardless of the value of this variable."
+  :type 'boolean
+  :group 'bongo)
+
 (defcustom bongo-default-playlist-buffer-name "*Bongo Playlist*"
   "The name of the default Bongo playlist buffer."
   :type 'string
@@ -2018,11 +2026,16 @@ Do nothing if the current buffer is empty."
     (delete-region (bongo-point-before-line point)
                    (bongo-point-after-line point))))
 
+(defun bongo-line-string (&optional point)
+  "Return the contents of the line at POINT.
+The contents includes the final newline, if any."
+  (buffer-substring (bongo-point-before-line point)
+                    (bongo-point-after-line point)))
+
 (defun bongo-extract-line (&optional point)
   "Delete the line at POINT and return its content.
 The content includes the final newline, if any."
-  (prog1 (buffer-substring (bongo-point-before-line point)
-                           (bongo-point-after-line point))
+  (prog1 (bongo-line-string point)
     (bongo-delete-line point)))
 
 (defun bongo-clear-line (&optional point)
@@ -5038,37 +5051,63 @@ If the region is active, ignore N and enqueue the region instead."
 
 ;;;; Miscellaneous commands
 
-(defun bongo-flush-playlist ()
-  "Delete all played tracks from the playlist.
-If there are no played tracks, clear the entire playlist."
+(defun bongo-delete-empty-sections ()
+  "Delete all empty sections from the current Bongo buffer."
+  (let ((inhibit-read-only t))
+    (save-excursion
+      (goto-char (point-min))
+      (bongo-maybe-forward-object-line)
+      (while (bongo-object-line-p)
+        (if (not (bongo-empty-section-p))
+            (bongo-forward-object-line)
+          (bongo-delete-line)
+          (bongo-maybe-forward-object-line))))))
+
+(defun bongo-delete-played-tracks ()
+  "Delete all played tracks from the Bongo playlist."
   (interactive)
   (with-bongo-playlist-buffer
     (let ((inhibit-read-only t))
       (save-excursion
         (goto-char (point-min))
-        (let* ((played-track-line-p
-                (lambda ()
-                  (and (bongo-played-track-line-p)
-                       (not (bongo-currently-playing-track-line-p)))))
-               (played-tracks-exist
-                (or (funcall played-track-line-p)
-                    (bongo-point-at-next-line-satisfying
-                     played-track-line-p))))
-          (if (not played-tracks-exist)
-              (erase-buffer)
-            (bongo-maybe-forward-object-line)
-            (while (bongo-object-line-p)
-              (if (not (funcall played-track-line-p))
-                  (bongo-forward-object-line)
-                (bongo-delete-line)
-                (bongo-maybe-forward-object-line)))
-            (goto-char (point-min))
-            (bongo-maybe-forward-object-line)
-            (while (bongo-object-line-p)
-              (if (not (bongo-empty-section-p))
-                  (bongo-forward-object-line)
-                (bongo-delete-line)
-                (bongo-maybe-forward-object-line)))))))))
+        (bongo-maybe-forward-object-line)
+        (while (bongo-object-line-p)
+          (if (or (not (bongo-played-track-line-p))
+                  (bongo-currently-playing-track-line-p))
+              (bongo-forward-object-line)
+            (bongo-delete-line)
+            (bongo-maybe-forward-object-line)))
+        (bongo-delete-empty-sections)))))
+
+(defun bongo-erase-buffer ()
+  "Delete the entire contents of the current Bongo buffer.
+However, if some track is currently playing, do not delete that."
+  (interactive)
+  (let ((inhibit-read-only t)
+        (currently-playing-track
+         (and (bongo-playing-p)
+              (bongo-line-string
+               (bongo-point-at-current-track)))))
+    (erase-buffer)
+    (when currently-playing-track
+      (remove-text-properties 0 (length currently-playing-track)
+                              '(bongo-external-fields nil)
+                              currently-playing-track)
+      (insert currently-playing-track))
+    (goto-char (point-max))))
+
+(defun bongo-flush-playlist (&optional delete-all)
+  "Delete all played tracks from the Bongo playlist.
+With prefix argument DELETE-ALL, clear the entire playlist."
+  (interactive "P")
+  (with-bongo-playlist-buffer
+    (if delete-all
+        (when (or (not bongo-confirm-flush-playlist)
+                  (y-or-n-p "Clear the entire playlist? "))
+          (bongo-erase-buffer))
+      (when (or (not bongo-confirm-flush-playlist)
+                (y-or-n-p "Delete all played tracks from the playlist? "))
+        (bongo-delete-played-tracks)))))
 
 (defun bongo-rename-line (new-name &optional point)
   "Rename the file corresponding to the track at POINT to NEW-NAME.
