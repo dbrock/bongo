@@ -1,5 +1,6 @@
 ;;; bongo.el --- buffer-oriented media player for Emacs
 ;; Copyright (C) 2005, 2006  Daniel Brockman
+;; Copyright (C) 2006  Daniel Jensen
 ;; Copyright (C) 2005  Lars Öhrman
 ;; Copyright (C) 1998, 2000, 2001, 2002, 2003, 2004, 2005
 ;;   Free Software Foundation, Inc.
@@ -56,8 +57,6 @@
 
 ;; Better mouse support.  Should be able to start playing a
 ;; track by clicking on it.
-
-;; Support for drag-and-drop.
 
 ;; Better error messages when players fail.
 
@@ -4411,6 +4410,78 @@ This function descends each subdirectory of DIRECTORY-NAME recursively."
               (bongo-infoset-from-file-name uri)))))
 
 
+;;;; Drag-and-drop support
+
+(defun bongo-enable-dnd-support ()
+  "Install the Bongo drag-and-drop handler for the current buffer."
+  (interactive)
+  (set (make-local-variable 'dnd-protocol-alist)
+       '(("" . bongo-dnd-insert-uri)))
+  (when (interactive-p)
+    (message "Bongo drag-and-drop support enabled")))
+
+(defun bongo-disable-dnd-support ()
+  "Remove the Bongo drag-and-drop handler for the current buffer."
+  (interactive)
+  (kill-local-variable 'dnd-protocol-alist)
+  (when (interactive-p)
+    (message "Bongo drag-and-drop support disabled")))
+
+(defcustom bongo-dnd-support t
+  "Whether to enable drag-and-drop support in Bongo buffers.
+Setting this variable normally affects only new Bongo buffers,
+  but setting it through Custom also affects existing buffers.
+To manually enable or disable Bongo drag-and-drop support, use
+  `bongo-enable-dnd-support' and `bongo-disable-dnd-support'."
+  :type 'boolean
+  :set (lambda (name value)
+         (dolist (buffer (if custom-local-buffer
+                             (list (current-buffer))
+                           (buffer-list)))
+           (when (bongo-buffer-p buffer)
+             (with-current-buffer buffer
+               (if value
+                   (bongo-enable-dnd-support)
+                 (bongo-disable-dnd-support)))))
+         (set-default name value))
+  :group 'bongo)
+
+(defcustom bongo-dnd-destination 'before-point
+  "Where to insert items dragged and dropped into Bongo buffers.
+If `before-point' or `after-point', insert dropped items before or after
+  the line at point (or, if `mouse-yank-at-point' is nil, at the position
+  of the mouse pointer).
+If `end-of-buffer' or anything else, append to the end of the buffer."
+  :type '(choice (const :tag "Insert before line at point (or mouse)"
+                        before-point)
+                 (const :tag "Insert after line at point (or mouse)"
+                        after-point)
+                 (other :tag "Append to end of buffer"
+                        end-of-buffer))
+  :group 'bongo)
+
+(defun bongo-dnd-insert-uri (uri &optional action)
+  "Insert URI at the current drag and drop destination.
+If URI names a local file, insert it as a local file name.
+If URI is not actually a URI, do nothing.
+ACTION is ignored."
+  (when (bongo-uri-p uri)
+    (let* ((local-file-uri (dnd-get-local-file-uri uri)) 
+           (local-file-name
+            (or (when local-file-uri
+                  ;; Due to a bug, `dnd-get-local-file-name'
+                  ;; always returns nil without MUST-EXIST.
+                  (dnd-get-local-file-name local-file-uri 'must-exist))
+                (dnd-get-local-file-name uri 'must-exist))))
+      (goto-char (case bongo-dnd-destination
+                   (before-point (bongo-point-before-line))
+                   (after-point (bongo-point-after-line))
+                   (otherwise (point-max))))
+      (if local-file-name
+          (bongo-insert-file local-file-name)
+        (bongo-insert-uri uri)))))
+
+
 ;;;; Collapsing and expanding
 
 (defun bongo-collapse (&optional skip)
@@ -5418,6 +5489,8 @@ Do not use this mode directly.  Instead, use Bongo Playlist mode (see
   (setq buffer-file-format '(bongo))
   (when bongo-default-directory
     (setq default-directory bongo-default-directory))
+  (when bongo-dnd-support
+    (bongo-enable-dnd-support))
   (run-mode-hooks 'bongo-mode-hook))
 
 (define-derived-mode bongo-library-mode bongo-mode "Library"
