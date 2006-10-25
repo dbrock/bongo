@@ -4248,7 +4248,7 @@ If FILE-NAME names a directory, call `bongo-insert-directory'."
                                       (when (eq major-mode 'dired-mode)
                                         (dired-get-filename t))))))
   (if (file-directory-p file-name)
-      (bongo-insert-directory file-name)
+      (bongo-insert-directory-tree file-name)
     (bongo-insert-line 'bongo-file-name file-name)
     (when (and (interactive-p) (not (bongo-buffer-p)))
       (message "Inserted track: %s"
