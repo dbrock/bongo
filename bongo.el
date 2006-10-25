@@ -4434,6 +4434,7 @@ Setting this variable normally affects only new Bongo buffers,
 To manually enable or disable Bongo drag-and-drop support, use
   `bongo-enable-dnd-support' and `bongo-disable-dnd-support'."
   :type 'boolean
+  :initialize 'custom-initialize-default
   :set (lambda (name value)
          (dolist (buffer (if custom-local-buffer
                              (list (current-buffer))
