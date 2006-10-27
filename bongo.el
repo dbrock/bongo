@@ -55,9 +55,6 @@
 
 ;; Implement scrolling for the header line.
 
-;; Better mouse support.  Should be able to start playing a
-;; track by clicking on it.
-
 ;; Better error messages when players fail.
 
 ;; Cache metadata?  Maybe even make it editable?  This would
