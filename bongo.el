@@ -66,6 +66,10 @@
 ;; The user should have a way to say ``play this track using
 ;; that backend.''
 
+;; Generalize intra-playlist queue.
+
+;; Implement intra-track region repeat.
+
 ;;; Code:
 
 (eval-when-compile
@@ -616,20 +620,30 @@ See `bongo-mode-line-indicator-format'."
   '(" "
     (bongo-mode-line-previous-button)
     (bongo-mode-line-pause/resume-button)
+    (bongo-mode-line-start/stop-button)
     (bongo-mode-line-next-button)
-    " "
-    (cond ((and (bongo-elapsed-time) (bongo-total-time))
-           (format "%d%%" (/ (* 100.0 (bongo-elapsed-time))
-                             (bongo-total-time))))
-          ((bongo-elapsed-time)
-           (bongo-format-seconds (bongo-elapsed-time)))))
+    (when (bongo-playing-p) " ")
+    (when (bongo-playing-p)
+      (cond ((and (bongo-elapsed-time) (bongo-total-time))
+             (format "%d%%" (/ (* 100.0 (bongo-elapsed-time))
+                               (bongo-total-time))))
+            ((bongo-elapsed-time)
+             (bongo-format-seconds (bongo-elapsed-time))))))
   "Template for the Bongo mode line indicator.
 Value is a list of expressions, each evaluating to a string or nil.
 The values of the expressions are concatenated."
   :type '(repeat
           (choice
            (const :tag "Space" " ")
+           (const :tag "Space if playing"
+                  (when (bongo-playing-p) " "))
            string
+           (const :tag "[Start] button"
+                  (bongo-mode-line-start-button))
+           (const :tag "[Stop] button"
+                  (bongo-mode-line-stop-button))
+           (const :tag "[Start] or [Stop] button"
+                  (bongo-mode-line-start/stop-button))
            (const :tag "[Pause] or [Resume] button"
                   (bongo-mode-line-pause/resume-button))
            (const :tag "[Previous] button"
@@ -637,21 +651,26 @@ The values of the expressions are concatenated."
            (const :tag "[Next] button"
                   (bongo-mode-line-next-button))
            (const :tag "Elapsed time"
-                  (bongo-format-seconds (bongo-elapsed-time)))
+                  (when (bongo-playing-p)
+                    (bongo-format-seconds (bongo-elapsed-time))))
            (const :tag "Remaining time"
-                  (bongo-format-seconds (bongo-remaining-time)))
+                  (when (bongo-playing-p)
+                    (bongo-format-seconds (bongo-remaining-time))))
            (const :tag "Total time"
-                  (bongo-format-seconds (bongo-total-time)))
+                  (when (bongo-playing-p)
+                    (bongo-format-seconds (bongo-total-time))))
            (const :tag "Elapsed time in percent of total time"
-                  (cond ((and (bongo-elapsed-time) (bongo-total-time))
-                         (format "%d%%" (/ (* 100.0 (bongo-elapsed-time))
-                                           (bongo-total-time))))
-                        ((bongo-elapsed-time)
-                         (bongo-format-seconds (bongo-elapsed-time)))))
+                  (when (bongo-playing-p)
+                    (cond ((and (bongo-elapsed-time) (bongo-total-time))
+                           (format "%d%%" (/ (* 100.0 (bongo-elapsed-time))
+                                             (bongo-total-time))))
+                          ((bongo-elapsed-time)
+                           (bongo-format-seconds (bongo-elapsed-time))))))
            (const :tag "Elapsed and total time"
-                  (when (and (bongo-elapsed-time) (bongo-total-time))
-                    (concat (bongo-format-seconds (bongo-elapsed-time)) "/"
-                            (bongo-format-seconds (bongo-total-time)))))
+                  (when (bongo-playing-p)
+                    (when (and (bongo-elapsed-time) (bongo-total-time))
+                      (concat (bongo-format-seconds (bongo-elapsed-time)) "/"
+                              (bongo-format-seconds (bongo-total-time))))))
            (sexp :tag "Value of arbitrary expression")))
   :group 'bongo-mode-line)
 
@@ -668,25 +687,27 @@ If nil, `bongo-mode-line-indicator-string' is not put anywhere."
   :type 'string
   :group 'bongo-mode-line)
 
-(defcustom bongo-mode-line-playing-string "Playing:"
-  "Fallback string for the Bongo ``playing'' icon."
+(defcustom bongo-mode-line-playing-string "Playing"
+  "Fallback string for the Bongo [Pause] button icon."
   :type 'string
   :group 'bongo-mode-line)
 
-(defcustom bongo-mode-line-paused-string "Paused:"
-  "Fallback string for the Bongo ``paused'' icon."
+(defcustom bongo-mode-line-paused-string "Paused"
+  "Fallback string for the Bongo [Resume] button icon."
   :type 'string
   :group 'bongo-mode-line)
 
-(defvar bongo-mode-line-paused-icon-18
+(defvar bongo-mode-line-pause-icon-18
   '`(image :type xpm :ascent center :data ,(concat "/* XPM */
-static char *paused_18[] = {
+static char *pause_18[] = {
 /* width  height  number of colors  number of characters per pixel */
 \" 18     18      2                 1\",
 /* colors */
 \"# c " bongo-mode-line-icon-color  "\",
 \". c None\",
 /* pixels */
+\"..................\",
+\"..................\",
 \"..................\",
 \"...####....####...\",
 \"...####....####...\",
@@ -700,23 +721,22 @@ static char *paused_18[] = {
 \"...####....####...\",
 \"...####....####...\",
 \"...####....####...\",
-\"...####....####...\",
-\"...####....####...\",
-\"...####....####...\",
-\"...####....####...\",
+\"..................\",
+\"..................\",
 \"..................\"
 };"))
-  "Bongo ``paused'' icon (18 pixels tall).")
+  "Bongo [Pause] button icon (18 pixels tall).")
 
-(defvar bongo-mode-line-paused-icon-11
+(defvar bongo-mode-line-pause-icon-11
   '`(image :type xpm :ascent center :data ,(concat "/* XPM */
-static char *paused_11[] = {
+static char *pause_11[] = {
 /* width  height  number of colors  number of characters per pixel */
 \" 10     11      2                 1\",
 /* colors */
 \"# c " bongo-mode-line-icon-color  "\",
 \". c None\",
 /* pixels */
+\"..........\",
 \"..........\",
 \"..##..##..\",
 \"..##..##..\",
@@ -725,14 +745,13 @@ static char *paused_11[] = {
 \"..##..##..\",
 \"..##..##..\",
 \"..##..##..\",
-\"..##..##..\",
-\"..##..##..\",
+\"..........\",
 \"..........\"};"))
-  "Bongo ``paused'' icon (11 pixels tall).")
+  "Bongo [Pause] button icon (11 pixels tall).")
 
-(defvar bongo-mode-line-playing-icon-18
+(defvar bongo-mode-line-resume-icon-18
   '`(image :type xpm :ascent center :data ,(concat "/* XPM */
-static char *playing_18[] = {
+static char *resume_18[] = {
 /* width  height  number of colors  number of characters per pixel */
 \" 18     18      2                 1\",
 /* colors */
@@ -758,11 +777,11 @@ static char *playing_18[] = {
 \"..................\",
 \"..................\"
 };"))
-  "Bongo ``playing'' icon (18 pixels tall)")
+  "Bongo [Resume] button icon (18 pixels tall)")
 
-(defvar bongo-mode-line-playing-icon-11
+(defvar bongo-mode-line-resume-icon-11
   '`(image :type xpm :ascent center :data ,(concat "/* XPM */
-static char *playing_11[] = {
+static char *resume_11[] = {
 /* width  height  number of colors  number of characters per pixel */
 \" 10     11      2                 1\",
 /* colors */
@@ -781,7 +800,59 @@ static char *playing_11[] = {
 \"...#......\",
 \"..........\"
 };"))
-  "Bongo ``playing'' icon (11 pixels tall).")
+  "Bongo [Resume] button icon (11 pixels tall).")
+
+(defvar bongo-mode-line-stop-icon-18
+  '`(image :type xpm :ascent center :data ,(concat "/* XPM */
+static char *stop_18[] = {
+/* width  height  number of colors  number of characters per pixel */
+\" 18     18      2                 1\",
+/* colors */
+\"# c " bongo-mode-line-icon-color  "\",
+\". c None\",
+/* pixels */
+\"..................\",
+\"..................\",
+\"..................\",
+\"...############...\",
+\"...############...\",
+\"...############...\",
+\"...############...\",
+\"...############...\",
+\"...############...\",
+\"...############...\",
+\"...############...\",
+\"...############...\",
+\"...############...\",
+\"...############...\",
+\"...############...\",
+\"..................\",
+\"..................\",
+\"..................\"
+};"))
+  "Bongo [Stop] button icon (18 pixels tall).")
+
+(defvar bongo-mode-line-stop-icon-11
+  '`(image :type xpm :ascent center :data ,(concat "/* XPM */
+static char *stop_11[] = {
+/* width  height  number of colors  number of characters per pixel */
+\" 10     11      2                 1\",
+/* colors */
+\"# c " bongo-mode-line-icon-color  "\",
+\". c None\",
+/* pixels */
+\"..........\",
+\"..........\",
+\"..######..\",
+\"..######..\",
+\"..######..\",
+\"..######..\",
+\"..######..\",
+\"..######..\",
+\"..######..\",
+\"..........\",
+\"..........\"};"))
+  "Bongo [Stop] button icon (11 pixels tall).")
 
 (defvar bongo-mode-line-previous-icon-18
   '`(image :type xpm :ascent center :data ,(concat "/* XPM */
@@ -811,7 +882,7 @@ static char *previous_18[] = {
 \"....................\",
 \"....................\"
 };"))
-  "Bongo ``previous'' icon (18 pixels tall)")
+  "Bongo [Previous] button icon (18 pixels tall)")
 
 (defvar bongo-mode-line-previous-icon-11
   '`(image :type xpm :ascent center :data ,(concat "/* XPM */
@@ -834,7 +905,7 @@ static char *previous_11[] = {
 \"...........\",
 \"...........\"
 };"))
-  "Bongo ``previous'' icon (11 pixels tall).")
+  "Bongo [Previous] button icon (11 pixels tall).")
 
 (defvar bongo-mode-line-next-icon-18
   '`(image :type xpm :ascent center :data ,(concat "/* XPM */
@@ -864,7 +935,7 @@ static char *next_18[] = {
 \"....................\",
 \"....................\"
 };"))
-  "Bongo ``next'' icon (18 pixels tall)")
+  "Bongo [Next] button icon (18 pixels tall)")
 
 (defvar bongo-mode-line-next-icon-11
   '`(image :type xpm :ascent center :data ,(concat "/* XPM */
@@ -887,7 +958,15 @@ static char *next_11[] = {
 \"...........\",
 \"...........\"
 };"))
-  "Bongo ``next'' icon (11 pixels tall).")
+  "Bongo [Next] button icon (11 pixels tall).")
+
+(defvar bongo-mode-line-start-map
+  (let ((map (make-sparse-keymap)))
+    (prog1 map
+      (define-key map [mode-line mouse-1]
+        (lambda (e)
+          (interactive "e")
+          (bongo-start))))))
 
 (defvar bongo-mode-line-pause/resume-map
   (let ((map (make-sparse-keymap)))
@@ -896,6 +975,14 @@ static char *next_11[] = {
         (lambda (e)
           (interactive "e")
           (bongo-pause/resume))))))
+
+(defvar bongo-mode-line-stop-map
+  (let ((map (make-sparse-keymap)))
+    (prog1 map
+      (define-key map [mode-line mouse-1]
+        (lambda (e)
+          (interactive "e")
+          (bongo-stop))))))
 
 (defvar bongo-mode-line-previous-map
   (let ((map (make-sparse-keymap)))
@@ -918,33 +1005,66 @@ static char *next_11[] = {
   (let ((font-size (aref (font-info (face-font 'mode-line)) 3)))
     (if (>= font-size 18) 18 11)))
 
+(defun bongo-mode-line-start-button ()
+  "Return the string to use as [Start] button in the mode line."
+  (when (and window-system (not (bongo-playing-p)))
+    (let ((icon-size (bongo-mode-line-icon-size)))
+      (concat
+       (propertize " " 'display '(space :width (1)))
+       (propertize "[Start]"
+                   'display (cond ((= icon-size 18)
+                                   (eval bongo-mode-line-resume-icon-18))
+                                  ((= icon-size 11)
+                                   (eval bongo-mode-line-resume-icon-11)))
+                   'help-echo (concat "mouse-1: start playback")
+                   'local-map bongo-mode-line-start-map
+                   'mouse-face 'highlight)
+       (propertize " " 'display '(space :width (1)))))))
+
+(defun bongo-mode-line-stop-button ()
+  "Return the string to use as [Stop] button in the mode line."
+  (when (and window-system (bongo-playing-p))
+    (let ((icon-size (bongo-mode-line-icon-size)))
+      (concat
+       (propertize " " 'display '(space :width (1)))
+       (propertize "[Stop]"
+                   'display (cond ((= icon-size 18)
+                                   (eval bongo-mode-line-stop-icon-18))
+                                  ((= icon-size 11)
+                                   (eval bongo-mode-line-stop-icon-11)))
+                   'help-echo (concat "mouse-1: stop playback")
+                   'local-map bongo-mode-line-stop-map
+                   'mouse-face 'highlight)
+       (propertize " " 'display '(space :width (1)))))))
+
+(defun bongo-mode-line-start/stop-button ()
+  "Return the string to use as [Start] or [Stop] button."
+  (or (bongo-mode-line-start-button)
+      (bongo-mode-line-stop-button)))
+
 (defun bongo-mode-line-pause/resume-button ()
   "Return the string to use as [Pause] or [Resume] button."
-  (when (bongo-playing-p)
+  (when (and (bongo-playing-p) (bongo-pausing-supported-p))
     (if window-system
         (let ((icon-size (bongo-mode-line-icon-size)))
           (concat
            (propertize " " 'display '(space :width (1)))
            (propertize
-            (if (bongo-paused-p) "[Resume]" "[Pause]")
+            " "
             'display (if (bongo-paused-p)
                          (cond ((= icon-size 18)
-                                (eval bongo-mode-line-paused-icon-18))
+                                (eval bongo-mode-line-resume-icon-18))
                                ((= icon-size 11)
-                                (eval bongo-mode-line-paused-icon-11)))
+                                (eval bongo-mode-line-resume-icon-11)))
                        (cond ((= icon-size 18)
-                              (eval bongo-mode-line-playing-icon-18))
+                              (eval bongo-mode-line-pause-icon-18))
                              ((= icon-size 11)
-                              (eval bongo-mode-line-playing-icon-11))))
+                              (eval bongo-mode-line-pause-icon-11))))
             'help-echo (concat (if (bongo-paused-p)
-                                   "Paused: "
-                                 "Playing: ")
+                                   "mouse-1: resume "
+                                 "mouse-1: pause ")
                                (bongo-format-infoset
-                                (bongo-player-infoset bongo-player))
-                               (when (bongo-pausing-supported-p)
-                                 (if (bongo-paused-p)
-                                     " (click mouse-1 to resume)"
-                                   " (click mouse-1 to pause)")))
+                                (bongo-player-infoset bongo-player)))
             'local-map bongo-mode-line-pause/resume-map
             'mouse-face 'highlight)
            (propertize " " 'display '(space :width (1)))))
@@ -965,12 +1085,11 @@ static char *next_11[] = {
                                    (eval bongo-mode-line-previous-icon-11)))
                    'help-echo
                    (let ((position (bongo-point-at-previous-track-line
-                                    (bongo-point-at-current-track))))
+                                    (bongo-point-at-current-track-line))))
                      (if position
-                         (concat "Previous: "
+                         (concat "mouse-1: play "
                                  (bongo-format-infoset
-                                  (bongo-line-infoset position))
-                                 " (click mouse-1 to play)")
+                                  (bongo-line-infoset position)))
                        "No previous track"))
                    'local-map bongo-mode-line-previous-map
                    'mouse-face 'highlight)
@@ -989,12 +1108,11 @@ static char *next_11[] = {
                                    (eval bongo-mode-line-next-icon-11)))
                    'help-echo
                    (let ((position (bongo-point-at-next-track-line
-                                    (bongo-point-at-current-track))))
+                                    (bongo-point-at-current-track-line))))
                      (if position
-                         (concat "Next: "
+                         (concat "mouse-1: play "
                                  (bongo-format-infoset
-                                  (bongo-line-infoset position))
-                                 " (click mouse-1 to play)")
+                                  (bongo-line-infoset position)))
                        "No next track"))
                    'local-map bongo-mode-line-next-map
                    'mouse-face 'highlight)
@@ -1010,14 +1128,12 @@ The name of this variable should go in, e.g., `global-mode-string'.")
 
 (defun bongo-update-mode-line-indicator-string (&rest dummy)
   "Update `bongo-mode-line-indicator-string'.
-If Bongo is not playing anything, set the indicator string to nil.
 Otherwise, evalutate elements of `bongo-mode-line-indicator-format'.
 Accept DUMMY arguments to ease hook usage."
   (when (bongo-buffer-p)
     (setq bongo-mode-line-indicator-string
-          (when (bongo-playing-p)
-            (apply 'concat
-                   (mapcar 'eval bongo-mode-line-indicator-format))))))
+          (apply 'concat
+                 (mapcar 'eval bongo-mode-line-indicator-format)))))
 
 (defun bongo-mode-line-indicator-mode (argument)
   "Toggle display of Bongo mode line indicator on or off.
@@ -1531,7 +1647,8 @@ If no matching line is found, return nil."
             (previous-line))
           (when (funcall predicate)
             (setq match t)))
-        (when match (point))))))
+        (when match
+          (point))))))
 
 (defalias 'bongo-point-at-previous-line-satisfying
   #'bongo-point-before-previous-line-satisfying)
@@ -1550,7 +1667,8 @@ If no matching line is found, return nil."
             (next-line))
           (when (funcall predicate)
             (setq match t)))
-        (when match (point))))))
+        (when match
+          (point))))))
 
 (defalias 'bongo-point-at-next-line-satisfying
   #'bongo-point-before-next-line-satisfying)
@@ -1699,6 +1817,22 @@ If no track line is found before the starting line, return nil."
         (setq after-last (bongo-point-after-line))
         (bongo-forward-object-line))
       after-last)))
+
+(defun bongo-point-at-first-track-line ()
+  "Return the character position of the first track line, or nil."
+  (save-excursion
+    (goto-char (point-min))
+    (if (bongo-track-line-p)
+        (bongo-point-at-bol)
+      (bongo-point-at-next-track-line))))
+
+(defun bongo-point-at-last-track-line ()
+  "Return the character position of the last track line, or nil."
+  (save-excursion
+    (goto-char (point-max))
+    (if (bongo-track-line-p)
+        (bongo-point-at-bol)
+      (bongo-point-at-previous-track-line))))
 
 (defun bongo-track-infoset (&optional point)
   "Return the infoset for the track at POINT.
@@ -2214,7 +2348,7 @@ at least one line in the region."
 ;;;       equal)))
 ;;;
 ;;; (defun bongo-external-fields-at-point-equal-to-previous-p (&optional point)
-;;;   (if (bongo-point-at-first-line-p point)
+;;;   (if (bongo-first-line-p point)
 ;;;       (zerop (bongo-indentation-at-point point))
 ;;;     (bongo-external-fields-in-region-equal-p
 ;;;      (bongo-point-before-previous-line point)
@@ -2407,7 +2541,7 @@ Otherwise, signal an error."
                (downcase (or (file-name-extension file-name) ""))))
           (catch 'match
             (dolist (extension value-matcher nil)
-              (when (string= extension actual-extension)
+              (when (string-equal extension actual-extension)
                 (throw 'match t))))))
        (t (error "Bad file name matcher: %s" value-matcher))))))
 
@@ -2483,48 +2617,29 @@ As soon as another track starts playing, this marker is set to
 point to nowhere.")
 (make-variable-buffer-local 'bongo-stopped-track-marker)
 
-(defun bongo-play (file-name &optional backend)
-  "Start playing FILE-NAME and return the new player.
-In Bongo mode, first stop the currently active player, if any.
-
-BACKEND specifies which backend to use; if it is nil,
-Bongo will try to find the best player for FILE-NAME.
-
-In Bongo mode, this function runs `bongo-player-started-hook'."
-  (when (bongo-buffer-p)
-    (when bongo-player
-      (bongo-player-stop bongo-player)))
-  (let ((player (bongo-start-player file-name backend)))
-    (prog1 player
-      (when (bongo-buffer-p)
-        (setq bongo-player player)
-        (bongo-set-current-track-marker bongo-playing-track-marker)
-        (run-hooks 'bongo-player-started-hook))))
-  (when (bufferp bongo-seek-buffer)
-    (bongo-seek-redisplay)))
-
-(defun bongo-start-player (file-name &optional backend)
-  "Start and return a new Bongo player for FILE-NAME.
-
-BACKEND specifies which backend to use; if it is nil,
-Bongo will try to find the best player for FILE-NAME.
-
-This function runs `bongo-player-started-functions'.
-See also `bongo-play'."
-  (setq backend (if backend
-                    (bongo-backend backend)
-                  (bongo-backend-for-file file-name)))
-  (when (null backend)
-    (error "Don't know how to play `%s'" file-name))
-  (let* ((constructor (bongo-backend-constructor backend))
+(defun bongo-play-file (file-name &optional backend)
+  "Start playing FILE-NAME using BACKEND and return the new player.
+If BACKEND is omitted or nil, Bongo will try to find the best player
+  backend for FILE-NAME (using `bongo-backend-for-file').
+This function runs `bongo-player-started-functions'."
+  (let* ((constructor
+          (bongo-backend-constructor
+           (or (and backend (bongo-backend backend))
+               (bongo-backend-for-file file-name)
+               (error "Don't know how to play `%s'" file-name))))
          (player (funcall constructor file-name))
          (process (bongo-player-process player)))
     (prog1 player
-      (when (and process bongo-player-process-priority
-                 (eq 'run (process-status process)))
+      (when (and bongo-player-process-priority
+                 process (eq 'run (process-status process)))
         (bongo-renice (process-id process)
                       bongo-player-process-priority))
       (run-hook-with-args 'bongo-player-started-functions player))))
+
+(define-obsolete-function-alias 'bongo-start-player
+  'bongo-play-file)
+(define-obsolete-function-alias 'bongo-play
+  'bongo-play-file)
 
 (defcustom bongo-player-finished-hook nil
   "Normal hook run when a Bongo player in Bongo mode finishes.
@@ -2628,7 +2743,7 @@ This hook is only run for players started in Bongo buffers."
     (run-hook-with-args 'bongo-player-stopped-functions player)
     (when (bongo-buffer-p)
       (save-excursion
-        (let ((position (bongo-point-at-current-track)))
+        (let ((position (bongo-point-at-current-track-line)))
           (when position
             (bongo-line-set-property 'bongo-played t position)
             (bongo-redisplay-line position)))
@@ -3479,17 +3594,19 @@ or that of the last played track if no track is currently playing.")
 (define-obsolete-variable-alias 'bongo-active-track-marker
   'bongo-current-track-marker)
 
-(defun bongo-point-at-current-track ()
+(defun bongo-point-at-current-track-line ()
   (when bongo-current-track-marker
     (let ((position (marker-position bongo-current-track-marker)))
       (and (bongo-track-line-p position) position))))
 
 (define-obsolete-function-alias 'bongo-active-track-position
-  'bongo-point-at-current-track)
+  'bongo-point-at-current-track-line)
+(define-obsolete-function-alias 'bongo-point-at-current-track
+  'bongo-point-at-current-track-line)
 
 (defun bongo-set-current-track-marker (marker)
   (unless (eq marker bongo-current-track-marker)
-    (move-marker marker (bongo-point-at-current-track))
+    (move-marker marker (bongo-point-at-current-track-line))
     (when bongo-current-track-marker
       (move-marker bongo-current-track-marker nil))
     (setq bongo-current-track-marker marker)))
@@ -3508,10 +3625,10 @@ or that of the last played track if no track is currently playing.")
 
 (defun bongo-current-track-line-p (&optional point)
   "Return non-nil if the line at POINT is the current track line."
-  (and (not (null (bongo-point-at-current-track)))
-       (>= (bongo-point-at-current-track)
+  (and (not (null (bongo-point-at-current-track-line)))
+       (>= (bongo-point-at-current-track-line)
            (bongo-point-before-line point))
-       (< (bongo-point-at-current-track)
+       (< (bongo-point-at-current-track-line)
           (bongo-point-after-line point))))
 
 (defun bongo-fringe-bitmap-from-strings (strings)
@@ -3559,7 +3676,7 @@ or that of the last played track if no track is currently playing.")
 
 (define-fringe-bitmap 'bongo-paused-11
   (bongo-fringe-bitmap-from-strings
-   '(".##..##."
+   '("........"
      ".##..##."
      ".##..##."
      ".##..##."
@@ -3567,11 +3684,12 @@ or that of the last played track if no track is currently playing.")
      ".##..##."
      ".##..##."
      ".##..##."
-     ".##..##.")))
+     "........")))
 
 (define-fringe-bitmap 'bongo-paused-18
   (bongo-fringe-bitmap-from-strings
    '("................"
+     "................"
      "..####....####.."
      "..####....####.."
      "..####....####.."
@@ -3586,8 +3704,7 @@ or that of the last played track if no track is currently playing.")
      "..####....####.."
      "..####....####.."
      "..####....####.."
-     "..####....####.."
-     "..####....####.."
+     "................"
      "................"))
   18 16)
 
@@ -3603,13 +3720,15 @@ If `bongo-avoid-interrupting-playback' is non-nil and a track is
 currently being played, `bongo-play-line' sets the queued track.")
 (make-variable-buffer-local 'bongo-queued-track-marker)
 
-(defun bongo-point-at-queued-track ()
+(defun bongo-point-at-queued-track-line ()
   "Return the position of `bongo-queued-track-marker', or nil."
   (and bongo-queued-track-marker
        (marker-position bongo-queued-track-marker)))
 
 (define-obsolete-function-alias 'bongo-queued-track-position
-  'bongo-point-at-queued-track)
+  'bongo-point-at-queued-track-line)
+(define-obsolete-function-alias 'bongo-point-at-queued-track
+  'bongo-point-at-queued-track-line)
 
 (defvar bongo-queued-track-arrow-marker nil
   "Overlay arrow marker following `bongo-queued-track-marker'.
@@ -3645,7 +3764,7 @@ See `bongo-queued-track-marker'."
     (bongo-goto-point point)
     (when line-move-ignore-invisible
       (bongo-skip-invisible))
-    (equal (bongo-point-at-queued-track)
+    (equal (bongo-point-at-queued-track-line)
            (bongo-point-at-bol))))
 
 (defun bongo-unset-queued-track-position ()
@@ -3655,7 +3774,7 @@ In addition, set `bongo-next-action' to the value of
   (when bongo-queued-track-arrow-timer
     (cancel-timer bongo-queued-track-arrow-timer)
     (setq bongo-queued-track-arrow-timer nil))
-  (when (bongo-point-at-queued-track)
+  (when (bongo-point-at-queued-track-line)
     (setq bongo-next-action bongo-stored-next-action)
     (setq bongo-stored-next-action nil))
   (move-marker bongo-queued-track-marker nil)
@@ -3715,7 +3834,7 @@ If there is no track on the line at POINT, signal an error."
       (when bongo-player
         (bongo-player-stop bongo-player))
       (bongo-set-current-track-position)
-      (let ((player (bongo-start-player (bongo-line-file-name))))
+      (let ((player (bongo-play-file (bongo-line-file-name))))
         (setq bongo-player player)
         (bongo-line-set-property 'bongo-player player)
         (bongo-set-current-track-marker bongo-playing-track-marker)
@@ -3733,12 +3852,12 @@ See `bongo-queued-track-arrow-marker'."
 (defun bongo-play-queued ()
   "Play the track at `bongo-queued-track-marker'.
 Then call `bongo-unset-queued-track'."
-  (bongo-play-line (or (bongo-point-at-queued-track)
+  (bongo-play-line (or (bongo-point-at-queued-track-line)
                        (error "No queued track")))
   (bongo-unset-queued-track-position))
 
 (defun bongo-replay-current (&optional toggle-interrupt)
-  "Play the current track from the start.
+  "Play the current track in the nearest playlist from the start.
 If `bongo-avoid-interrupting-playback' is non-nil,
   just set `bongo-next-action' to `bongo-replay-current'.
 If TOGGLE-INTERRUPT (prefix argument if interactive) is non-nil,
@@ -3749,7 +3868,7 @@ If TOGGLE-INTERRUPT (prefix argument if interactive) is non-nil,
                         toggle-interrupt))
         ;; We should interrupt playback, so play the current
         ;; track from the beginning.
-        (let ((position (bongo-point-at-current-track))
+        (let ((position (bongo-point-at-current-track-line))
               (bongo-avoid-interrupting-playback nil))
           (if position
               (bongo-play-line position)
@@ -3762,7 +3881,7 @@ If TOGGLE-INTERRUPT (prefix argument if interactive) is non-nil,
         (message "Switched to repeating playback.")))))
 
 (defun bongo-play-next (&optional toggle-interrupt)
-  "Start playing the next track in the current Bongo buffer.
+  "Start playing the next track in the nearest Bongo playlist buffer.
 If `bongo-avoid-interrupting-playback' is non-nil,
   just set `bongo-next-action' to `bongo-play-next-or-stop'.
 If TOGGLE-INTERRUPT (prefix argument if interactive) is non-nil,
@@ -3775,7 +3894,7 @@ If there is no next track to play, signal an error."
         ;; We should interrupt playback, so start playing
         ;; the next track immediately.
         (let ((line-move-ignore-invisible nil)
-              (position (bongo-point-at-current-track))
+              (position (bongo-point-at-current-track-line))
               (bongo-avoid-interrupting-playback nil))
           (when (null position)
             (error "No current track"))
@@ -3790,7 +3909,7 @@ If there is no next track to play, signal an error."
         (message "Switched to sequential playback.")))))
 
 (defun bongo-play-next-or-stop (&optional toggle-interrupt)
-  "Maybe start playing the next track in the current Bongo buffer.
+  "Maybe start playing the next track in the nearest playlist buffer.
 If `bongo-avoid-interrupting-playback' is non-nil,
   just set `bongo-next-action' to `bongo-play-next-or-stop'.
 If TOGGLE-INTERRUPT (prefix argument if interactive) is non-nil,
@@ -3803,7 +3922,7 @@ If there is no next track to play, stop playback."
         ;; We should interrupt playback, so start playing
         ;; the next track immediately.
         (let ((line-move-ignore-invisible nil)
-              (position (bongo-point-at-current-track))
+              (position (bongo-point-at-current-track-line))
               (bongo-avoid-interrupting-playback nil))
           (when (null position)
             (error "No current track"))
@@ -3822,7 +3941,7 @@ If there is no next track to play, stop playback."
         (message "Switched to sequential playback.")))))
 
 (defun bongo-play-previous (&optional toggle-interrupt)
-  "Start playing the previous track in the current Bongo buffer.
+  "Start playing the previous track in the nearest playlist buffer.
 If `bongo-avoid-interrupting-playback' is non-nil,
   just set `bongo-next-action' to `bongo-play-previous'.
 If TOGGLE-INTERRUPT (prefix argument if interactive) is non-nil,
@@ -3834,7 +3953,7 @@ If TOGGLE-INTERRUPT (prefix argument if interactive) is non-nil,
         ;; We should interrupt playback, so start playing
         ;; the previous track immediately.
         (let ((line-move-ignore-invisible nil)
-              (position (bongo-point-at-current-track))
+              (position (bongo-point-at-current-track-line))
               (bongo-avoid-interrupting-playback nil))
           (when (null position)
             (error "No current track"))
@@ -3851,7 +3970,7 @@ If TOGGLE-INTERRUPT (prefix argument if interactive) is non-nil,
         (message "Switched to reverse sequential playback.")))))
 
 (defun bongo-play-random (&optional toggle-interrupt)
-  "Start playing a random track in the current Bongo buffer.
+  "Start playing a random track in the nearest Bongo playlist buffer.
 If `bongo-avoid-interrupting-playback' is non-nil,
   just set `bongo-next-action' to `bongo-play-random'.
 If TOGGLE-INTERRUPT (prefix argument if interactive) is non-nil,
@@ -3876,8 +3995,18 @@ If TOGGLE-INTERRUPT (prefix argument if interactive) is non-nil,
         (setq bongo-next-action 'bongo-play-random)
         (message "Switched to random playback.")))))
 
+(defun bongo-start ()
+  "Start playing the current track in the nearest playlist buffer.
+If something is already playing, do nothing.
+If there is no current track, start playing the first track."
+  (with-bongo-playlist-buffer
+    (unless (bongo-playing-p)
+      (bongo-play-line (or (bongo-point-at-current-track-line)
+                           (bongo-point-at-first-track-line)
+                           (error "No tracks in playlist"))))))
+
 (defun bongo-stop (&optional toggle-interrupt)
-  "Permanently stop playback in the current Bongo buffer.
+  "Permanently stop playback in the nearest Bongo playlist buffer.
 If `bongo-avoid-interrupting-playback' is non-nil,
   just set `bongo-next-action' to `bongo-stop'.
 If TOGGLE-INTERRUPT (prefix argument if interactive) is non-nil,
@@ -3896,8 +4025,16 @@ If TOGGLE-INTERRUPT (prefix argument if interactive) is non-nil,
         (setq bongo-next-action 'bongo-stop)
         (message "Playback will stop after the current track.")))))
 
+(defun bongo-start/stop (&optional toggle-interrupt)
+  "Start or stop playback in the nearest Bongo playlist buffer.
+See `bongo-stop' for the meaning of TOGGLE-INTERRUPT."
+  (interactive "P")
+  (if (bongo-playing-p)
+      (bongo-stop toggle-interrupt)
+    (bongo-start)))
+
 (defun bongo-pause/resume ()
-  "Pause or resume playback in the current Bongo buffer.
+  "Pause or resume playback in the nearest Bongo playlist buffer.
 This functionality may not be available for all backends."
   (interactive)
   (with-bongo-playlist-buffer
@@ -4073,7 +4210,7 @@ That is, when `bongo-seek-electric-mode' is non-nil.")
     (define-key map "\C-c\C-p" 'bongo-play-previous)
     (define-key map "\C-c\C-n" 'bongo-play-next)
     (define-key map "\C-c\C-r" 'bongo-play-random)
-    (define-key map "\C-c\C-s" 'bongo-stop)
+    (define-key map "\C-c\C-s" 'bongo-start/stop)
     (define-key map "l" 'bongo-seek-redisplay)
     (define-key map "g" 'bongo-seek-quit)
     (define-key map "\C-g" 'bongo-seek-quit)
@@ -4760,8 +4897,8 @@ If no track is currently playing, just call `recenter'."
         (window (get-buffer-window (bongo-playlist-buffer) t)))
     (when window
       (select-window window)
-      (bongo-goto-point (or (bongo-point-at-current-track)
-                            (bongo-point-at-queued-track)))
+      (bongo-goto-point (or (bongo-point-at-current-track-line)
+                            (bongo-point-at-queued-track-line)))
       (recenter)
       (select-window original-window))))
 
@@ -4908,10 +5045,10 @@ See `kill-region'."
         (let ((player (bongo-line-get-property 'bongo-player)))
           (when player
             (if (and (eq player bongo-player)
-                     (null (bongo-point-at-current-track)))
+                     (null (bongo-point-at-current-track-line)))
                 (bongo-set-current-track-position (point-at-bol))
               (bongo-line-remove-property 'bongo-player))))
-        (unless (bongo-point-at-queued-track)
+        (unless (bongo-point-at-queued-track-line)
           (when (bongo-line-get-property 'bongo-queued-track-flag)
             (bongo-line-remove-property 'bongo-queued-track-flag)
             (bongo-set-queued-track-position)))
@@ -4989,10 +5126,10 @@ If MODE is `append', append TEXT to the end of the playlist."
          (with-bongo-playlist-buffer
            (save-excursion
              (ecase mode
-               (insert (if (bongo-point-at-current-track)
+               (insert (if (bongo-point-at-current-track-line)
                            (bongo-goto-point
                             (bongo-point-after-line
-                             (bongo-point-at-current-track)))
+                             (bongo-point-at-current-track-line)))
                          (goto-char (point-min))))
                (append (goto-char (point-max))))
              (prog1 (point)
@@ -5161,7 +5298,7 @@ However, if some track is currently playing, do not delete that."
         (currently-playing-track
          (and (bongo-playing-p)
               (bongo-line-string
-               (bongo-point-at-current-track)))))
+               (bongo-point-at-current-track-line)))))
     (erase-buffer)
     (when currently-playing-track
       (remove-text-properties 0 (length currently-playing-track)
@@ -5204,7 +5341,7 @@ This function uses `bongo-update-references-to-renamed-files'."
               (goto-char (point-min))
               (bongo-maybe-forward-object-line)
               (while (not (eobp))
-                (when (string= (bongo-line-file-name) old-name)
+                (when (string-equal (bongo-line-file-name) old-name)
                   (bongo-delete-line)
                   (bongo-insert-line 'bongo-file-name new-name))
                 (bongo-forward-object-line))))
@@ -5386,7 +5523,7 @@ instead, use high-level functions such as `save-buffer'."
     (define-key map "\C-c\C-p" 'bongo-play-previous)
     (define-key map "\C-c\C-n" 'bongo-play-next)
     (define-key map "\C-c\C-r" 'bongo-play-random)
-    (define-key map "\C-c\C-s" 'bongo-stop)
+    (define-key map "\C-c\C-s" 'bongo-start/stop)
     (define-key map "s" 'bongo-seek)
     (define-key map "if" 'bongo-insert-file)
     (define-key map "id" 'bongo-insert-directory)
@@ -5420,12 +5557,14 @@ instead, use high-level functions such as `save-buffer'."
         '("Insert File..." . bongo-insert-file))
       (define-key menu-map [bongo-menu-separator-4]
         '("----" . nil))
-      (define-key menu-map [bongo-play-random-track]
-        '("Play Random Track" . bongo-play-random))
+      (define-key menu-map [bongo-start]
+        '("Start Playback" . bongo-start))
       (define-key menu-map [bongo-play-previous-track]
         '("Play Previous Track" . bongo-play-previous))
       (define-key menu-map [bongo-play-next-track]
         '("Play Next Track" . bongo-play-next))
+      (define-key menu-map [bongo-play-random-track]
+        '("Play Random Track" . bongo-play-random))
       (define-key menu-map [bongo-replay-current-track]
         '("Replay Current Track" . bongo-replay-current))
       (define-key menu-map [bongo-menu-separator-3]
