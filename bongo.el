@@ -616,8 +616,23 @@ See `bongo-mode-line-indicator-format'."
   :set 'custom-set-minor-mode
   :group 'bongo-mode-line)
 
+(defun bongo-hyphen-padded-mode-line-p ()
+  "Return non-nil if the mode line is padded with hyphens.
+That is, if `mode-line-format' ends with a string ending with \"%-\"."
+  (and (listp mode-line-format)
+       (let ((last (car (last mode-line-format))))
+         (and (stringp last)
+              (string-match "%-$" last)))))
+
+(defun bongo-mode-line-pad-string ()
+  "Return the string to use for padding in the mode line.
+This is either \"-\" or \" \", depending on the return value of
+the function `bongo-hyphen-padded-mode-line-p'."
+  (if (bongo-hyphen-padded-mode-line-p) "-" " "))
+
 (defcustom bongo-mode-line-indicator-format
-  '(" "
+  '((bongo-mode-line-pad-string)
+    (when (bongo-hyphen-padded-mode-line-p) "[")
     (bongo-mode-line-previous-button)
     (bongo-mode-line-pause/resume-button)
     (bongo-mode-line-start/stop-button)
@@ -628,15 +643,18 @@ See `bongo-mode-line-indicator-format'."
              (format "%d%%" (/ (* 100.0 (bongo-elapsed-time))
                                (bongo-total-time))))
             ((bongo-elapsed-time)
-             (bongo-format-seconds (bongo-elapsed-time))))))
+             (bongo-format-seconds (bongo-elapsed-time)))))
+    (when (bongo-hyphen-padded-mode-line-p) "]")
+    (bongo-mode-line-pad-string)
+    (when (bongo-hyphen-padded-mode-line-p)
+      (bongo-mode-line-pad-string)))
   "Template for the Bongo mode line indicator.
 Value is a list of expressions, each evaluating to a string or nil.
 The values of the expressions are concatenated."
   :type '(repeat
           (choice
-           (const :tag "Space" " ")
-           (const :tag "Space if playing"
-                  (when (bongo-playing-p) " "))
+           (const :tag "Padding" (bongo-mode-line-pad-string))
+           (const :tag "Blank space" " ")
            string
            (const :tag "[Start] button"
                   (bongo-mode-line-start-button))
@@ -671,6 +689,22 @@ The values of the expressions are concatenated."
                     (when (and (bongo-elapsed-time) (bongo-total-time))
                       (concat (bongo-format-seconds (bongo-elapsed-time)) "/"
                               (bongo-format-seconds (bongo-total-time))))))
+           (const :tag "Padding if playing"
+                  (when (bongo-playing-p)
+                    (bongo-mode-line-pad-string)))
+           (const :tag "Blank space if playing"
+                  (when (bongo-playing-p) " "))
+           (const :tag "Left bracket if mode line is hyphen-padded"
+                  (when (bongo-hyphen-padded-mode-line-p) "["))
+           (const :tag "Right bracket if mode line is hyphen-padded"
+                  (when (bongo-hyphen-padded-mode-line-p) "]"))
+           (const :tag "Padding if mode line is hyphen-padded"
+                  (when (bongo-hyphen-padded-mode-line-p)
+                    (bongo-mode-line-pad-string)))
+           (const :tag "Padding if playing or mode line is hyphen-padded"
+                  (when (or (bongo-playing-p)
+                            (bongo-hyphen-padded-mode-line-p))
+                    (bongo-mode-line-pad-string)))
            (sexp :tag "Value of arbitrary expression")))
   :group 'bongo-mode-line)
 
@@ -1074,7 +1108,7 @@ static char *next_11[] = {
 
 (defun bongo-mode-line-previous-button ()
   "Return the string to use as [Previous] button in the mode line."
-  (when (and window-system (bongo-playing-p))
+  (when (and window-system (bongo-point-at-current-track-line))
     (let ((icon-size (bongo-mode-line-icon-size)))
       (concat
        (propertize " " 'display '(space :width (1)))
@@ -1097,7 +1131,7 @@ static char *next_11[] = {
 
 (defun bongo-mode-line-next-button ()
   "Return the string to use as [Next] button in the mode line."
-  (when (and window-system (bongo-playing-p))
+  (when (and window-system (bongo-point-at-current-track-line))
     (let ((icon-size (bongo-mode-line-icon-size)))
       (concat
        (propertize " " 'display '(space :width (1)))
@@ -2616,6 +2650,7 @@ point to nowhere, and another marker assumes its role instead.")
 As soon as another track starts playing, this marker is set to
 point to nowhere.")
 (make-variable-buffer-local 'bongo-stopped-track-marker)
+(put 'bongo-stopped-track-marker 'overlay-arrow-bitmap 'filled-square)
 
 (defun bongo-play-file (file-name &optional backend)
   "Start playing FILE-NAME using BACKEND and return the new player.
@@ -5659,6 +5694,8 @@ as they have the ability to play tracks.
           (* 2 (aref (font-info (face-font 'fringe)) 2))))
   (setq bongo-queued-track-marker (make-marker))
   (setq bongo-queued-track-arrow-marker (make-marker))
+  (add-to-list 'overlay-arrow-variable-list
+    'bongo-stopped-track-marker)
   (add-to-list 'overlay-arrow-variable-list
     'bongo-playing-track-marker)
   (add-to-list 'overlay-arrow-variable-list
