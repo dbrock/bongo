@@ -41,8 +41,6 @@
 ;; Customizing `bongo-header-line-mode' should have
 ;; immediate effect on existing Bongo playlist buffers.
 
-;; Fix strange race condition related to pausing.
-
 ;; Saving a playlist buffer and reopening it turns it into a
 ;; library buffer.  In addition, saving a buffer twice
 ;; leaves two "-*- Bongo-Library -*-" headers.
@@ -3044,11 +3042,11 @@ If the player backend cannot report this, return nil."
                          (bongo-backend-program-name backend)
                          (bongo-evaluate-program-arguments
                           (bongo-backend-program-arguments backend))))
-         (player `(,backend-name
-                   (process . ,process)
-                   (file-name . ,file-name)
-                   (buffer . ,(current-buffer))
-                   (stop . bongo-default-player-stop))))
+         (player (list backend-name
+                       (cons 'process process)
+                       (cons 'file-name file-name)
+                       (cons 'buffer (current-buffer))
+                       (cons 'stop 'bongo-default-player-stop))))
     (prog1 player
       (set-process-sentinel process 'bongo-default-player-process-sentinel)
       (bongo-process-put process 'bongo-player player))))
@@ -3208,7 +3206,7 @@ These will come at the end or right before the file name, if any."
       (progn
         (process-send-string (bongo-player-process player) "PAUSE\n")
         (bongo-player-put player 'paused-flag
-                          (not (bongo-mpg123-player-paused-p player)))
+                          (not (bongo-player-get player 'paused-flag)))
         (bongo-player-paused/resumed player))
     (error (concat "This mpg123 process is not interactive "
                    "and so does not support pausing"))))
@@ -3276,20 +3274,21 @@ These will come at the end or right before the file name, if any."
                          '("-R" "dummy") (list file-name))))
          (process (apply 'start-process "bongo-mpg123" nil
                          bongo-mpg123-program-name arguments))
-         (player `(mpg123
-                   (process . ,process)
-                   (file-name . ,file-name)
-                   (buffer . ,(current-buffer))
-                   (stop . bongo-default-player-stop)
-                   (interactive-flag . ,bongo-mpg123-interactive)
-                   (pausing-supported-flag . ,bongo-mpg123-interactive)
-                   (paused-p . bongo-default-player-paused-p)
-                   (paused-flag . nil)
-                   (pause/resume . bongo-mpg123-player-pause/resume)
-                   (seeking-supported-flag . ,bongo-mpg123-interactive)
-                   (seek-by . bongo-mpg123-player-seek-by)
-                   (seek-to . bongo-mpg123-player-seek-to)
-                   (seek-unit . frames))))
+         (player
+          (list 'mpg123
+                (cons 'process process)
+                (cons 'file-name file-name)
+                (cons 'buffer (current-buffer))
+                (cons 'stop 'bongo-default-player-stop)
+                (cons 'interactive-flag bongo-mpg123-interactive)
+                (cons 'pausing-supported-flag bongo-mpg123-interactive)
+                (cons 'paused-p 'bongo-default-player-paused-p)
+                (cons 'paused-flag nil)
+                (cons 'pause/resume 'bongo-mpg123-player-pause/resume)
+                (cons 'seeking-supported-flag bongo-mpg123-interactive)
+                (cons 'seek-by 'bongo-mpg123-player-seek-by)
+                (cons 'seek-to 'bongo-mpg123-player-seek-to)
+                (cons 'seek-unit 'frames))))
     (prog1 player
       (set-process-sentinel process 'bongo-default-player-process-sentinel)
       (bongo-process-put process 'bongo-player player)
@@ -3410,7 +3409,7 @@ These will come at the end or right before the file name, if any."
       (progn
         (process-send-string (bongo-player-process player) "pause\n")
         (bongo-player-put player 'paused-flag
-                          (not (bongo-player-get 'paused-flag player)))
+                          (not (bongo-player-get player 'paused-flag)))
         (bongo-player-paused/resumed player))
     (error "This mplayer process does not support pausing")))
 
@@ -3490,20 +3489,21 @@ These will come at the end or right before the file name, if any."
                      (list file-name)))
          (process (apply 'start-process "bongo-mplayer" nil
                          bongo-mplayer-program-name arguments))
-         (player `(mplayer
-                   (process . ,process)
-                   (file-name . ,file-name)
-                   (buffer . ,(current-buffer))
-                   (stop . bongo-default-player-stop)
-                   (interactive-flag . ,bongo-mplayer-interactive)
-                   (pausing-supported-flag . ,bongo-mplayer-interactive)
-                   (paused-p . bongo-default-player-paused-p)
-                   (paused-flag . nil)
-                   (pause/resume . bongo-mplayer-player-pause/resume)
-                   (seeking-supported-flag . ,bongo-mplayer-interactive)
-                   (seek-by . bongo-mplayer-player-seek-by)
-                   (seek-to . bongo-mplayer-player-seek-to)
-                   (seek-unit . seconds))))
+         (player
+          (list 'mplayer
+                (cons 'process process)
+                (cons 'file-name file-name)
+                (cons 'buffer (current-buffer))
+                (cons 'stop 'bongo-default-player-stop)
+                (cons 'interactive-flag bongo-mplayer-interactive)
+                (cons 'pausing-supported-flag bongo-mplayer-interactive)
+                (cons 'paused-p 'bongo-default-player-paused-p)
+                (cons 'paused-flag nil)
+                (cons 'pause/resume 'bongo-mplayer-player-pause/resume)
+                (cons 'seeking-supported-flag bongo-mplayer-interactive)
+                (cons 'seek-by 'bongo-mplayer-player-seek-by)
+                (cons 'seek-to 'bongo-mplayer-player-seek-to)
+                (cons 'seek-unit 'seconds))))
     (prog1 player
       (set-process-sentinel process 'bongo-default-player-process-sentinel)
       (bongo-process-put process 'bongo-player player)
@@ -3645,20 +3645,21 @@ These will come at the end or right before the file name, if any."
                      (list file-name)))
          (process (apply 'start-process "bongo-vlc" nil
                          bongo-vlc-program-name arguments))
-         (player `(vlc
-                   (process . ,process)
-                   (file-name . ,file-name)
-                   (buffer . ,(current-buffer))
-                   (stop . bongo-default-player-stop)
-                   (interactive-flag . ,bongo-vlc-interactive)
-                   (pausing-supported-flag . ,bongo-vlc-interactive)
-                   (paused-p . bongo-default-player-paused-p)
-                   (paused-flag . nil)
-                   (pause/resume . bongo-vlc-player-pause/resume)
-                   (seeking-supported-flag . ,bongo-vlc-interactive)
-                   (seek-by . bongo-vlc-player-seek-by)
-                   (seek-to . bongo-vlc-player-seek-to)
-                   (seek-unit . seconds))))
+         (player
+          (list 'vlc
+                (cons 'process process)
+                (cons 'file-name file-name)
+                (cons 'buffer (current-buffer))
+                (cons 'stop 'bongo-default-player-stop)
+                (cons 'interactive-flag bongo-vlc-interactive)
+                (cons 'pausing-supported-flag bongo-vlc-interactive)
+                (cons 'paused-p 'bongo-default-player-paused-p)
+                (cons 'paused-flag nil)
+                (cons 'pause/resume 'bongo-vlc-player-pause/resume)
+                (cons 'seeking-supported-flag bongo-vlc-interactive)
+                (cons 'seek-by 'bongo-vlc-player-seek-by)
+                (cons 'seek-to 'bongo-vlc-player-seek-to)
+                (cons 'seek-unit 'seconds))))
     (prog1 player
       (set-process-sentinel process 'bongo-default-player-process-sentinel)
       (bongo-process-put process 'bongo-player player)
