@@ -8,7 +8,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: October 21, 2006
+;; Updated: October 29, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -2876,6 +2876,17 @@ The variable `bongo-renice-command' says what command to use."
   "Set PLAYER's PROPERTY to VALUE."
   (setcdr player (bongo-alist-put (cdr player) property value)))
 
+(defun bongo-player-push (player property element)
+  "Push ELEMENT to the value of PLAYER's PROPERTY."
+  (bongo-player-put player property
+                    (cons element (bongo-player-get player property))))
+
+(defun bongo-player-pop (player property)
+  "Pop the first value from PLAYER's PROPERTY."
+  (let ((value (bongo-player-get player property)))
+    (prog1 (car value)
+      (bongo-player-put player property (cdr value)))))
+
 (defun bongo-player-call (player method &rest arguments)
   "Call METHOD on PLAYER with extra ARGUMENTS."
   (apply (bongo-player-get player method) player arguments))
@@ -2913,6 +2924,11 @@ The variable `bongo-renice-command' says what command to use."
 When this function returns, PLAYER will no longer be usable."
   (bongo-player-put player 'explicitly-stopped t)
   (bongo-player-call player 'stop))
+
+(defun bongo-player-interactive-p (player)
+  "Return non-nil if PLAYER's process is interactive.
+Interactive processes may support pausing and seeking."
+  (bongo-player-get player 'interactive-flag))
 
 (defun bongo-player-pausing-supported-p (player)
   "Return non-nil if PLAYER supports pausing."
@@ -2963,6 +2979,10 @@ If the player backend cannot report this, return nil."
   (delete-process (bongo-player-process player))
   (bongo-player-explicitly-stopped player))
 
+(defun bongo-default-player-paused-p (player)
+  "Return the value of PLAYER's `paused-flag' property."
+  (bongo-player-get player 'paused-flag))
+
 (defun bongo-default-player-pause/resume (player)
   "Signal an error explaining that PLAYER does not support pausing."
   (error "Pausing is not supported for %s"
@@ -2970,12 +2990,12 @@ If the player backend cannot report this, return nil."
 
 (defun bongo-default-player-seek-by (player n)
   "Signal an error explaining that PLAYER does not support seeking."
-  (error "Seeking is not supported for %s"
+  (error "Relative seeking is not supported for %s"
          (bongo-player-backend-name player)))
 
 (defun bongo-default-player-seek-to (player n)
   "Signal an error explaining that PLAYER does not support seeking."
-  (error "Seeking is not supported for %s"
+  (error "Absolute seeking is not supported for %s"
          (bongo-player-backend-name player)))
 
 (defun bongo-default-player-process-sentinel (process string)
@@ -3177,40 +3197,41 @@ These will come at the end or right before the file name, if any."
   :type '(repeat (choice string variable sexp))
   :group 'bongo-mpg123)
 
-(defun bongo-mpg123-player-interactive-p (player)
-  "Return non-nil if PLAYER's process is interactive.
-Interactive mpg123 processes support pausing and seeking."
-  (bongo-player-get player 'interactive-flag))
+(define-obsolete-function-alias 'bongo-mpg123-player-interactive-p
+  'bongo-player-interactive-p)
 
-(defun bongo-mpg123-player-paused-p (player)
-  (bongo-player-get player 'paused-flag))
+(define-obsolete-function-alias 'bongo-mpg123-player-paused-p
+  'bongo-default-player-paused-p)
 
 (defun bongo-mpg123-player-pause/resume (player)
-  (if (bongo-mpg123-player-interactive-p player)
+  (if (bongo-player-interactive-p player)
       (progn
         (process-send-string (bongo-player-process player) "PAUSE\n")
         (bongo-player-put player 'paused-flag
                           (not (bongo-mpg123-player-paused-p player)))
         (bongo-player-paused/resumed player))
-    (error "This mpg123 process does not support pausing")))
+    (error (concat "This mpg123 process is not interactive "
+                   "and so does not support pausing"))))
 
 (defun bongo-mpg123-player-seek-to (player position)
-  (if (bongo-mpg123-player-interactive-p player)
+  (if (bongo-player-interactive-p player)
       (progn
         (process-send-string (bongo-player-process player)
                              (format "JUMP %d\n" position))
         (bongo-player-sought player))
-    (error "This mpg123 process does not support seeking")))
+    (error (concat "This mpg123 process is not interactive "
+                   "and so does not support seeking"))))
 
 (defun bongo-mpg123-player-seek-by (player delta)
-  (if (bongo-mpg123-player-interactive-p player)
+  (if (bongo-player-interactive-p player)
       (progn
         (process-send-string
          (bongo-player-process player)
          (format "JUMP %s%d\n" (if (< delta 0) "-" "+")
                  (* bongo-mpg123-seek-increment (abs delta))))
         (bongo-player-sought player))
-    (error "This mpg123 process does not support seeking")))
+    (error (concat "This mpg123 process is not interactive "
+                   "and so does not support seeking"))))
 
 ;;; XXX: What happens if a record is split between two calls
 ;;;      to the process filter?
@@ -3262,7 +3283,7 @@ Interactive mpg123 processes support pausing and seeking."
                    (stop . bongo-default-player-stop)
                    (interactive-flag . ,bongo-mpg123-interactive)
                    (pausing-supported-flag . ,bongo-mpg123-interactive)
-                   (paused-p . bongo-mpg123-player-paused-p)
+                   (paused-p . bongo-default-player-paused-p)
                    (paused-flag . nil)
                    (pause/resume . bongo-mpg123-player-pause/resume)
                    (seeking-supported-flag . ,bongo-mpg123-interactive)
@@ -3376,25 +3397,23 @@ These will come at the end or right before the file name, if any."
   :type '(repeat (choice string variable sexp))
   :group 'bongo-mplayer)
 
-(defun bongo-mplayer-player-interactive-p (player)
-  "Return non-nil if PLAYER's process is interactive.
-Interactive mplayer processes support pausing and seeking."
-  (bongo-player-get player 'interactive-flag))
+(define-obsolete-function-alias 'bongo-mplayer-player-interactive-p
+  'bongo-default-player-interactive-p)
 
-(defun bongo-mplayer-player-paused-p (player)
-  (bongo-player-get player 'paused-flag))
+(define-obsolete-function-alias 'bongo-mplayer-player-paused-p
+  'bongo-default-player-paused-p)
 
 (defun bongo-mplayer-player-pause/resume (player)
-  (if (bongo-mplayer-player-interactive-p player)
+  (if (bongo-player-interactive-p player)
       (progn
         (process-send-string (bongo-player-process player) "pause\n")
         (bongo-player-put player 'paused-flag
-                          (not (bongo-mplayer-player-paused-p player)))
+                          (not (bongo-player-get 'paused-flag player)))
         (bongo-player-paused/resumed player))
     (error "This mplayer process does not support pausing")))
 
 (defun bongo-mplayer-player-seek-to (player position)
-  (if (bongo-mpg123-player-interactive-p player)
+  (if (bongo-player-interactive-p player)
       (progn
        (process-send-string
         (bongo-player-process player)
@@ -3403,7 +3422,7 @@ Interactive mplayer processes support pausing and seeking."
     (error "This mplayer process does not support seeking")))
 
 (defun bongo-mplayer-player-seek-by (player delta)
-  (if (bongo-mplayer-player-interactive-p player)
+  (if (bongo-player-interactive-p player)
       (progn
         (process-send-string
          (bongo-player-process player)
@@ -3476,7 +3495,7 @@ Interactive mplayer processes support pausing and seeking."
                    (stop . bongo-default-player-stop)
                    (interactive-flag . ,bongo-mplayer-interactive)
                    (pausing-supported-flag . ,bongo-mplayer-interactive)
-                   (paused-p . bongo-mplayer-player-paused-p)
+                   (paused-p . bongo-default-player-paused-p)
                    (paused-flag . nil)
                    (pause/resume . bongo-mplayer-player-pause/resume)
                    (seeking-supported-flag . ,bongo-mplayer-interactive)
@@ -5951,6 +5970,7 @@ See the function `bongo-buffer'."
 ;;; time-stamp-format: "%:b %:d, %:y"
 ;;; time-stamp-start: ";; Updated: "
 ;;; time-stamp-end: "$"
+;;; time-stamp-line-limit: 20
 ;;; End:
 
 (provide 'bongo)
