@@ -2977,8 +2977,10 @@ If the player backend cannot report this, return nil."
 (defun bongo-player-total-time (player)
   "Return the total number of seconds PLAYER has and will use.
 If the player backend cannot report this, return nil."
-  (bongo-player-call-with-default
-   player 'get-total-time 'bongo-default-player-get-total-time))
+  (let ((value (bongo-player-call-with-default
+                player 'get-total-time
+                'bongo-default-player-get-total-time)))
+    (and value (> value 0) value)))
 
 
 ;;;; Default implementations of player features
@@ -3020,12 +3022,12 @@ If the player backend cannot report this, return nil."
          (bongo-player-backend-name player)))
 
 (defun bongo-default-player-get-elapsed-time (player)
-  "Just return nil."
-  nil)
+  "Return the value of PLAYER's `elapsed-time' property."
+  (bongo-player-get player 'elapsed-time))
 
 (defun bongo-default-player-get-total-time (player)
-  "Just return nil."
-  nil)
+  "Return the value of PLAYER's `total-time' property."
+  (bongo-player-get player 'total-time))
 
 (defun bongo-default-player-process-sentinel (process string)
   "If PROCESS has exited or been killed, run the appropriate hooks."
@@ -3211,11 +3213,6 @@ These will come at the end or right before the file name, if any."
     (error (concat "This VLC process is not interactive "
                    "and so does not support seeking"))))
 
-(defun bongo-vlc-player-start-timer (player)
-  (bongo-vlc-player-stop-timer player)
-  (let ((timer (run-with-timer 0 1 'bongo-vlc-player-tick player)))
-    (bongo-player-put player 'timer timer)))
-
 (defun bongo-vlc-player-stop-timer (player)
   (let ((timer (bongo-player-get player 'timer)))
     (when timer
@@ -3226,13 +3223,19 @@ These will come at the end or right before the file name, if any."
   (cond
    ((not (bongo-player-running-p player))
     (bongo-vlc-player-stop-timer player))
-   ((not (bongo-player-paused-p player))
+   ((and (not (bongo-player-paused-p player))
+         (null (nthcdr 4 (bongo-player-get player 'pending-queries))))
     (let ((process (bongo-player-process player)))
       (process-send-string process "get_time\n")
       (bongo-player-push player 'pending-queries 'time)
       (when (null (bongo-player-total-time player))
         (process-send-string process "get_length\n")
         (bongo-player-push player 'pending-queries 'length))))))
+
+(defun bongo-vlc-player-start-timer (player)
+  (bongo-vlc-player-stop-timer player)
+  (let ((timer (run-with-timer 0 1 'bongo-vlc-player-tick player)))
+    (bongo-player-put player 'timer timer)))
 
 ;;; XXX: What happens if a record is split between two calls
 ;;;      to the process filter?
@@ -3261,6 +3264,7 @@ These will come at the end or right before the file name, if any."
              ((looking-at (eval-when-compile
                             (rx line-start
                                 (submatch (one-or-more digit))
+                                (zero-or-more whitespace)
                                 line-end)))
               (when (bongo-player-get player 'pending-queries)
                 (let ((value (string-to-number (match-string 1))))
@@ -3815,8 +3819,7 @@ Return nil if the active player cannot report this."
 Return nil if the active player cannot report this."
   (with-bongo-playlist-buffer
     (when bongo-player
-      (let ((result (bongo-player-total-time bongo-player)))
-        (and result (> result 0) result)))))
+      (bongo-player-total-time bongo-player))))
 
 (defvar bongo-current-track-marker nil
   "Marker pointing at the current track line, if any.
