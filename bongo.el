@@ -8,7 +8,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: October 29, 2006
+;; Updated: November 1, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -2616,7 +2616,10 @@ This hook is only run for players started in Bongo buffers."
 
 (defun bongo-fringe-icon-size ()
   "Return the size to use for fringe icons."
-  (if (null window-system) 11
+  (if (null window-system)
+      ;; On Multi-TTY Emacs, `window-system' is a frame-local
+      ;; variable, so default to the smallest size.
+      11
     (let ((font-size (aref (font-info (face-font 'fringe)) 3)))
       (if (>= font-size 18) 18 11))))
 
@@ -3874,75 +3877,76 @@ or that of the last played track if no track is currently playing.")
                        "#" "1" (replace-regexp-in-string "\\." "0" string)) 2))
                    strings)))
 
-(define-fringe-bitmap 'bongo-playing-11
-  (bongo-fringe-bitmap-from-strings
-   '("........"
-     ".#......"
-     ".##....."
-     ".###...."
-     ".####..."
-     ".#####.."
-     ".####..."
-     ".###...."
-     ".##....."
-     ".#......"
-     "........")))
+(when (fboundp 'define-fringe-bitmap)
+  (define-fringe-bitmap 'bongo-playing-11
+    (bongo-fringe-bitmap-from-strings
+     '("........"
+       ".#......"
+       ".##....."
+       ".###...."
+       ".####..."
+       ".#####.."
+       ".####..."
+       ".###...."
+       ".##....."
+       ".#......"
+       "........")))
 
-(define-fringe-bitmap 'bongo-playing-18
-  (bongo-fringe-bitmap-from-strings
-   '("................"
-     "................"
-     "....##.........."
-     "....###........."
-     "....####........"
-     "....#####......."
-     "....######......"
-     "....#######....."
-     "....########...."
-     "....########...."
-     "....#######....."
-     "....######......"
-     "....#####......."
-     "....####........"
-     "....###........."
-     "....##.........."
-     "................"
-     "................"))
-  18 16)
+  (define-fringe-bitmap 'bongo-playing-18
+    (bongo-fringe-bitmap-from-strings
+     '("................"
+       "................"
+       "....##.........."
+       "....###........."
+       "....####........"
+       "....#####......."
+       "....######......"
+       "....#######....."
+       "....########...."
+       "....########...."
+       "....#######....."
+       "....######......"
+       "....#####......."
+       "....####........"
+       "....###........."
+       "....##.........."
+       "................"
+       "................"))
+    18 16)
 
-(define-fringe-bitmap 'bongo-paused-11
-  (bongo-fringe-bitmap-from-strings
-   '("........"
-     ".##..##."
-     ".##..##."
-     ".##..##."
-     ".##..##."
-     ".##..##."
-     ".##..##."
-     ".##..##."
-     "........")))
+  (define-fringe-bitmap 'bongo-paused-11
+    (bongo-fringe-bitmap-from-strings
+     '("........"
+       ".##..##."
+       ".##..##."
+       ".##..##."
+       ".##..##."
+       ".##..##."
+       ".##..##."
+       ".##..##."
+       "........")))
 
-(define-fringe-bitmap 'bongo-paused-18
-  (bongo-fringe-bitmap-from-strings
-   '("................"
-     "................"
-     "..####....####.."
-     "..####....####.."
-     "..####....####.."
-     "..####....####.."
-     "..####....####.."
-     "..####....####.."
-     "..####....####.."
-     "..####....####.."
-     "..####....####.."
-     "..####....####.."
-     "..####....####.."
-     "..####....####.."
-     "..####....####.."
-     "..####....####.."
-     "................"
-     "................"))
-  18 16)
+  (define-fringe-bitmap 'bongo-paused-18
+    (bongo-fringe-bitmap-from-strings
+     '("................"
+       "................"
+       "..####....####.."
+       "..####....####.."
+       "..####....####.."
+       "..####....####.."
+       "..####....####.."
+       "..####....####.."
+       "..####....####.."
+       "..####....####.."
+       "..####....####.."
+       "..####....####.."
+       "..####....####.."
+       "..####....####.."
+       "..####....####.."
+       "..####....####.."
+       "................"
+       "................"))
+    18 16))
 
 (defvar bongo-queued-track-marker nil
   "Marker pointing at the queued track, if any.
