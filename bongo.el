@@ -8,7 +8,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: November 1, 2006
+;; Updated: November 4, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -24,9 +24,6 @@
 ;; License along with this program (see the file `COPYING');
 ;; if not, write to the Free Software Foundation, 51 Franklin
 ;; Street, Fifth Floor, Boston, MA 02110-1301, USA.
-
-;; The Bongo logo was created by Romain Francoise and
-;; subsequently placed in the public domain.
 
 ;;; Todo:
 
