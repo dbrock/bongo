@@ -8,7 +8,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: November 4, 2006
+;; Updated: November 5, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -3227,10 +3227,7 @@ These will come at the end or right before the file name, if any."
          (null (nthcdr 4 (bongo-player-get player 'pending-queries))))
     (let ((process (bongo-player-process player)))
       (process-send-string process "get_time\n")
-      (bongo-player-push player 'pending-queries 'time)
-      (when (null (bongo-player-total-time player))
-        (process-send-string process "get_length\n")
-        (bongo-player-push player 'pending-queries 'length))))))
+      (bongo-player-push player 'pending-queries 'time)))))
 
 (defun bongo-vlc-player-start-timer (player)
   (bongo-vlc-player-stop-timer player)
@@ -3258,7 +3255,10 @@ These will come at the end or right before the file name, if any."
                                 line-end)))
               (case (string-to-number (match-string 1))
                 (1 (bongo-player-put player 'paused nil)
-                   (bongo-player-paused/resumed player))
+                   (bongo-player-paused/resumed player)
+                   (when (null (bongo-player-total-time player))
+                     (process-send-string process "get_length\n")
+                     (bongo-player-push player 'pending-queries 'length)))
                 (2 (bongo-player-put player 'paused t)
                    (bongo-player-paused/resumed player))))
              ((looking-at (eval-when-compile
