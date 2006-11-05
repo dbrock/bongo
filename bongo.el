@@ -2875,15 +2875,24 @@ The variable `bongo-renice-command' says what command to use."
   (setcdr player (bongo-alist-put (cdr player) property value)))
 
 (defun bongo-player-push (player property element)
-  "Push ELEMENT to the value of PLAYER's PROPERTY."
+  "Push ELEMENT to the head of PLAYER's PROPERTY."
   (bongo-player-put player property
                     (cons element (bongo-player-get player property))))
 
 (defun bongo-player-pop (player property)
-  "Pop the first value from PLAYER's PROPERTY."
-  (let ((value (bongo-player-get player property)))
-    (prog1 (car value)
-      (bongo-player-put player property (cdr value)))))
+  "Remove and return the head of PLAYER's PROPERTY."
+  (let ((first-cell (bongo-player-get player property)))
+    (prog1 (car first-cell)
+      (bongo-player-put player property (cdr first-cell)))))
+
+(defun bongo-player-shift (player property)
+  "Remove and return the last element of PLAYER's PROPERTY."
+  (let ((first-cell (bongo-player-get player property)))
+    (if (null (cdr first-cell))
+        (bongo-player-pop player property)
+      (let ((penultimate-cell (last first-cell 2)))
+        (prog1 (cadr penultimate-cell)
+          (setcdr penultimate-cell nil))))))
 
 (defun bongo-player-call (player method &rest arguments)
   "Call METHOD on PLAYER with extra ARGUMENTS."
@@ -3184,6 +3193,12 @@ Setting this to nil disables the pause and seek functionality."
   :type 'boolean
   :group 'bongo-vlc)
 
+(defcustom bongo-vlc-initialization-period 0.2
+  "Number of seconds to wait before querying VLC for time information.
+If this number is too low, there might be a short period of time right
+after VLC starts playing a track during which Bongo thinks that the total
+track length is unknown.")
+
 (defcustom bongo-vlc-extra-arguments nil
   "Extra command-line arguments to pass to `vlc'.
 These will come at the end or right before the file name, if any."
@@ -3227,11 +3242,15 @@ These will come at the end or right before the file name, if any."
          (null (nthcdr 4 (bongo-player-get player 'pending-queries))))
     (let ((process (bongo-player-process player)))
       (process-send-string process "get_time\n")
-      (bongo-player-push player 'pending-queries 'time)))))
+      (bongo-player-push player 'pending-queries 'time)
+      (when (null (bongo-player-total-time player))
+        (process-send-string process "get_length\n")
+        (bongo-player-push player 'pending-queries 'length))))))
 
 (defun bongo-vlc-player-start-timer (player)
   (bongo-vlc-player-stop-timer player)
-  (let ((timer (run-with-timer 0 1 'bongo-vlc-player-tick player)))
+  (let ((timer (run-with-timer bongo-vlc-initialization-period
+                               1 'bongo-vlc-player-tick player)))
     (bongo-player-put player 'timer timer)))
 
 ;;; XXX: What happens if a record is split between two calls
@@ -3256,9 +3275,8 @@ These will come at the end or right before the file name, if any."
               (case (string-to-number (match-string 1))
                 (1 (bongo-player-put player 'paused nil)
                    (bongo-player-paused/resumed player)
-                   (when (null (bongo-player-total-time player))
-                     (process-send-string process "get_length\n")
-                     (bongo-player-push player 'pending-queries 'length)))
+                   (when (null (bongo-player-get player 'timer))
+                     (bongo-vlc-player-start-timer player)))
                 (2 (bongo-player-put player 'paused t)
                    (bongo-player-paused/resumed player))))
              ((looking-at (eval-when-compile
@@ -3268,7 +3286,7 @@ These will come at the end or right before the file name, if any."
                                 line-end)))
               (when (bongo-player-get player 'pending-queries)
                 (let ((value (string-to-number (match-string 1))))
-                  (ecase (bongo-player-pop player 'pending-queries)
+                  (ecase (bongo-player-shift player 'pending-queries)
                     (time
                      (bongo-player-put player 'elapsed-time value)
                      (bongo-player-times-changed player))
@@ -3307,8 +3325,7 @@ These will come at the end or right before the file name, if any."
       (set-process-sentinel process 'bongo-default-player-process-sentinel)
       (bongo-process-put process 'bongo-player player)
       (when bongo-vlc-interactive
-        (set-process-filter process 'bongo-vlc-process-filter)
-        (bongo-vlc-player-start-timer player)))))
+        (set-process-filter process 'bongo-vlc-process-filter)))))
 
 
 ;;;; The mpg123 backend
@@ -4841,7 +4858,7 @@ If URI names a local file, insert it as a local file name.
 If URI is not actually a URI, do nothing.
 ACTION is ignored."
   (when (bongo-uri-p uri)
-    (let* ((local-file-uri (dnd-get-local-file-uri uri)) 
+    (let* ((local-file-uri (dnd-get-local-file-uri uri))
            (local-file-name
             (or (when local-file-uri
                   ;; Due to a bug, `dnd-get-local-file-name'
