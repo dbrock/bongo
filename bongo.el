@@ -8,7 +8,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: November 5, 2006
+;; Updated: November 11, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -3197,7 +3197,9 @@ Setting this to nil disables the pause and seek functionality."
   "Number of seconds to wait before querying VLC for time information.
 If this number is too low, there might be a short period of time right
 after VLC starts playing a track during which Bongo thinks that the total
-track length is unknown.")
+track length is unknown."
+  :type 'number
+  :group 'bongo-vlc)
 
 (defcustom bongo-vlc-extra-arguments nil
   "Extra command-line arguments to pass to `vlc'.
@@ -4134,94 +4136,57 @@ If TOGGLE-INTERRUPT (prefix argument if interactive) is non-nil,
         (setq bongo-next-action 'bongo-replay-current)
         (message "Switched to repeating playback.")))))
 
-(defun bongo-play-next (&optional toggle-interrupt)
+(defun bongo-play-next (&optional n)
   "Start playing the next track in the nearest Bongo playlist buffer.
-If `bongo-avoid-interrupting-playback' is non-nil,
-  just set `bongo-next-action' to `bongo-play-next-or-stop'.
-If TOGGLE-INTERRUPT (prefix argument if interactive) is non-nil,
-  act as if `bongo-avoid-interrupting-playback' were reversed.
-If there is no next track to play, signal an error."
-  (interactive "P")
+If there is no next track to play, signal an error.
+With prefix argument N, skip that many tracks."
+  (interactive "p")
   (with-bongo-playlist-buffer
-    (if (not (bongo-xor bongo-avoid-interrupting-playback
-                        toggle-interrupt))
-        ;; We should interrupt playback, so start playing
-        ;; the next track immediately.
-        (let ((line-move-ignore-invisible nil)
-              (position (bongo-point-at-current-track-line))
-              (bongo-avoid-interrupting-playback nil))
-          (when (null position)
-            (error "No current track"))
-          (if (setq position (bongo-point-at-next-track-line position))
-              (bongo-play-line position)
-            (error "No next track")))
-      ;; We should not interrupt playback.
-      (if (eq bongo-next-action 'bongo-play-next-or-stop)
-          (message (concat "Switched to sequential playback "
-                           "(prefix argument forces)."))
-        (setq bongo-next-action 'bongo-play-next-or-stop)
-        (message "Switched to sequential playback.")))))
+    (let ((line-move-ignore-invisible nil)
+          (position (bongo-point-at-current-track-line))
+          (bongo-avoid-interrupting-playback nil))
+      (when (null position)
+        (error "No current track"))
+      (dotimes (dummy n)
+        (setq position (bongo-point-at-next-track-line position))
+        (when (null position)
+          (error "No next track")))
+      (bongo-play-line position))))
 
-(defun bongo-play-next-or-stop (&optional toggle-interrupt)
+(defun bongo-play-next-or-stop (&optional n)
   "Maybe start playing the next track in the nearest playlist buffer.
-If `bongo-avoid-interrupting-playback' is non-nil,
-  just set `bongo-next-action' to `bongo-play-next-or-stop'.
-If TOGGLE-INTERRUPT (prefix argument if interactive) is non-nil,
-  act as if `bongo-avoid-interrupting-playback' were reversed.
-If there is no next track to play, stop playback."
-  (interactive "P")
+If there is no next track to play, stop playback.
+With prefix argument N, skip that many tracks."
+  (interactive "p")
   (with-bongo-playlist-buffer
-    (if (not (bongo-xor bongo-avoid-interrupting-playback
-                        toggle-interrupt))
-        ;; We should interrupt playback, so start playing
-        ;; the next track immediately.
-        (let ((line-move-ignore-invisible nil)
-              (position (bongo-point-at-current-track-line))
-              (bongo-avoid-interrupting-playback nil))
-          (when (null position)
-            (error "No current track"))
-          (let ((next-position (bongo-point-at-next-track-line position)))
-            (if next-position
-                (bongo-play-line next-position)
-              (bongo-stop))))
-      ;; We should not interrupt playback.
-      (if (eq bongo-next-action 'bongo-play-next-or-stop)
-          (when (interactive-p)
-            (message (concat "Switched to sequential playback "
-                             "(call this command %s a prefix "
-                             "argument to interrupt playback).")
-                     (if toggle-interrupt "without" "with")))
-        (setq bongo-next-action 'bongo-play-next-or-stop)
-        (message "Switched to sequential playback.")))))
+    (let ((line-move-ignore-invisible nil)
+          (position (bongo-point-at-current-track-line))
+          (bongo-avoid-interrupting-playback nil))
+      (when (null position)
+        (error "No current track"))
+      (while (and position (> n 0))
+        (setq position (bongo-point-at-next-track-line position))
+        (setq n (- n 1)))
+      (if position
+          (bongo-play-line position)
+        (bongo-stop)))))
 
-(defun bongo-play-previous (&optional toggle-interrupt)
+(defun bongo-play-previous (&optional n)
   "Start playing the previous track in the nearest playlist buffer.
-If `bongo-avoid-interrupting-playback' is non-nil,
-  just set `bongo-next-action' to `bongo-play-previous'.
-If TOGGLE-INTERRUPT (prefix argument if interactive) is non-nil,
-  act as if `bongo-avoid-interrupting-playback' were reversed."
+If there is no previous track to play, signal an error.
+With prefix argument N, skip that many tracks."
   (interactive "P")
   (with-bongo-playlist-buffer
-    (if (not (bongo-xor bongo-avoid-interrupting-playback
-                        toggle-interrupt))
-        ;; We should interrupt playback, so start playing
-        ;; the previous track immediately.
-        (let ((line-move-ignore-invisible nil)
-              (position (bongo-point-at-current-track-line))
-              (bongo-avoid-interrupting-playback nil))
-          (when (null position)
-            (error "No current track"))
-          (let ((previous-position
-                 (bongo-point-at-previous-track-line position)))
-            (if previous-position
-                (bongo-play-line previous-position)
-              (error "No previous track"))))
-      ;; We should not interrupt playback.
-      (if (eq bongo-next-action 'bongo-play-previous)
-          (message (concat "Switched to reverse sequential playback "
-                           "(prefix argument forces)."))
-        (setq bongo-next-action 'bongo-play-previous)
-        (message "Switched to reverse sequential playback.")))))
+    (let ((line-move-ignore-invisible nil)
+          (position (bongo-point-at-current-track-line))
+          (bongo-avoid-interrupting-playback nil))
+      (when (null position)
+        (error "No current track"))
+      (dotimes (dummy n)
+        (setq position (bongo-point-at-previous-track-line position))
+        (when (null position)
+          (error "No previous track")))
+      (bongo-play-line position))))
 
 (defun bongo-play-random (&optional toggle-interrupt)
   "Start playing a random track in the nearest Bongo playlist buffer.
