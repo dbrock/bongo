@@ -34,11 +34,17 @@
 
 ;;; Todo:
 
-;; Better support for streaming media.
+;; Better support for streaming media.  Bongo should be able
+;; to parse metadata provided by streaming media servers.
 
 ;; Shuffle operations.  It would be nice to have both a
 ;; random shuffle operation and an interleaving
 ;; enqueue operation.
+
+;; Sorting operations.
+
+;; Implement `bongo-file-name-roots' so that forcer can try
+;; out Bongo. :-)
 
 ;; Fix `E' when the playing song is not in the playlist.
 
