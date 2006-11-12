@@ -2996,11 +2996,13 @@ The variable `bongo-renice-command' says what command to use."
 (defun bongo-player-put (player property value)
   "Set PLAYER's PROPERTY to VALUE."
   (setcdr player (bongo-alist-put (cdr player) property value)))
+(put 'bongo-player-put 'lisp-indent-function 2)
 
 (defun bongo-player-push (player property element)
   "Push ELEMENT to the head of PLAYER's PROPERTY."
   (bongo-player-put player property
-                    (cons element (bongo-player-get player property))))
+    (cons element (bongo-player-get player property))))
+(put 'bongo-player-push 'lisp-indent-function 2)
 
 (defun bongo-player-pop (player property)
   "Remove and return the head of PLAYER's PROPERTY."
@@ -3536,7 +3538,7 @@ These will come at the end or right before the file name, if any."
       (progn
         (process-send-string (bongo-player-process player) "PAUSE\n")
         (bongo-player-put player 'paused
-                          (not (bongo-player-get player 'paused)))
+          (not (bongo-player-get player 'paused)))
         (bongo-player-paused/resumed player))
     (error (concat "This mpg123 process is not interactive "
                    "and so does not support pausing"))))
@@ -3737,7 +3739,7 @@ These will come at the end or right before the file name, if any."
       (progn
         (process-send-string (bongo-player-process player) "pause\n")
         (bongo-player-put player 'paused
-                          (not (bongo-player-get player 'paused)))
+          (not (bongo-player-get player 'paused)))
         (bongo-player-paused/resumed player))
     (error "This mplayer process does not support pausing")))
 
@@ -3792,11 +3794,11 @@ These will come at the end or right before the file name, if any."
             (cond
              ((looking-at "^ANS_TIME_POSITION=\\(.+\\)$")
               (bongo-player-put player 'elapsed-time
-                                (string-to-number (match-string 1)))
+                (string-to-number (match-string 1)))
               (bongo-player-times-changed player))
              ((looking-at "^ANS_LENGTH=\\(.+\\)$")
               (bongo-player-put player 'total-time
-                                (string-to-number (match-string 1)))
+                (string-to-number (match-string 1)))
               (bongo-player-times-changed player)))
             (forward-line))))
     ;; Getting errors in process filters is not fun, so stop.
