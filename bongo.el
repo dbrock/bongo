@@ -8,7 +8,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: November 11, 2006
+;; Updated: November 12, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -24,6 +24,13 @@
 ;; License along with this program (see the file `COPYING');
 ;; if not, write to the Free Software Foundation, 51 Franklin
 ;; Street, Fifth Floor, Boston, MA 02110-1301, USA.
+
+;;; Commentary:
+
+;; The `lastfm-submit' library, necessary for Last.fm
+;; functionality, is available at the following URL:
+
+;; <http://www.brockman.se/software/lastfm-submit.el>
 
 ;;; Todo:
 
@@ -63,6 +70,10 @@
 ;; Implement intra-track region repeat.
 
 ;;; Code:
+
+;; Try to load this library so that we can decide whether to
+;; enable Bongo Last.fm mode by default.
+(require 'lastfm-submit nil 'no-error)
 
 (eval-when-compile
   (require 'cl)
@@ -591,9 +602,6 @@ With any other ARGUMENT, turn the mode on."
              (if bongo-header-line-mode
                  "enabled" "disabled")))
   bongo-header-line-mode)
-
-(bongo-header-line-mode
- (if bongo-header-line-mode 1 0))
 
 (defgroup bongo-mode-line nil
   "Display of Bongo mode line indicator."
@@ -1208,9 +1216,6 @@ With any other ARGUMENT, turn the mode on."
              (if bongo-mode-line-indicator-mode
                  "enabled" "disabled")))
   bongo-mode-line-indicator-mode)
-
-(bongo-mode-line-indicator-mode
- (if bongo-mode-line-indicator-mode 1 0))
 
 (defgroup bongo-infosets nil
   "Structured track information in Bongo."
@@ -2594,6 +2599,103 @@ Otherwise, signal an error."
   'bongo-backend-for-file)
 
 
+;;;; Last.fm
+
+(define-minor-mode bongo-lastfm-mode
+  "Toggle Bongo Last.fm mode in the current buffer.
+In Bongo Last.fm mode, information about played tracks is automatically
+sumbitted to Last.fm (using `lastfm-submit').
+
+Interactively with no prefix argument, toggle the mode.
+With zero or negative ARG, turn the mode off.
+With any other ARG, turn the mode on.
+
+You can use Bongo Global Last.fm mode (see `bongo-global-lastfm-mode')
+to automatically enable Bongo Last.fm mode in Bongo playlist buffers."
+  :lighter " Last.fm"
+  (if (bongo-playlist-buffer-p)
+      (when (bongo-playing-p)
+        (if bongo-lastfm-mode
+            (bongo-start-lastfm-timer bongo-player)
+          (bongo-cancel-lastfm-timer bongo-player)))
+      (let ((value bongo-lastfm-mode))
+        (kill-local-variable 'bongo-lastfm-mode)
+        (when (not (null value))
+          (error (concat "Bongo Last.fm mode can only be enabled "
+                         "in Bongo playlists"))))))
+
+(defun bongo-turn-on-lastfm-mode-if-applicable ()
+  (when (bongo-playlist-buffer-p)
+    (bongo-lastfm-mode 1)))
+
+(define-global-minor-mode bongo-global-lastfm-mode
+  bongo-lastfm-mode bongo-turn-on-lastfm-mode-if-applicable
+  :initialize 'custom-initialize-default
+  :init-value (and (boundp 'lastfmsubmit-program-name)
+                   (not (null (executable-find lastfmsubmit-program-name))))
+  :group 'bongo)
+
+(defun bongo-lastfm-submit (infoset length)
+  "Submit song information to Last.fm using `lastfm-submit'."
+  (require 'lastfm-submit)
+  (let ((artist-name (bongo-infoset-artist-name infoset))
+        (track-title (bongo-infoset-track-title infoset))
+        (formatted-infoset (bongo-format-infoset infoset)))
+    (if (or (null length) (null artist-name) (null track-title))
+        (error "Cannot submit to Last.fm due to missing %s: %s"
+               (cond ((null artist-name) "artist name")
+                     ((null track-title) "track title")
+                     ((null length) "track length"))
+               formatted-infoset)
+      (lastfm-submit artist-name track-title
+                     (number-to-string (round length))
+                     (bongo-infoset-album-title infoset)) 
+      (message "Submitted to Last.fm: %s" formatted-infoset))))
+
+(defun bongo-lastfm-submit-player (player)
+  "Submit PLAYER's song information to Last.fm.
+See `bongo-lastfm-submit'."
+  (bongo-lastfm-submit (bongo-infoset-from-file-name
+                        (bongo-player-file-name player))
+                       (bongo-player-total-time player)))
+
+(defun bongo-lastfm-submit-current ()
+  "Sumbit the currently playing track to Last.fm."
+  (interactive)
+  (with-bongo-playlist-buffer
+    (if (bongo-playing-p)
+        (bongo-lastfm-submit-player bongo-player)
+      (error "No active player"))))
+
+(defun bongo-cancel-lastfm-timer (player)
+  (when (bongo-player-get player 'lastfm-timer)
+    (cancel-timer (bongo-player-get player 'lastfm-timer))
+    (bongo-player-put player 'lastfm-timer nil)))
+
+(defun bongo-lastfm-tick (player)
+  ;; The Audioscrobbler website says that each song should
+  ;; be submitted ``when it is 50% or 240 seconds complete,
+  ;; whichever comes first.''
+  (when (or (>= (bongo-player-elapsed-time player)
+                (/ (bongo-player-total-time player) 2.0))
+            (>= (bongo-player-elapsed-time player) 240))
+    (when (or (null (bongo-player-buffer player))
+              (with-current-buffer (bongo-player-buffer player)
+                bongo-lastfm-mode))
+      (bongo-lastfm-submit-player player))
+    (bongo-cancel-lastfm-timer player)))
+
+(defun bongo-start-lastfm-timer (player)
+  (when (and (bongo-player-elapsed-time player)
+             (bongo-player-total-time player)
+             ;; ``Songs with a duration of less than 30
+             ;; seconds should not be submitted,'' says the
+             ;; Audioscrobbler website.
+             (>= (bongo-player-total-time player) 30))
+    (bongo-player-put player 'lastfm-timer
+      (run-with-timer 1 1 'bongo-lastfm-tick player))))
+
+
 ;;;; Players
 
 (defvar bongo-player nil
@@ -2664,6 +2766,9 @@ This function runs `bongo-player-started-functions'."
                  process (eq 'run (process-status process)))
         (bongo-renice (process-id process)
                       bongo-player-process-priority))
+      (when bongo-lastfm-mode
+        (bongo-player-put player 'lastfm-timer
+          (run-with-timer 5 nil 'bongo-start-lastfm-timer player)))
       (run-hook-with-args 'bongo-player-started-functions player))))
 
 (define-obsolete-function-alias 'bongo-start-player
@@ -2770,6 +2875,7 @@ This hook is only run for players started in Bongo buffers."
   (save-current-buffer
     (when (buffer-live-p (bongo-player-buffer player))
       (set-buffer (bongo-player-buffer player)))
+    (bongo-cancel-lastfm-timer player)
     (run-hook-with-args 'bongo-player-stopped-functions player)
     (when (bongo-buffer-p)
       (save-excursion
@@ -2817,6 +2923,7 @@ This hook is only run for players started in Bongo buffers."
   (save-current-buffer
     (when (buffer-live-p (bongo-player-buffer player))
       (set-buffer (bongo-player-buffer player)))
+    (bongo-cancel-lastfm-timer player)
     (run-hook-with-args 'bongo-player-sought-functions player)
     (when (bongo-buffer-p)
       (run-hooks 'bongo-player-sought-hook))))
@@ -6132,6 +6239,13 @@ See the function `bongo-buffer'."
     (set-window-configuration bongo-stored-window-configuration))
   (unless (bongo-buffer-p)
     (switch-to-buffer (bongo-buffer))))
+
+(custom-reevaluate-setting 'bongo-header-line-mode)
+(custom-reevaluate-setting 'bongo-mode-line-indicator-mode)
+(custom-reevaluate-setting 'bongo-global-lastfm-mode)
+
+;; For backwards compatibility.
+(provide 'bongo-lastfm)
 
 ;;; Local Variables:
 ;;; coding: utf-8

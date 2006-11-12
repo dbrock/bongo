@@ -4,7 +4,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/lastfm-submit.el
 ;; Created: May 24, 2006
-;; Updated: September 18, 2006
+;; Updated: November 12, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -29,6 +29,10 @@
 
 ;; <http://www.red-bean.com/~decklin/software/lastfmsubmitd/>
 
+;; Please note that you may have to be in the `lastfm' group
+;; to run the `lastfmsubmit' program, and that you may have
+;; to relogin for such a group change to take effect.
+
 ;;; Code:
 
 (defcustom lastfmsubmit-program-name "lastfmsubmit"
@@ -47,9 +51,8 @@ LENGTH is the length of the track, either as a number of seconds
 ALBUM is either nil or the name of the album on which the track appears.
 MBID is either nil or the MusicBrainz ID of the track.
 TIME is either nil or the time at which the track was played, formatted
-  in UTC as \"%Y-%m-%d %H:%M:%S\" (see ‘format-time-string’).
-
-See `lastfmsubmit-program-name'."
+  in UTC as \"%Y-%m-%d %H:%M:%S\" (see `format-time-string').
+See also `lastfmsubmit-program-name'."
   (when (numberp length)
     (setq length (number-to-string (round length))))
   (unless (string-match "^\\(\\([0-9]+:\\)?[0-9]+:\\)?[0-9]+$" length)
