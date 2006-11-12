@@ -85,6 +85,8 @@
 ;; prefix argument N to `bongo-stop' should insert a stop
 ;; sentinel pseudo-track after the Nth next track.
 
+;; Drop support for legacy mpg123 in favor of mpg321.
+
 ;;; Code:
 
 ;; Try to load this library so that we can decide whether to
