@@ -69,6 +69,22 @@
 
 ;; Implement intra-track region repeat.
 
+;; Install audio CD functionality by Daniel Jensen.
+
+;; Provide a way to switch to the playlist by clicking on
+;; something in the mode line.
+
+;; Provide a way to easily change `bongo-next-action'.
+
+;; Allow pseudo-tracks that perform some action when played
+;; instead of actually starting a player backend.  You could
+;; have a pseudo-track that would stop playback, for example,
+;; or one that would change the value of `bongo-next-action'.
+
+;; Phase out `bongo-avoid-interrupting-playback'.  Giving a
+;; prefix argument N to `bongo-stop' should insert a stop
+;; sentinel pseudo-track after the Nth next track.
+
 ;;; Code:
 
 ;; Try to load this library so that we can decide whether to
