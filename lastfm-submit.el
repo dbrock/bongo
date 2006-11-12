@@ -36,9 +36,7 @@
 ;;; Code:
 
 (defcustom lastfmsubmit-program-name "lastfmsubmit"
-  "The name of the `lastfmsubmit' executable.
-On Debian, use \"/usr/lib/lastfmsubmitd/lastfmsubmit\", but note that
-you probably have to be in the `lastfm' group to run the program."
+  "The name of the `lastfmsubmit' executable."
   :type 'string
   :group 'multimedia
   :group 'external)
