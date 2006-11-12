@@ -4280,7 +4280,7 @@ With prefix argument N, skip that many tracks."
           (bongo-avoid-interrupting-playback nil))
       (when (null position)
         (error "No current track"))
-      (dotimes (dummy n)
+      (dotimes (dummy (or n 1))
         (setq position (bongo-point-at-next-track-line position))
         (when (null position)
           (error "No next track")))
@@ -4291,6 +4291,7 @@ With prefix argument N, skip that many tracks."
 If there is no next track to play, stop playback.
 With prefix argument N, skip that many tracks."
   (interactive "p")
+  (or n (setq n 1))
   (with-bongo-playlist-buffer
     (let ((line-move-ignore-invisible nil)
           (position (bongo-point-at-current-track-line))
@@ -4308,14 +4309,14 @@ With prefix argument N, skip that many tracks."
   "Start playing the previous track in the nearest playlist buffer.
 If there is no previous track to play, signal an error.
 With prefix argument N, skip that many tracks."
-  (interactive "P")
+  (interactive "p")
   (with-bongo-playlist-buffer
     (let ((line-move-ignore-invisible nil)
           (position (bongo-point-at-current-track-line))
           (bongo-avoid-interrupting-playback nil))
       (when (null position)
         (error "No current track"))
-      (dotimes (dummy n)
+      (dotimes (dummy (or n 1))
         (setq position (bongo-point-at-previous-track-line position))
         (when (null position)
           (error "No previous track")))
