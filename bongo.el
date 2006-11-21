@@ -8,7 +8,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: November 12, 2006
+;; Updated: November 21, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -2656,6 +2656,7 @@ to automatically enable Bongo Last.fm mode in Bongo playlist buffers."
   bongo-lastfm-mode bongo-turn-on-lastfm-mode-if-applicable
   :initialize 'custom-initialize-default
   :init-value (and (boundp 'lastfmsubmit-program-name)
+                   lastfmsubmit-program-name
                    (not (null (executable-find lastfmsubmit-program-name))))
   :group 'bongo)
 
