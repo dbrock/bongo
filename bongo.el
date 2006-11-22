@@ -51,10 +51,6 @@
 ;; Customizing `bongo-header-line-mode' should have
 ;; immediate effect on existing Bongo playlist buffers.
 
-;; Saving a playlist buffer and reopening it turns it into a
-;; library buffer.  In addition, saving a buffer twice
-;; leaves two "-*- Bongo-Library -*-" headers.
-
 ;; Fix bug related to collapsing the section containing the
 ;; currently playing track.
 
@@ -5765,33 +5761,17 @@ instead, use high-level functions such as `find-file'."
       (goto-char (point-min))
       (unless (looking-at bongo-magic-regexp)
         (error "Unrecognized format"))
-      (let ((mode-tag (if (looking-at bongo-playlist-magic-string)
-                          "-*- Bongo-Playlist -*-"
-                        "-*- Bongo-Library -*-")))
-        (bongo-delete-line)
-        (while (not (eobp))
-          (let ((start (point)))
-            (condition-case nil
-                (let ((object (read (current-buffer))))
-                  (delete-region start (point))
-                  (if (stringp object) (insert object)
-                    (error "Unexpected object: %s" object)))
-              (end-of-file
-               (delete-region start (point-max))))))
-        (save-restriction
-          (widen)
-          (goto-char beg)
-          (let ((case-fold-match t))
-            (when (and (bobp)
-                       (not (looking-at
-                             (eval-when-compile
-                               (rx (zero-or-more not-newline)
-                                   " -*-" (zero-or-more space)
-                                   (one-or-more word)
-                                   (zero-or-more space) "-*-")))))
-              (insert-char #x20 (- fill-column (length mode-tag) 1))
-              (bongo-insert-comment (concat mode-tag "\n")))))
-        (point-max)))))
+      (bongo-delete-line)
+      (while (not (eobp))
+        (let ((start (point)))
+          (condition-case nil
+              (let ((object (read (current-buffer))))
+                (delete-region start (point))
+                (if (stringp object) (insert object)
+                  (error "Unexpected object: %s" object)))
+            (end-of-file
+             (delete-region start (point-max))))))
+      (point-max))))
 
 (defvar bongo-line-serializable-properties
   (list 'bongo-file-name 'bongo-fields 'bongo-external-fields
@@ -5811,16 +5791,6 @@ instead, use high-level functions such as `save-buffer'."
     (save-restriction
       (narrow-to-region beg end)
       (bongo-ensure-final-newline)
-      (goto-char (point-min))
-      (when (re-search-forward
-             (eval-when-compile
-               (rx (zero-or-more space) "-*-"
-                   (zero-or-more space)
-                   (one-or-more word)
-                   (zero-or-more space) "-*-"
-                   (optional "\n")))
-             nil 'no-error)
-        (replace-match ""))
       (goto-char (point-min))
       (insert (if (bongo-playlist-buffer-p)
                   bongo-playlist-magic-string
