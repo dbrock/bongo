@@ -8,7 +8,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: November 21, 2006
+;; Updated: November 22, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -3403,12 +3403,13 @@ These will come at the end or right before the file name, if any."
                             (rx line-start
                                 "status change:"
                                 (zero-or-more (or whitespace "("))
-                                "play state:"
+                                (or "play" "stop") " state:"
                                 (zero-or-more whitespace)
                                 (submatch (one-or-more digit))
                                 (zero-or-more (or whitespace ")"))
                                 line-end)))
               (case (string-to-number (match-string 1))
+                (0 (process-send-string process "quit\n"))
                 (1 (bongo-player-put player 'paused nil)
                    (bongo-player-paused/resumed player)
                    (when (null (bongo-player-get player 'timer))
