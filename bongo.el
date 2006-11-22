@@ -4470,18 +4470,17 @@ Electric mode saves some space, but uses its own command loop."
   "Non-nil in the dynamic scope of electric `bongo-seek'.
 That is, when `bongo-seek-electric-mode' is non-nil.")
 
-(defface bongo-seek-bar
-  '((t (:bold t)))
+(defface bongo-seek-bar '((t nil))
   "Face used for the indicator bar in Bongo Seek mode."
   :group 'bongo-faces)
 
 (defface bongo-filled-seek-bar
-  '((t (:inverse-video t :inherit bongo-seek-bar)))
+  '((t (:inverse-video t :bold t :inherit bongo-seek-bar)))
   "Face used for the filled part of the indicator bar."
   :group 'bongo-faces)
 
 (defface bongo-unfilled-seek-bar
-  '((t (:background "#808080" :inherit bongo-seek-bar)))
+  '((t (:inherit bongo-seek-bar)))
   "Face used for the unfilled part of the indicator bar."
   :group 'bongo-faces)
 
