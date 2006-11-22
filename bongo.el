@@ -87,8 +87,6 @@
 ;; prefix argument N to `bongo-stop' should insert a stop
 ;; sentinel pseudo-track after the Nth next track.
 
-;; Drop support for legacy mpg123 in favor of mpg321.
-
 ;;; Code:
 
 ;; Try to load this library so that we can decide whether to
@@ -3294,173 +3292,6 @@ If the player backend cannot report this, return nil."
        (bongo-evaluate-backend-defcustoms))))
 
 
-;;;; The VLC backend
-
-(define-bongo-backend vlc
-  :pretty-name "VLC"
-  :constructor 'bongo-start-vlc-player
-  ;; We define this variable manually so that we can get
-  ;; some other customization variables to appear before it.
-  :extra-program-arguments-variable nil
-  ;; Play generic URLs and files if the file extension
-  ;; matches that of some potentially supported format.
-  :matcher '((local-file "file:" "http:" "ftp:")
-             "ogg" "flac" "mp3" "mka" "wav" "wma"
-             "mpg" "mpeg" "vob" "avi" "ogm" "mp4" "mkv"
-             "mov" "asf" "wmv" "rm" "rmvb")
-  ;; Play special media URIs regardless of the file name.
-  :matcher '(("mms:" "udp:" "dvd:" "vcd:" "cdda:") . t)
-  ;; Play all HTTP URLs (necessary for many streams).
-  ;; XXX: This is not a good long-term solution.  (But it
-  ;;      would be good to keep this matcher as a fallback
-  ;;      if we could somehow declare that more specific
-  ;;      matchers should be tried first.)
-  :matcher '(("http:") . t))
-
-(defcustom bongo-vlc-interactive t
-  "If non-nil, use the remote control interface of VLC.
-Setting this to nil disables the pause and seek functionality."
-  :type 'boolean
-  :group 'bongo-vlc)
-
-(defcustom bongo-vlc-initialization-period 0.2
-  "Number of seconds to wait before querying VLC for time information.
-If this number is too low, there might be a short period of time right
-after VLC starts playing a track during which Bongo thinks that the total
-track length is unknown."
-  :type 'number
-  :group 'bongo-vlc)
-
-(defcustom bongo-vlc-extra-arguments nil
-  "Extra command-line arguments to pass to `vlc'.
-These will come at the end or right before the file name, if any."
-  :type '(repeat (choice string variable sexp))
-  :group 'bongo-vlc)
-
-(defun bongo-vlc-player-pause/resume (player)
-  (if (bongo-player-interactive-p player)
-      (process-send-string (bongo-player-process player) "pause\n")
-    (error (concat "This VLC process is not interactive "
-                   "and so does not support pausing"))))
-
-(defun bongo-vlc-player-seek-to (player seconds)
-  (if (bongo-player-interactive-p player)
-      (progn
-       (process-send-string
-        (bongo-player-process player)
-        (format "seek %f\n" seconds))
-       (bongo-player-sought player))
-    (error (concat "This VLC process is not interactive "
-                   "and so does not support seeking"))))
-
-(defun bongo-vlc-player-seek-by (player seconds)
-  (if (bongo-player-interactive-p player)
-      (let ((elapsed-time (or (bongo-player-elapsed-time player) 0)))
-        (bongo-vlc-player-seek-to player (+ elapsed-time seconds)))
-    (error (concat "This VLC process is not interactive "
-                   "and so does not support seeking"))))
-
-(defun bongo-vlc-player-stop-timer (player)
-  (let ((timer (bongo-player-get player 'timer)))
-    (when timer
-      (cancel-timer timer)
-      (bongo-player-put player 'timer nil))))
-
-(defun bongo-vlc-player-tick (player)
-  (cond
-   ((not (bongo-player-running-p player))
-    (bongo-vlc-player-stop-timer player))
-   ((and (not (bongo-player-paused-p player))
-         (null (nthcdr 4 (bongo-player-get player 'pending-queries))))
-    (let ((process (bongo-player-process player)))
-      (process-send-string process "get_time\n")
-      (bongo-player-push player 'pending-queries 'time)
-      (when (null (bongo-player-total-time player))
-        (process-send-string process "get_length\n")
-        (bongo-player-push player 'pending-queries 'length))))))
-
-(defun bongo-vlc-player-start-timer (player)
-  (bongo-vlc-player-stop-timer player)
-  (let ((timer (run-with-timer bongo-vlc-initialization-period
-                               1 'bongo-vlc-player-tick player)))
-    (bongo-player-put player 'timer timer)))
-
-;;; XXX: What happens if a record is split between two calls
-;;;      to the process filter?
-(defun bongo-vlc-process-filter (process string)
-  (condition-case condition
-      (let ((player (bongo-process-get process 'bongo-player)))
-        (with-temp-buffer
-          (insert string)
-          (goto-char (point-min))
-          (while (not (eobp))
-            (cond
-             ((looking-at (eval-when-compile
-                            (rx line-start
-                                "status change:"
-                                (zero-or-more (or whitespace "("))
-                                (or "play" "stop") " state:"
-                                (zero-or-more whitespace)
-                                (submatch (one-or-more digit))
-                                (zero-or-more (or whitespace ")"))
-                                line-end)))
-              (case (string-to-number (match-string 1))
-                (0 (process-send-string process "quit\n"))
-                (1 (bongo-player-put player 'paused nil)
-                   (bongo-player-paused/resumed player)
-                   (when (null (bongo-player-get player 'timer))
-                     (bongo-vlc-player-start-timer player)))
-                (2 (bongo-player-put player 'paused t)
-                   (bongo-player-paused/resumed player))))
-             ((looking-at (eval-when-compile
-                            (rx line-start
-                                (submatch (one-or-more digit))
-                                (zero-or-more whitespace)
-                                line-end)))
-              (when (bongo-player-get player 'pending-queries)
-                (let ((value (string-to-number (match-string 1))))
-                  (ecase (bongo-player-shift player 'pending-queries)
-                    (time
-                     (bongo-player-put player 'elapsed-time value)
-                     (bongo-player-times-changed player))
-                    (length
-                     (bongo-player-put player 'total-time value)
-                     (bongo-player-times-changed player)))))))
-            (forward-line))))
-    ;; Getting errors in process filters is not fun, so stop.
-    (error (bongo-stop)
-           (signal (car condition) (cdr condition)))))
-
-(defun bongo-start-vlc-player (file-name)
-  (let* ((process-connection-type nil)
-         (arguments (append
-                     (when bongo-vlc-interactive
-                       (list "-I" "rc" "--rc-fake-tty"))
-                     (bongo-evaluate-program-arguments
-                      bongo-vlc-extra-arguments)
-                     (list file-name)))
-         (process (apply 'start-process "bongo-vlc" nil
-                         bongo-vlc-program-name arguments))
-         (player
-          (list 'vlc
-                (cons 'process process)
-                (cons 'file-name file-name)
-                (cons 'buffer (current-buffer))
-                (cons 'interactive bongo-vlc-interactive)
-                (cons 'pausing-supported bongo-vlc-interactive)
-                (cons 'seeking-supported bongo-vlc-interactive)
-                (cons 'paused nil)
-                (cons 'pause/resume 'bongo-vlc-player-pause/resume)
-                (cons 'seek-by 'bongo-vlc-player-seek-by)
-                (cons 'seek-to 'bongo-vlc-player-seek-to)
-                (cons 'seek-unit 'seconds))))
-    (prog1 player
-      (set-process-sentinel process 'bongo-default-player-process-sentinel)
-      (bongo-process-put process 'bongo-player player)
-      (when bongo-vlc-interactive
-        (set-process-filter process 'bongo-vlc-process-filter)))))
-
-
 ;;;; The mpg123 backend
 
 (define-bongo-backend mpg123
@@ -3844,6 +3675,173 @@ These will come at the end or right before the file name, if any."
       (when bongo-mplayer-interactive
         (set-process-filter process 'bongo-mplayer-process-filter)
         (bongo-mplayer-player-start-timer player)))))
+
+
+;;;; The VLC backend
+
+(define-bongo-backend vlc
+  :pretty-name "VLC"
+  :constructor 'bongo-start-vlc-player
+  ;; We define this variable manually so that we can get
+  ;; some other customization variables to appear before it.
+  :extra-program-arguments-variable nil
+  ;; Play generic URLs and files if the file extension
+  ;; matches that of some potentially supported format.
+  :matcher '((local-file "file:" "http:" "ftp:")
+             "ogg" "flac" "mp3" "mka" "wav" "wma"
+             "mpg" "mpeg" "vob" "avi" "ogm" "mp4" "mkv"
+             "mov" "asf" "wmv" "rm" "rmvb")
+  ;; Play special media URIs regardless of the file name.
+  :matcher '(("mms:" "udp:" "dvd:" "vcd:" "cdda:") . t)
+  ;; Play all HTTP URLs (necessary for many streams).
+  ;; XXX: This is not a good long-term solution.  (But it
+  ;;      would be good to keep this matcher as a fallback
+  ;;      if we could somehow declare that more specific
+  ;;      matchers should be tried first.)
+  :matcher '(("http:") . t))
+
+(defcustom bongo-vlc-interactive t
+  "If non-nil, use the remote control interface of VLC.
+Setting this to nil disables the pause and seek functionality."
+  :type 'boolean
+  :group 'bongo-vlc)
+
+(defcustom bongo-vlc-initialization-period 0.2
+  "Number of seconds to wait before querying VLC for time information.
+If this number is too low, there might be a short period of time right
+after VLC starts playing a track during which Bongo thinks that the total
+track length is unknown."
+  :type 'number
+  :group 'bongo-vlc)
+
+(defcustom bongo-vlc-extra-arguments nil
+  "Extra command-line arguments to pass to `vlc'.
+These will come at the end or right before the file name, if any."
+  :type '(repeat (choice string variable sexp))
+  :group 'bongo-vlc)
+
+(defun bongo-vlc-player-pause/resume (player)
+  (if (bongo-player-interactive-p player)
+      (process-send-string (bongo-player-process player) "pause\n")
+    (error (concat "This VLC process is not interactive "
+                   "and so does not support pausing"))))
+
+(defun bongo-vlc-player-seek-to (player seconds)
+  (if (bongo-player-interactive-p player)
+      (progn
+       (process-send-string
+        (bongo-player-process player)
+        (format "seek %f\n" seconds))
+       (bongo-player-sought player))
+    (error (concat "This VLC process is not interactive "
+                   "and so does not support seeking"))))
+
+(defun bongo-vlc-player-seek-by (player seconds)
+  (if (bongo-player-interactive-p player)
+      (let ((elapsed-time (or (bongo-player-elapsed-time player) 0)))
+        (bongo-vlc-player-seek-to player (+ elapsed-time seconds)))
+    (error (concat "This VLC process is not interactive "
+                   "and so does not support seeking"))))
+
+(defun bongo-vlc-player-stop-timer (player)
+  (let ((timer (bongo-player-get player 'timer)))
+    (when timer
+      (cancel-timer timer)
+      (bongo-player-put player 'timer nil))))
+
+(defun bongo-vlc-player-tick (player)
+  (cond
+   ((not (bongo-player-running-p player))
+    (bongo-vlc-player-stop-timer player))
+   ((and (not (bongo-player-paused-p player))
+         (null (nthcdr 4 (bongo-player-get player 'pending-queries))))
+    (let ((process (bongo-player-process player)))
+      (process-send-string process "get_time\n")
+      (bongo-player-push player 'pending-queries 'time)
+      (when (null (bongo-player-total-time player))
+        (process-send-string process "get_length\n")
+        (bongo-player-push player 'pending-queries 'length))))))
+
+(defun bongo-vlc-player-start-timer (player)
+  (bongo-vlc-player-stop-timer player)
+  (let ((timer (run-with-timer bongo-vlc-initialization-period
+                               1 'bongo-vlc-player-tick player)))
+    (bongo-player-put player 'timer timer)))
+
+;;; XXX: What happens if a record is split between two calls
+;;;      to the process filter?
+(defun bongo-vlc-process-filter (process string)
+  (condition-case condition
+      (let ((player (bongo-process-get process 'bongo-player)))
+        (with-temp-buffer
+          (insert string)
+          (goto-char (point-min))
+          (while (not (eobp))
+            (cond
+             ((looking-at (eval-when-compile
+                            (rx line-start
+                                "status change:"
+                                (zero-or-more (or whitespace "("))
+                                (or "play" "stop") " state:"
+                                (zero-or-more whitespace)
+                                (submatch (one-or-more digit))
+                                (zero-or-more (or whitespace ")"))
+                                line-end)))
+              (case (string-to-number (match-string 1))
+                (0 (process-send-string process "quit\n"))
+                (1 (bongo-player-put player 'paused nil)
+                   (bongo-player-paused/resumed player)
+                   (when (null (bongo-player-get player 'timer))
+                     (bongo-vlc-player-start-timer player)))
+                (2 (bongo-player-put player 'paused t)
+                   (bongo-player-paused/resumed player))))
+             ((looking-at (eval-when-compile
+                            (rx line-start
+                                (submatch (one-or-more digit))
+                                (zero-or-more whitespace)
+                                line-end)))
+              (when (bongo-player-get player 'pending-queries)
+                (let ((value (string-to-number (match-string 1))))
+                  (ecase (bongo-player-shift player 'pending-queries)
+                    (time
+                     (bongo-player-put player 'elapsed-time value)
+                     (bongo-player-times-changed player))
+                    (length
+                     (bongo-player-put player 'total-time value)
+                     (bongo-player-times-changed player)))))))
+            (forward-line))))
+    ;; Getting errors in process filters is not fun, so stop.
+    (error (bongo-stop)
+           (signal (car condition) (cdr condition)))))
+
+(defun bongo-start-vlc-player (file-name)
+  (let* ((process-connection-type nil)
+         (arguments (append
+                     (when bongo-vlc-interactive
+                       (list "-I" "rc" "--rc-fake-tty"))
+                     (bongo-evaluate-program-arguments
+                      bongo-vlc-extra-arguments)
+                     (list file-name)))
+         (process (apply 'start-process "bongo-vlc" nil
+                         bongo-vlc-program-name arguments))
+         (player
+          (list 'vlc
+                (cons 'process process)
+                (cons 'file-name file-name)
+                (cons 'buffer (current-buffer))
+                (cons 'interactive bongo-vlc-interactive)
+                (cons 'pausing-supported bongo-vlc-interactive)
+                (cons 'seeking-supported bongo-vlc-interactive)
+                (cons 'paused nil)
+                (cons 'pause/resume 'bongo-vlc-player-pause/resume)
+                (cons 'seek-by 'bongo-vlc-player-seek-by)
+                (cons 'seek-to 'bongo-vlc-player-seek-to)
+                (cons 'seek-unit 'seconds))))
+    (prog1 player
+      (set-process-sentinel process 'bongo-default-player-process-sentinel)
+      (bongo-process-put process 'bongo-player player)
+      (when bongo-vlc-interactive
+        (set-process-filter process 'bongo-vlc-process-filter)))))
 
 
 ;;;; Simple backends
