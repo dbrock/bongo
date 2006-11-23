@@ -8,7 +8,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: November 22, 2006
+;; Updated: November 23, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -2937,13 +2937,21 @@ This hook is only run for players started in Bongo buffers."
 (defvar bongo-player-sought-functions nil
   "Abnormal hook run after a Bongo player seeks.")
 
-(defun bongo-player-sought (player)
-  "Run the hooks appropriate for when PLAYER has sought."
+(defun bongo-player-sought (player method seconds)
+  "Run the hooks appropriate for when PLAYER has sought.
+METHOD is `:by' if the seek was relative or `:to' if it was absolute.
+SECONDS is the number of seconds sought."
   (save-current-buffer
     (when (buffer-live-p (bongo-player-buffer player))
       (set-buffer (bongo-player-buffer player)))
     (bongo-cancel-lastfm-timer player)
-    (run-hook-with-args 'bongo-player-sought-functions player)
+    (bongo-player-put player 'elapsed-time
+      (case method
+        (:to seconds)
+        (:by (+ (bongo-player-elapsed-time player) seconds))))
+    (bongo-player-times-changed player)
+    (run-hook-with-args 'bongo-player-sought-functions
+                        player method seconds)
     (when (bongo-buffer-p)
       (run-hooks 'bongo-player-sought-hook))))
 
@@ -3380,23 +3388,28 @@ These will come at the end or right before the file name, if any."
     (error (concat "This mpg123 process is not interactive "
                    "and so does not support pausing"))))
 
-(defun bongo-mpg123-player-seek-to (player position)
-  (if (bongo-player-interactive-p player)
-      (progn
-        (process-send-string (bongo-player-process player)
-                             (format "JUMP %d\n" position))
-        (bongo-player-sought player))
-    (error (concat "This mpg123 process is not interactive "
-                   "and so does not support seeking"))))
+(defun bongo-seconds-to-mp3-frames (seconds)
+  (* seconds 38.3))
 
-(defun bongo-mpg123-player-seek-by (player delta)
+(defun bongo-mpg123-player-seek-to (player seconds)
   (if (bongo-player-interactive-p player)
       (progn
         (process-send-string
          (bongo-player-process player)
-         (format "JUMP %s%d\n" (if (< delta 0) "-" "+")
-                 (* bongo-mpg123-seek-increment (abs delta))))
-        (bongo-player-sought player))
+         (format "JUMP %d\n"
+                 (bongo-seconds-to-mp3-frames seconds)))
+        (bongo-player-sought player :to seconds))
+    (error (concat "This mpg123 process is not interactive "
+                   "and so does not support seeking"))))
+
+(defun bongo-mpg123-player-seek-by (player seconds)
+  (if (bongo-player-interactive-p player)
+      (progn
+        (process-send-string
+         (bongo-player-process player)
+         (format "JUMP %s%d\n" (if (< seconds 0) "-" "+")
+                 (bongo-seconds-to-mp3-frames (abs seconds))))
+        (bongo-player-sought player :by seconds))
     (error (concat "This mpg123 process is not interactive "
                    "and so does not support seeking"))))
 
@@ -3553,7 +3566,8 @@ Setting this to nil disables the pause and seek functionality."
   :type 'boolean
   :group 'bongo-mplayer)
 
-(defcustom bongo-mplayer-seek-increment 5.0
+;; XXX: This variable is weird.
+(defcustom bongo-mplayer-seek-increment 3.0
   "The step size (in seconds) to use for relative seeking.
 This is used by `bongo-mplayer-seek-by'."
   :type 'float
@@ -3580,22 +3594,24 @@ These will come at the end or right before the file name, if any."
         (bongo-player-paused/resumed player))
     (error "This mplayer process does not support pausing")))
 
-(defun bongo-mplayer-player-seek-to (player position)
+(defun bongo-mplayer-player-seek-to (player seconds)
   (if (bongo-player-interactive-p player)
       (progn
        (process-send-string
         (bongo-player-process player)
-        (format "seek %f 2\n" position))
-       (bongo-player-sought player))
+        (format "seek %f 2\n" seconds))
+       (bongo-player-sought player :to seconds))
     (error "This mplayer process does not support seeking")))
 
-(defun bongo-mplayer-player-seek-by (player delta)
+(defun bongo-mplayer-player-seek-by (player seconds)
   (if (bongo-player-interactive-p player)
       (progn
+        ;; XXX: This is pretty, uh, weird.
+        (setq seconds (* bongo-mplayer-seek-increment seconds))
         (process-send-string
          (bongo-player-process player)
-         (format "seek %f 0\n" (* bongo-mplayer-seek-increment delta)))
-        (bongo-player-sought player))
+         (format "seek %f 0\n" seconds))
+        (bongo-player-sought player :by seconds))
     (error "This mplayer process does not support seeking")))
 
 (defun bongo-mplayer-player-start-timer (player)
@@ -3732,7 +3748,7 @@ These will come at the end or right before the file name, if any."
        (process-send-string
         (bongo-player-process player)
         (format "seek %f\n" seconds))
-       (bongo-player-sought player))
+       (bongo-player-sought player :to seconds))
     (error (concat "This VLC process is not interactive "
                    "and so does not support seeking"))))
 
