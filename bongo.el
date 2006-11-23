@@ -2668,7 +2668,7 @@ to automatically enable Bongo Last.fm mode in Bongo playlist buffers."
                formatted-infoset)
       (lastfm-submit artist-name track-title
                      (number-to-string (round length))
-                     (bongo-infoset-album-title infoset)) 
+                     (bongo-infoset-album-title infoset))
       (message "Submitted to Last.fm: %s" formatted-infoset))))
 
 (defun bongo-lastfm-submit-player (player)
@@ -2946,9 +2946,9 @@ SECONDS is the number of seconds sought."
       (set-buffer (bongo-player-buffer player)))
     (bongo-cancel-lastfm-timer player)
     (bongo-player-put player 'elapsed-time
-      (case method
-        (:to seconds)
-        (:by (+ (bongo-player-elapsed-time player) seconds))))
+      (max 0 (case method
+               (:to seconds)
+               (:by (+ (bongo-player-elapsed-time player) seconds)))))
     (bongo-player-times-changed player)
     (run-hook-with-args 'bongo-player-sought-functions
                         player method seconds)
@@ -3389,11 +3389,12 @@ These will come at the end or right before the file name, if any."
                    "and so does not support pausing"))))
 
 (defun bongo-seconds-to-mp3-frames (seconds)
-  (* seconds 38.3))
+  (round (* seconds 38.3)))
 
 (defun bongo-mpg123-player-seek-to (player seconds)
   (if (bongo-player-interactive-p player)
       (progn
+        (setq seconds (max seconds 0))
         (process-send-string
          (bongo-player-process player)
          (format "JUMP %d\n"
@@ -3597,10 +3598,11 @@ These will come at the end or right before the file name, if any."
 (defun bongo-mplayer-player-seek-to (player seconds)
   (if (bongo-player-interactive-p player)
       (progn
-       (process-send-string
-        (bongo-player-process player)
-        (format "seek %f 2\n" seconds))
-       (bongo-player-sought player :to seconds))
+        (setq seconds (max seconds 0))
+        (process-send-string
+         (bongo-player-process player)
+         (format "seek %f 2\n" seconds))
+        (bongo-player-sought player :to seconds))
     (error "This mplayer process does not support seeking")))
 
 (defun bongo-mplayer-player-seek-by (player seconds)
@@ -3745,10 +3747,11 @@ These will come at the end or right before the file name, if any."
 (defun bongo-vlc-player-seek-to (player seconds)
   (if (bongo-player-interactive-p player)
       (progn
-       (process-send-string
-        (bongo-player-process player)
-        (format "seek %f\n" seconds))
-       (bongo-player-sought player :to seconds))
+        (setq seconds (max seconds 0))
+        (process-send-string
+         (bongo-player-process player)
+         (format "seek %f\n" seconds))
+        (bongo-player-sought player :to seconds))
     (error (concat "This VLC process is not interactive "
                    "and so does not support seeking"))))
 
