@@ -1802,7 +1802,7 @@ signal `bongo-no-previous-object-line'."
   "Move point to the next object line, if possible.
 If NO-ERROR is non-nil, return non-nil if and only if point was moved.
 If NO-ERROR is not given or nil, and there is no next object line,
-signal `bongo-no-next-object-line'."
+signal `bongo-no-next-object'."
   (interactive "p")
   (let ((position (bongo-point-at-next-object-line)))
     (if position
@@ -1818,7 +1818,7 @@ signal `bongo-no-next-object-line'."
   "Move point to the next object line unless it is already on one.
 If point was already on an object line, return `point-not-moved'.
 If point was moved to the next object line, return `point-moved'.
-If there is no next object line, signal `bongo-no-next-object-line'.
+If there is no next object line, signal `bongo-no-next-object'.
 If NO-ERROR is non-nil, return nil instead of signalling an error."
   (interactive)
   (if (bongo-object-line-p)
@@ -5824,7 +5824,7 @@ If the region is active, ignore N and enqueue the region instead."
     (bongo-previous-object)
     (condition-case nil
         (bongo-transpose-forward)
-      (bongo-no-next-object-line
+      (bongo-no-next-object
        (error "No track or section at point")))))
 
 (defun bongo-delete-empty-sections ()
