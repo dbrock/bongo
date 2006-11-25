@@ -3491,7 +3491,7 @@ These will come at the end or right before the file name, if any."
   :matcher '((local-file "file:" "http:" "ftp:")
              "ogg" "flac" "mp3" "mka" "wav" "wma"
              "mpg" "mpeg" "vob" "avi" "ogm" "mp4" "mkv"
-             "mov" "asf" "wmv" "rm" "rmvb")
+             "mov" "asf" "wmv" "rm" "rmvb" "ts")
   ;; Play special media URIs regardless of the file name.
   :matcher '(("mms:" "mmst:" "rtp:" "rtsp:" "udp:" "unsv:"
               "dvd:" "vcd:" "tv:" "dvb:" "mf:" "cdda:" "cddb:"
@@ -3708,7 +3708,7 @@ These will come at the end or right before the file name, if any."
   :matcher '((local-file "file:" "http:" "ftp:")
              "ogg" "flac" "mp3" "mka" "wav" "wma"
              "mpg" "mpeg" "vob" "avi" "ogm" "mp4" "mkv"
-             "mov" "asf" "wmv" "rm" "rmvb")
+             "mov" "asf" "wmv" "rm" "rmvb" "ts")
   ;; Play special media URIs regardless of the file name.
   :matcher '(("mms:" "udp:" "dvd:" "vcd:" "cdda:") . t)
   ;; Play all HTTP URLs (necessary for many streams).
