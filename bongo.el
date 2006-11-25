@@ -87,6 +87,10 @@
 ;; prefix argument N to `bongo-stop' should insert a stop
 ;; sentinel pseudo-track after the Nth next track.
 
+;; Provide a way to specify that intermediate headers
+;; (cf. `bongo-insert-intermediate-headers') should be
+;; inserted even for singleton albums.
+
 ;;; Code:
 
 ;; Try to load this library so that we can decide whether to
