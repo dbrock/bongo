@@ -4982,9 +4982,11 @@ ACTION is ignored."
                    (before-point (bongo-point-before-line))
                    (after-point (bongo-point-after-line))
                    (otherwise (point-max))))
-      (if local-file-name
-          (bongo-insert-file local-file-name)
-        (bongo-insert-uri uri)))))
+      (if (not local-file-name)
+          (bongo-insert-uri uri)
+        (bongo-insert-file local-file-name)
+        (when (eq bongo-dnd-destination 'after-point)
+          (bongo-previous-object-line))))))
 
 
 ;;;; Collapsing and expanding
