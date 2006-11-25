@@ -8,7 +8,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: November 23, 2006
+;; Updated: November 25, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -93,8 +93,8 @@
 
 ;;; Code:
 
-;; Try to load this library so that we can decide whether to
-;; enable Bongo Last.fm mode by default.
+;; We try to load this library so that we can later decide
+;; whether to enable Bongo Last.fm mode by default.
 (require 'lastfm-submit nil 'no-error)
 
 (eval-when-compile
@@ -164,6 +164,14 @@ If there is no next track line, signal an error."
        (when (not (bongo-track-line-p))
          (error "No track at point"))
        ,@body)))
+
+(defmacro bongo-ignore-movement-errors (&rest body)
+  "Execute BODY; if a Bongo movement error occurs, return nil.
+Otherwise, return the value of the last form in BODY."
+  (declare (indent 0) (debug t))
+  `(condition-case nil
+       (progn ,@body)
+     (bongo-movement-error nil)))
 
 (defmacro bongo-until (test &rest body)
   "If TEST yields nil, evaluate BODY... and repeat.
@@ -1646,7 +1654,7 @@ An empty line at the end of the buffer doesn't count."
   "Return non-nil if POINT is on the last object line."
   (null (bongo-point-at-next-object-line point)))
 
-(defalias 'bongo-point-before-line #'bongo-point-at-bol
+(defalias 'bongo-point-before-line 'bongo-point-at-bol
   "Return the first character position of the line at POINT.")
 
 (defun bongo-point-after-line (&optional point)
@@ -1656,35 +1664,36 @@ after a line is the same as the point before the next line."
   (let ((eol (bongo-point-at-eol point)))
     (if (= eol (point-max)) eol (1+ eol))))
 
-(defalias 'bongo-point-snapped-backwards #'bongo-point-at-bol
-  "Return the first position before POINT that is ``between lines''.
-This is simply the first character position of the line at POINT.")
-
-(defun bongo-point-snapped-forwards (&optional point)
-  "Return the first position after POINT that is ``between lines''.
+(defun bongo-point-at-bol-forward (&optional point)
+  "Return the position of the first line beginning after or at POINT.
 If POINT is at the beginning of a line, just return POINT.
 Otherwise, return the first character position after the line at POINT."
+  (when (null point)
+    (setq point (point)))
   (if (= point (bongo-point-at-bol point))
       point
     (bongo-point-after-line point)))
 
+(define-obsolete-function-alias 'bongo-point-snapped-forwards
+  'bongo-point-at-bol-forward)
+
 (defun bongo-point-before-previous-line (&optional point)
-  "Return the first point of the line before the one at POINT.
+  "Return the first position of the line before the one at POINT.
 If the line at POINT is the first line, return nil."
   (unless (bongo-first-line-p point)
     (bongo-point-at-bol (1- (bongo-point-at-bol point)))))
 
 (defun bongo-point-before-next-line (&optional point)
-  "Return the first point of the line after the one at POINT.
+  "Return the first position of the line after the one at POINT.
 If the line at POINT is the last line, return nil."
   (unless (bongo-last-line-p point)
     (1+ (bongo-point-at-eol point))))
 
 (defalias 'bongo-point-at-previous-line
-  #'bongo-point-before-previous-line)
+  'bongo-point-before-previous-line)
 
 (defalias 'bongo-point-at-next-line
-  #'bongo-point-before-next-line)
+  'bongo-point-before-next-line)
 
 (defun bongo-point-before-previous-line-satisfying (predicate &optional point)
   "Return the position of the previous line satisfying PREDICATE.
@@ -1704,7 +1713,7 @@ If no matching line is found, return nil."
           (point))))))
 
 (defalias 'bongo-point-at-previous-line-satisfying
-  #'bongo-point-before-previous-line-satisfying)
+  'bongo-point-before-previous-line-satisfying)
 
 (defun bongo-point-before-next-line-satisfying (predicate &optional point)
   "Return the position of the next line satisfying PREDICATE.
@@ -1724,7 +1733,7 @@ If no matching line is found, return nil."
           (point))))))
 
 (defalias 'bongo-point-at-next-line-satisfying
-  #'bongo-point-before-next-line-satisfying)
+  'bongo-point-before-next-line-satisfying)
 
 (defun bongo-point-after-next-line-satisfying (predicate &optional point)
   "Return the position after the next line satisfying PREDICATE.
@@ -1742,7 +1751,7 @@ If no object line is found before the starting line, return nil."
   (bongo-point-before-previous-line-satisfying 'bongo-object-line-p point))
 
 (defalias 'bongo-point-at-previous-object-line
-  #'bongo-point-before-previous-object-line)
+  'bongo-point-before-previous-object-line)
 
 (defun bongo-point-before-next-object-line (&optional point)
   "Return the character position of the next object line.
@@ -1752,89 +1761,189 @@ If no object line is found after the starting line, return nil."
   (bongo-point-before-next-line-satisfying 'bongo-object-line-p point))
 
 (defalias 'bongo-point-at-next-object-line
-  #'bongo-point-before-next-object-line)
+  'bongo-point-before-next-object-line)
 
 (defun bongo-point-after-next-object-line (&optional point)
   "Return the character position after the next object line.
 This function works like `bongo-point-before-next-object-line'."
   (bongo-point-after-next-line-satisfying 'bongo-object-line-p point))
 
-(defun bongo-backward-object-line ()
-  "If possible, move point to the previous object line.
-If there is no previous object line, move to the beginning of the buffer.
-Return non-nil if point was moved to an object line."
-  (let ((position (bongo-point-at-previous-object-line)))
-    (prog1 (not (null position))
-      (goto-char (or position (point-min))))))
+(put 'bongo-no-previous-object
+     'error-conditions
+     '(error bongo-movement-error bongo-no-previous-object))
+(put 'bongo-no-previous-object
+     'error-message
+     "No previous section or track")
 
-(defun bongo-forward-object-line ()
-  "If possible, move point to the next object line.
-If there is no next object line, move to the end of the buffer.
-Return non-nil if point was moved to an object line."
-  (let ((position (bongo-point-at-next-object-line)))
-    (prog1 (not (null position))
-      (goto-char (or position (point-max))))))
-
-(defun bongo-backward-header-line (&optional n)
-  "Move N header lines forward.
-With negative N, move backward instead."
+(defun bongo-previous-object-line (&optional no-error)
+  "Move point to the previous object line, if possible.
+If NO-ERROR is non-nil, return non-nil if and only if point was moved.
+If NO-ERROR is not given or nil, and there is no previous object line,
+signal `bongo-no-previous-object-line'."
   (interactive "p")
-  (if (< n 0)
-      (bongo-forward-header-line (- n))
-    (dotimes (dummy n)
-      (let ((position (bongo-point-at-previous-line-satisfying
-                       'bongo-header-line-p)))
-        (cond (position (goto-char position))
-              ((interactive-p) (ding))
-              (t (signal 'beginning-of-buffer nil)))))))
+  (let ((position (bongo-point-at-previous-object-line)))
+    (if position
+        (prog1 'point-moved
+          (goto-char position))
+      (unless no-error
+        (signal 'bongo-no-previous-object nil)))))
 
-(defun bongo-forward-header-line (&optional n)
+(define-obsolete-function-alias 'bongo-backward-object-line
+  'bongo-previous-object-line)
+
+(put 'bongo-no-next-object
+     'error-conditions
+     '(error bongo-movement-error bongo-no-next-object))
+(put 'bongo-no-next-object
+     'error-message
+     "No next section or track")
+
+(defun bongo-next-object-line (&optional no-error)
+  "Move point to the next object line, if possible.
+If NO-ERROR is non-nil, return non-nil if and only if point was moved.
+If NO-ERROR is not given or nil, and there is no next object line,
+signal `bongo-no-next-object-line'."
+  (interactive "p")
+  (let ((position (bongo-point-at-next-object-line)))
+    (if position
+        (prog1 'point-moved
+          (goto-char position))
+      (unless no-error
+        (signal 'bongo-no-next-object nil)))))
+
+(define-obsolete-function-alias 'bongo-forward-object-line
+  'bongo-next-object-line)
+
+(defun bongo-snap-to-object-line (&optional no-error)
+  "Move point to the next object line unless it is already on one.
+If point was already on an object line, return `point-not-moved'.
+If point was moved to the next object line, return `point-moved'.
+If there is no next object line, signal `bongo-no-next-object-line'.
+If NO-ERROR is non-nil, return nil instead of signalling an error."
+  (interactive)
+  (if (bongo-object-line-p)
+      'point-not-moved
+    (bongo-next-object-line no-error)))
+
+(define-obsolete-function-alias 'bongo-maybe-forward-object-line
+  'bongo-snap-to-object-line)
+
+(put 'bongo-no-previous-header-line
+     'error-conditions
+     '(error bongo-movement-error bongo-no-previous-header-line))
+(put 'bongo-no-previous-header-line
+     'error-message
+     "No previous header line")
+
+(defun bongo-previous-header-line (&optional n)
   "Move N header lines backward.
 With negative N, move forward instead."
   (interactive "p")
   (if (< n 0)
-      (bongo-backward-header-line (- n))
+      (bongo-next-header-line (- n))
+    (dotimes (dummy n)
+      (let ((position (bongo-point-at-previous-line-satisfying
+                       'bongo-header-line-p)))
+        (if position
+            (goto-char position)
+          (signal 'bongo-no-previous-header-line nil))))))
+
+(define-obsolete-function-alias 'bongo-backward-header-line
+  'bongo-previous-header-line)
+
+(put 'bongo-no-next-header-line
+     'error-conditions
+     '(error bongo-movement-error bongo-no-next-header-line))
+(put 'bongo-no-next-header-line
+     'error-message
+     "No next header line")
+
+(defun bongo-next-header-line (&optional n)
+  "Move N header lines forward.
+With negative N, move backward instead."
+  (interactive "p")
+  (if (< n 0)
+      (bongo-previous-header-line (- n))
     (dotimes (dummy n)
       (let ((position (bongo-point-at-next-line-satisfying
                        'bongo-header-line-p)))
-        (cond (position (goto-char position))
-              ((interactive-p) (ding))
-              (t (signal 'end-of-buffer nil)))))))
+        (if position
+            (goto-char position)
+          (signal 'bongo-no-next-header-line nil))))))
 
-(defun bongo-backward-section (&optional n)
-  "Move backward across N balanced expressions.
-Here, a balanced expression is a track or a section."
+(define-obsolete-function-alias 'bongo-forward-header-line
+  'bongo-next-header-line)
+
+(defun bongo-backward-expression (&optional n)
+  "Move backward across one section, track, or stretch of text.
+With prefix argument N, do it that many times.
+With negative argument -N, move forward instead."
   (interactive "p")
   (when (null n)
     (setq n 1))
   (if (< n 0)
-      (bongo-forward-section (- n))
-    (when line-move-ignore-invisible
-      (bongo-skip-invisible))
-    (bongo-maybe-forward-object-line)
-    (while (and (> n 0) (not (bobp)))
-      (let ((original-indentation (bongo-line-indentation)))
-        (bongo-backward-object-line)
-        (when (> (bongo-line-indentation) original-indentation)
-          (bongo-backward-up-section)))
-      (setq n (- n 1)))))
+      (bongo-forward-expression (- n))
+    (catch 'done
+      (dotimes (dummy n)
+        (if (= (point) (point-min))
+            (throw 'done nil)
+          (goto-char (or (if (bongo-object-line-p)
+                             (or (bongo-point-before-previous-object)
+                                 (bongo-point-at-previous-object-line))
+                           (bongo-point-after-line
+                            (bongo-point-at-previous-object-line)))
+                         (point-min))))))))
 
-(defun bongo-forward-section (&optional n)
-  "Move forward across N balanced expressions.
-Here, a balanced expression is a track or a section.
+(define-obsolete-function-alias 'bongo-backward-section
+  'bongo-backward-expression)
+
+(defun bongo-forward-expression (&optional n)
+  "Move forward across one section, track, or stretch of text.
+With prefix argument N, do it that many times.
+With negative argument -N, move backward instead.
 This function is a suitable value for `forward-sexp-function'."
   (interactive "p")
-  (when (null n) (setq n 1))
+  (when (null n)
+    (setq n 1))
   (if (< n 0)
-      (bongo-backward-section (- n))
-    (when line-move-ignore-invisible
-      (bongo-skip-invisible))
-    (while (and (> n 0) (not (eobp)))
-      (bongo-maybe-forward-object-line)
-      (goto-char (if (bongo-header-line-p)
-                     (bongo-point-after-section)
-                   (bongo-point-after-line)))
-      (setq n (- n 1)))))
+      (bongo-backward-expression (- n))
+    (catch 'done
+      (dotimes (dummy n)
+        (if (= (point) (point-max))
+            (throw 'done nil)
+          (goto-char (or (if (bongo-object-line-p)
+                             (bongo-point-after-object)
+                           (bongo-point-before-next-object-line))
+                         (point-max))))))))
+
+(define-obsolete-function-alias 'bongo-forward-section
+  'bongo-forward-expression)
+
+(defun bongo-previous-object (&optional n)
+  "Move to the previous object (either section or track).
+With prefix argument N, do it that many times.
+With negative prefix argument -N, move forward instead."
+  (interactive "p")
+  (when (null n)
+    (setq n 1))
+  (if (< n 0)
+      (bongo-next-object (- n))
+    (dotimes (dummy n)
+      (goto-char (or (bongo-point-at-previous-object)
+                     (signal 'bongo-no-previous-object-line nil))))))
+
+(defun bongo-next-object (&optional n)
+  "Move to the next object (either section or track).
+With prefix argument N, do it that many times.
+With negative prefix argument -N, move backward instead."
+  (interactive "p")
+  (when (null n)
+    (setq n 1))
+  (if (< n 0)
+      (bongo-previous-object (- n))
+    (dotimes (dummy n)
+      (goto-char (or (bongo-point-at-next-object)
+                     (signal 'bongo-no-next-object nil))))))
 
 (defun bongo-point-before-next-track-line (&optional point)
   "Return the character position of the next track line.
@@ -1844,7 +1953,7 @@ If no track line is found after the starting line, return nil."
   (bongo-point-before-next-line-satisfying 'bongo-track-line-p point))
 
 (defalias 'bongo-point-at-next-track-line
-  #'bongo-point-before-next-track-line)
+  'bongo-point-before-next-track-line)
 
 (defun bongo-point-before-previous-track-line (&optional point)
   "Return the character position of the previous track line.
@@ -1854,22 +1963,67 @@ If no track line is found before the starting line, return nil."
   (bongo-point-before-previous-line-satisfying 'bongo-track-line-p point))
 
 (defalias 'bongo-point-at-previous-track-line
-  #'bongo-point-before-previous-track-line)
+  'bongo-point-before-previous-track-line)
 
-(defun bongo-point-after-section (&optional point)
-  "Return the point after the section with its header on POINT."
-  (unless (bongo-header-line-p point)
-    (error "Point is not on a section header"))
+(defun bongo-point-after-object (&optional point)
+  "Return the character position after the object at POINT.
+By object is meant either section or track.
+If there are no sections or tracks at POINT, return nil."
   (save-excursion
     (bongo-goto-point point)
-    (let ((indentation (bongo-line-indentation))
-          (after-last (bongo-point-after-line)))
-      (bongo-forward-object-line)
-      (while (and (> (bongo-line-indentation) indentation)
-                  (not (eobp)))
-        (setq after-last (bongo-point-after-line))
-        (bongo-forward-object-line))
-      after-last)))
+    (when line-move-ignore-invisible
+      (bongo-skip-invisible))
+    (when (bongo-snap-to-object-line 'no-error)
+      (let ((indentation (bongo-line-indentation)))
+        (let ((after-last nil))
+          (bongo-ignore-movement-errors
+            (while (progn
+                     (setq after-last (bongo-point-after-line))
+                     (bongo-next-object-line)
+                     (> (bongo-line-indentation) indentation))))
+          after-last)))))
+
+(define-obsolete-function-alias 'bongo-point-after-section
+  'bongo-point-after-object)
+
+(defun bongo-point-at-next-object (&optional point)
+  "Return the character position of the object after the one at POINT.
+By object is meant either section or track.
+If there are no sections or tracks after the one at POINT, return nil."
+  (save-excursion
+    (if (bongo-object-line-p point)
+        (let ((indentation (bongo-line-indentation point)))
+          (goto-char (bongo-point-after-object point))
+          (bongo-snap-to-object-line)
+          (if (= (bongo-line-indentation) indentation)
+              (point)
+            (signal 'bongo-no-next-object nil)))
+      (bongo-goto-point point)
+      (bongo-snap-to-object-line))))
+
+(defun bongo-point-before-previous-object (&optional point)
+  "Return the character position of the object previous to POINT.
+By object is meant either section or track.
+If there are no sections or tracks before POINT, return nil."
+  (save-excursion
+    (bongo-goto-point point)
+    (when line-move-ignore-invisible
+      (bongo-skip-invisible))
+    (let ((indentation (if (bongo-snap-to-object-line 'no-error)
+                           (bongo-line-indentation)
+                         0)))
+      (bongo-ignore-movement-errors
+        (while (progn
+                 (bongo-previous-object-line)
+                 (> (bongo-line-indentation) indentation)))
+        (when (= (bongo-line-indentation) indentation)
+          (bongo-point-before-line))))))
+
+(define-obsolete-function-alias 'bongo-point-before-previous-section
+  'bongo-point-before-previous-object)
+
+(defalias 'bongo-point-at-previous-object
+  'bongo-point-before-previous-object)
 
 (defun bongo-point-at-first-track-line ()
   "Return the character position of the first track line, or nil."
@@ -2062,10 +2216,7 @@ That is, the header line of a section that has no content."
   (and (bongo-header-line-p point)
        (or (bongo-last-object-line-p point)
            (not (> (bongo-line-indentation
-                    (save-excursion
-                      (bongo-goto-point point)
-                      (bongo-forward-object-line)
-                      (point)))
+                    (bongo-point-at-next-object-line point))
                    (bongo-line-indentation point))))))
 
 
@@ -2191,8 +2342,8 @@ Key comparisons are done with `eq'.  Order is *not* preserved."
                       property value)))
 
 (when (and (fboundp 'process-put) (fboundp 'process-get))
-  (defalias 'bongo-process-get #'process-get)
-  (defalias 'bongo-process-put #'process-put))
+  (defalias 'bongo-process-get 'process-get)
+  (defalias 'bongo-process-put 'process-put))
 
 
 ;;;; Line-oriented convenience routines
@@ -2323,16 +2474,16 @@ the region share the same value for the field."
     (let ((last-value nil)
           (result t))
       (goto-char beg)
-      (when (not (bongo-object-line-p))
-        (bongo-forward-object-line))
-      (when (< (point) end)
-        (if (null (setq last-value (bongo-line-field-value field)))
-            (setq result nil)
-          (bongo-forward-object-line)
-          (while (and result (< (point) end))
-            (if (equal last-value (bongo-line-field-value field))
-                (bongo-forward-object-line)
-              (setq result nil)))))
+      (bongo-ignore-movement-errors
+        (bongo-snap-to-object-line)
+        (when (< (point) end)
+          (if (null (setq last-value (bongo-line-field-value field)))
+              (setq result nil)
+            (bongo-next-object-line)
+            (while (and result (< (point) end))
+              (if (equal last-value (bongo-line-field-value field))
+                  (bongo-next-object-line)
+                (setq result nil))))))
       result)))
 
 ;; XXX: This will not work properly unless the fields are
@@ -2435,23 +2586,24 @@ This function respects `bongo-insert-intermediate-headers',
     ;; the externalizable fields of the current line is equal to the
     ;; proposed external fields of the existing header line.
     (let ((potential (bongo-line-potential-external-fields point)))
-      (save-excursion
-        ;; We begin the search on the previous line.
-        (bongo-backward-object-line)
-        ;; If this is a header line, it might be the one we are
-        ;; looking for.
-        (or (and (bongo-header-line-p)
-                 (let ((proposal (bongo-line-external-fields-proposal)))
-                   (and (bongo-subset-p potential proposal) proposal)))
-            ;; If not, continue the search by backing up to the parent
-            ;; header line while there still is one.
-            (let (fields)
-              (while (and (null fields) (bongo-line-indented-p))
-                (bongo-backward-up-section)
-                (let ((proposal (bongo-line-external-fields-proposal)))
-                  (when (bongo-subset-p potential proposal)
-                    (setq fields proposal))))
-              fields))))))
+      (bongo-ignore-movement-errors
+        (save-excursion
+          ;; We begin the search on the previous line.
+          (bongo-previous-object-line)
+          ;; If this is a header line, it might be the one we are
+          ;; looking for.
+          (or (and (bongo-header-line-p)
+                   (let ((proposal (bongo-line-external-fields-proposal)))
+                     (and (bongo-subset-p potential proposal) proposal)))
+              ;; If not, continue the search by backing up to the parent
+              ;; header line while there still is one.
+              (let (fields)
+                (while (and (null fields) (bongo-line-indented-p))
+                  (bongo-backward-up-section)
+                  (let ((proposal (bongo-line-external-fields-proposal)))
+                    (when (bongo-subset-p potential proposal)
+                      (setq fields proposal))))
+                fields)))))))
 
 (defun bongo-redundant-header-line-p (&optional point)
   "Return non-nil if the line at POINT is a redundant header.
@@ -2461,13 +2613,16 @@ Redundant headers are headers whose internal fields are all externalizable."
                           (bongo-line-internal-fields point))))
 
 (defun bongo-down-section (&optional n)
-  "Move to the first object line in the section.
-Otherwise signal an error."
+  "Move to the first object line in the section at point.
+With N, repeat that many times.
+If there are not enough sections at point, signal an error."
   (interactive "p")
-  (when (null n) (setq n 1))
+  (when (null n)
+    (setq n 1))
   (while (> n 0)
+    (bongo-snap-to-object-line)
     (if (bongo-header-line-p)
-        (bongo-forward-object-line)
+        (bongo-next-object-line)
       (error "No section here"))
     (setq n (- n 1))))
 
@@ -2475,26 +2630,15 @@ Otherwise signal an error."
   "Move to the header line of this section.
 With N, repeat that many times."
   (interactive "p")
-  (when (null n) (setq n 1))
+  (when (null n)
+    (setq n 1))
   (while (> n 0)
     (let ((indentation (bongo-line-indentation)))
       (when (zerop indentation)
         (error "Already at the top level"))
-      (bongo-backward-object-line)
-      (while (>= (bongo-line-indentation) indentation)
-        (unless (bongo-backward-object-line)
-          (error "Broken sectioning"))))
+      (while (progn (bongo-previous-object-line)
+                    (>= (bongo-line-indentation) indentation))))
     (setq n (- n 1))))
-
-(defun bongo-maybe-forward-object-line ()
-  (interactive)
-  (if (bongo-object-line-p) t
-    (bongo-forward-object-line)))
-
-(defun bongo-maybe-backward-object-line ()
-  (interactive)
-  (if (bongo-object-line-p) t
-    (bongo-backward-object-line)))
 
 (defun bongo-maybe-insert-intermediate-header ()
   "Make sure that the current line has a suitable header.
@@ -4310,7 +4454,8 @@ With prefix argument N, skip that many tracks."
 If there is no next track to play, stop playback.
 With prefix argument N, skip that many tracks."
   (interactive "p")
-  (or n (setq n 1))
+  (when (null n)
+    (setq n 1))
   (with-bongo-playlist-buffer
     (let ((line-move-ignore-invisible nil)
           (position (bongo-point-at-current-track-line))
@@ -4732,11 +4877,11 @@ Point is left immediately after the new line."
       (bongo-delete-line)
     (bongo-redisplay-line)
     (if (or (bongo-header-line-p)
-             (bongo-last-object-line-p)
-             (>= (bongo-line-indentation)
-                 (save-excursion
-                   (bongo-forward-object-line)
-                   (bongo-line-indentation))))
+            (bongo-last-object-line-p)
+            (>= (bongo-line-indentation)
+                (save-excursion
+                  (bongo-next-object-line)
+                  (bongo-line-indentation))))
         (forward-line)
       (forward-line)
       (bongo-insert-header))))
@@ -4794,10 +4939,10 @@ Only do it if `bongo-join-inserted-tracks' is non-nil."
     (unless (markerp end)
       (setq end (move-marker (make-marker) end)))
     (goto-char beg)
-    (unless (bongo-object-line-p)
-      (bongo-forward-object-line))
-    (while (< (point) end)
-      (bongo-join 'skip))))
+    (bongo-ignore-movement-errors
+      (bongo-snap-to-object-line)
+      (while (< (point) end)
+        (bongo-join 'skip)))))
 
 (defun bongo-insert-directory (directory-name)
   "Insert a new track line for each file in DIRECTORY-NAME.
@@ -5012,14 +5157,14 @@ If called interactively, SKIP is always non-nil."
   (let ((line-move-ignore-invisible nil))
     (bongo-line-set-property 'bongo-collapsed t)
     (bongo-redisplay-line)
-    (let ((end (bongo-point-after-section)))
+    (let ((end (bongo-point-at-next-object)))
       (forward-line 1)
       (let ((inhibit-read-only t))
         (put-text-property (point) end 'invisible t))
       (if (not skip)
           (forward-line -1)
         (goto-char end)
-        (bongo-maybe-forward-object-line)))))
+        (bongo-snap-to-object-line 'no-error)))))
 
 (defun bongo-expand (&optional skip)
   "Expand the section below the header line at point.
@@ -5042,15 +5187,16 @@ If called interactively, SKIP is always non-nil."
     (bongo-line-remove-property 'bongo-collapsed)
     (bongo-redisplay-line)
     (put-text-property (bongo-point-after-line)
-                       (bongo-point-after-section)
+                       (bongo-point-after-object)
                        'invisible nil)
     (let ((indentation (bongo-line-indentation)))
-      (bongo-forward-object-line)
-      (while (and (> (bongo-line-indentation) indentation)
-                  (not (eobp)))
-        (if (bongo-collapsed-header-line-p)
+      (bongo-ignore-movement-errors
+        (bongo-next-object-line)
+        (while (> (bongo-line-indentation) indentation)
+          (if (not (bongo-collapsed-header-line-p))
+              (bongo-next-object-line)
             (bongo-collapse 'skip)
-          (bongo-forward-object-line))))
+            (bongo-snap-to-object-line)))))
     (when (not skip)
       (goto-char start))))
 
@@ -5095,10 +5241,11 @@ This function creates a new header if necessary."
       (goto-char beg)
       (beginning-of-line)
       (let ((indent (length fields)))
-        (while (< (point) end)
-          (when (< (bongo-line-indentation) indent)
-            (bongo-line-set-external-fields fields))
-          (bongo-forward-object-line)))
+        (bongo-ignore-movement-errors
+          (while (< (point) end)
+            (when (< (bongo-line-indentation) indent)
+              (bongo-line-set-external-fields fields))
+            (bongo-next-object-line))))
       (move-marker end nil)
 ;;;     (when (bongo-redundant-header-line-p)
 ;;;       (bongo-delete-line))
@@ -5124,25 +5271,28 @@ When called interactively, SKIP is always non-nil."
     (let* ((line-move-ignore-invisible nil)
            (fields (bongo-common-fields-at-point)))
       (if (null fields)
-          (if (not skip)
-              (error "No common fields at point")
-            (bongo-forward-object-line))
+          (if skip
+              (progn (bongo-snap-to-object-line)
+                     (or (bongo-next-object-line 'no-error)
+                         (bongo-forward-expression)))
+            (error "No common fields at point"))
         (let ((values (bongo-line-field-values fields))
               (before (bongo-point-before-line))
               (after (bongo-point-after-line)))
           (save-excursion
-            (while (and (bongo-backward-object-line)
+            (while (and (bongo-previous-object-line 'no-error)
                         (equal values (bongo-line-field-values fields)))
               (setq before (bongo-point-before-line))))
           (save-excursion
-            (while (and (bongo-forward-object-line)
+            (while (and (bongo-next-object-line 'no-error)
                         (equal values (bongo-line-field-values fields)))
               (setq after (bongo-point-after-line))))
           (setq after (move-marker (make-marker) after))
           (bongo-join-region before after fields)
-          (when skip (goto-char after))
+          (when skip
+            (goto-char after))
           (move-marker after nil)
-          (bongo-maybe-forward-object-line))))))
+          (bongo-snap-to-object-line 'no-error))))))
 
 (defun bongo-split (&optional skip)
   "Split the section below the header line at point.
@@ -5155,35 +5305,38 @@ If point is neither on a header line nor in a section,
 If called interactively, SKIP is always non-nil."
   (interactive "p")
   (when (not (bongo-object-line-p))
-    (bongo-backward-object-line))
-  (when (not (bongo-object-line-p))
-    (error "No bongo object here"))
-  (when (and (bongo-track-line-p) (bongo-line-indented-p))
+    (or (bongo-previous-object-line 'no-error)
+        (error "No section or track here")))
+  (when (and (bongo-track-line-p)
+             (bongo-line-indented-p))
     (bongo-backward-up-section))
   (if (bongo-track-line-p)
-      (if (not skip)
-          (error "No section here")
-        (unless (bongo-last-object-line-p)
-          (bongo-forward-object-line)))
+      (if skip
+          (or (bongo-next-object-line 'no-error)
+              (bongo-forward-expression))
+        (error "No section here"))
     (when (bongo-collapsed-header-line-p)
       (bongo-expand))
     (when line-move-ignore-invisible
       (bongo-skip-invisible))
     (let ((line-move-ignore-invisible nil))
       (let ((fields (bongo-line-internal-fields))
-            (end (move-marker (make-marker) (bongo-point-after-section))))
+            (end (move-marker (make-marker) (bongo-point-after-object))))
         (bongo-delete-line)
         (let ((start (point)))
-          (while (< (point) end)
-            (let* ((previous (point))
-                   (old-external (bongo-line-external-fields))
-                   (new-external (bongo-set-difference old-external fields)))
-              (bongo-forward-section)
-              (bongo-line-set-external-fields new-external previous)))
+          (bongo-ignore-movement-errors
+            (while (< (point) end)
+              (let* ((previous (point))
+                     (old-external
+                      (bongo-line-external-fields))
+                     (new-external
+                      (bongo-set-difference old-external fields)))
+                (bongo-next-object)
+                (bongo-line-set-external-fields new-external previous))))
           (move-marker end nil)
           (when (not skip)
             (goto-char start))
-          (bongo-maybe-forward-object-line))))))
+          (bongo-snap-to-object-line 'no-error))))))
 
 
 ;;;; Displaying
@@ -5212,6 +5365,7 @@ If the value is a symbol, treat it as if it were a singleton list."
         (infoset (bongo-line-internal-infoset))
         (header (bongo-header-line-p))
         (collapsed (bongo-collapsed-header-line-p))
+        (invisible (bongo-line-get-property 'invisible))
         (currently-playing (bongo-currently-playing-track-line-p))
         (played (bongo-played-track-line-p))
         (properties (bongo-line-get-semantic-properties)))
@@ -5219,8 +5373,10 @@ If the value is a symbol, treat it as if it were a singleton list."
       (bongo-clear-line)
       (dotimes (dummy indentation)
         (insert bongo-indentation-string))
-      (let ((content (propertize (bongo-format-infoset infoset)
-                                 'follow-link t 'mouse-face 'highlight)))
+      (let ((content (apply 'propertize (bongo-format-infoset infoset)
+                            'follow-link t 'mouse-face 'highlight
+                            (when invisible
+                              (list 'invisible invisible)))))
         (insert
          (cond (header
                 (bongo-format-header content collapsed))
@@ -5238,19 +5394,21 @@ If the value is a symbol, treat it as if it were a singleton list."
     (error "Not a Bongo buffer"))
   (let ((target-string (if (and (= beg (point-min))
                                 (= end (point-max)))
-                           "buffer" "region")))
+                           "buffer" "region"))
+        (line-move-ignore-invisible nil)
+        (end-marker (move-marker (make-marker) end)))
     (save-excursion
      (when (interactive-p)
        (message "Rendering %s..." target-string))
-     (goto-char (point-min))
-     (bongo-maybe-forward-object-line)
-     (while (not (eobp))
-       (when (interactive-p)
-         (message "Rendering %s...%d%%" target-string
-                  (/ (* 100 (point)) (point-max))))
-       (when (bongo-object-line-p)
-         (bongo-redisplay-line))
-       (bongo-forward-object-line))
+     (goto-char beg)
+     (bongo-ignore-movement-errors
+       (bongo-snap-to-object-line)
+       (while (< (point) end-marker)
+         (when (interactive-p)
+           (message "Rendering %s...%d%%" target-string
+                    (/ (* 100 (point)) (point-max))))
+         (bongo-redisplay-line)
+         (bongo-next-object-line)))
      (when (interactive-p)
        (message "Rendering %s...done" target-string)))))
 
@@ -5346,8 +5504,10 @@ Return the description string."
 ;;;; Killing and yanking commands
 
 (defun bongo-kill-line ()
-  "In Bongo, kill the current line.
-If the current line is a header line, copy the whole section.
+  "In Bongo, kill the current section, track, or line.
+If the current line is a header line, kill the whole section.
+If the current line is a track line, kill the track.
+Otherwise, just kill the line as `kill-line' would.
 See also `bongo-copy-line-as-kill'."
   (interactive)
   (let ((inhibit-read-only t))
@@ -5371,40 +5531,42 @@ See also `bongo-copy-line-as-kill'."
         (beginning-of-line)
         (when line-move-ignore-invisible
           (bongo-skip-invisible))
-        (kill-region (point) (bongo-point-after-section))))
+        (let ((line-move-ignore-invisible nil))
+          (kill-region (point) (bongo-point-after-object)))))
      (t
-      (kill-line)))
-;;;     (when (bongo-redundant-header-at-point-p)
-;;;       (bongo-delete-line))
-    ))
+      (kill-line)))))
 
 (defun bongo-copy-line-as-kill (&optional skip)
-  "In Bongo, save the current line as if killed, but don't kill it.
+  "In Bongo, save the current object as if killed, but don't kill it.
 If the current line is a header line, copy the whole section.
-If SKIP is non-nil, then move point to the next object line.
+If the current line is a track line, copy the track.
+Otherwise, just copy the current line.
+
+If SKIP is non-nil, move point past the copied text after copying.
+Interactively, SKIP is always non-nil.
+
 See also `bongo-kill-line'."
   (interactive "p")
   (when (eq last-command 'bongo-copy-line-as-kill)
     (append-next-kill))
-  (copy-region-as-kill (bongo-point-before-line)
-                       (if (bongo-header-line-p)
-                           (bongo-point-after-section)
-                         (bongo-point-after-line)))
-  (when skip
-    (bongo-forward-section)))
+  (let ((end (if (bongo-object-line-p)
+                 (bongo-point-after-object)
+               (bongo-point-after-line))))
+    (copy-region-as-kill (bongo-point-before-line) end)
+    (when skip
+      (goto-char end))))
 
 (defun bongo-kill-region (&optional beg end)
   "In Bongo, kill the lines between point and mark.
-If the region ends inside a section, kill the whole section.
+If the region ends inside a section, kill that whole section.
 See `kill-region'."
   (interactive "r")
   (setq end (move-marker (make-marker) end))
   (save-excursion
     (goto-char beg)
-    (bongo-kill-line)
-    (while (< (point) end)
-      (append-next-kill)
-      (bongo-kill-line)))
+    (while (progn (bongo-kill-line)
+                  (< (point) end))
+      (append-next-kill)))
   (move-marker end nil))
 
 (defun bongo-clean-up-after-insertion (beg end)
@@ -5412,20 +5574,20 @@ See `kill-region'."
         (line-move-ignore-invisible nil))
     (save-excursion
       (goto-char beg)
-      (when (not (bongo-object-line-p))
-        (bongo-forward-object-line))
-      (while (and (< (point) end))
-        (let ((player (bongo-line-get-property 'bongo-player)))
-          (when player
-            (if (and (eq player bongo-player)
-                     (null (bongo-point-at-current-track-line)))
-                (bongo-set-current-track-position (point-at-bol))
-              (bongo-line-remove-property 'bongo-player))))
-        (unless (bongo-point-at-queued-track-line)
-          (when (bongo-line-get-property 'bongo-queued-track-flag)
-            (bongo-line-remove-property 'bongo-queued-track-flag)
-            (bongo-set-queued-track-position)))
-        (bongo-forward-object-line))
+      (bongo-ignore-movement-errors
+        (bongo-snap-to-object-line)
+        (while (< (point) end)
+          (let ((player (bongo-line-get-property 'bongo-player)))
+            (when player
+              (if (and (eq player bongo-player)
+                       (null (bongo-point-at-current-track-line)))
+                  (bongo-set-current-track-position (point-at-bol))
+                (bongo-line-remove-property 'bongo-player))))
+          (unless (bongo-point-at-queued-track-line)
+            (when (bongo-line-get-property 'bongo-queued-track-flag)
+              (bongo-line-remove-property 'bongo-queued-track-flag)
+              (bongo-set-queued-track-position)))
+          (bongo-next-object-line)))
       ;; These headers will stay if they are needed,
       ;; or disappear automatically otherwise.
       (goto-char beg)
@@ -5435,9 +5597,8 @@ See `kill-region'."
         (bongo-insert-header))
       ;; In case the upper header does disappear,
       ;; we need to merge backwards to connect.
-      (when (not (bongo-object-line-p))
-        (bongo-forward-object-line))
-      (when (< (point) end)
+      (bongo-ignore-movement-errors
+        (bongo-snap-to-object-line)
         (bongo-externalize-fields))
       (move-marker end nil))))
 
@@ -5449,8 +5610,7 @@ See `kill-region'."
     (let ((beg (point)))
       (insert text)
       (when redisplay-flag
-        (let ((line-move-ignore-invisible t))
-          (bongo-redisplay-region beg (point))))
+        (bongo-redisplay-region beg (point)))
       (bongo-clean-up-after-insertion beg (point)))))
 
 (defun bongo-insert-comment (text)
@@ -5467,7 +5627,9 @@ See `yank'."
     (beginning-of-line)
     (when line-move-ignore-invisible
       (bongo-skip-invisible))
-    (yank arg)
+    (let ((yank-excluded-properties
+           (remq 'invisible yank-excluded-properties)))
+      (yank arg))
     (bongo-clean-up-after-insertion
      (region-beginning) (region-end))))
 
@@ -5541,9 +5703,12 @@ If MODE is `append', append the tracks to the end of the playlist."
                    (while (< (point) end)
                      (let ((point-before-first-line (point))
                            (point-after-first-line (bongo-point-after-line)))
-                       (bongo-forward-section)
+                       (when (and (prog1 (bongo-object-line-p)
+                                    (bongo-forward-expression))
+                                  (> (point) end))
+                         (goto-char end))
                        (when (> (point) end)
-                         (goto-char (bongo-point-snapped-forwards end)))
+                         (goto-char (bongo-point-at-bol-forward end)))
                        (let ((first-line
                               (buffer-substring point-before-first-line
                                                 point-after-first-line))
@@ -5580,15 +5745,19 @@ Afterwards, if SKIP is non-nil, move point past the enqueued objects.
 If MODE is `insert', insert just below the current track.
 If MODE is `append', append to the end of the playlist.
 Return the playlist position of the newly-inserted text."
+  (when (null n)
+    (setq n 1))
   (when line-move-ignore-invisible
     (bongo-skip-invisible))
   (let ((line-move-ignore-invisible nil))
     (let ((beg (point))
-          (end (dotimes (dummy (or n 1) (point))
-                 (bongo-forward-section))))
+          (end (dotimes (dummy (abs n) (point))
+                 (if (> n 0)
+                     (bongo-next-object)
+                   (bongo-previous-object)))))
       (when (not skip)
         (goto-char beg))
-      (bongo-enqueue-region mode beg end))))
+      (bongo-enqueue-region mode (min beg end) (max beg end)))))
 
 (defun bongo-insert-enqueue-line (&optional n)
   "Insert the next N tracks or sections just below the current track.
@@ -5635,32 +5804,55 @@ If the region is active, ignore N and enqueue the region instead."
 
 ;;;; Miscellaneous commands
 
+(defun bongo-transpose-forward ()
+  "Transpose the section or track at point forward."
+  (interactive)
+  (let ((beg (bongo-point-before-line))
+        (mid (bongo-point-at-next-object)))
+    (when (null mid)
+      (error "No track or section at point"))
+    (let ((end (bongo-point-after-object mid)))
+      (when (null end)
+        (signal 'bongo-no-next-object nil))
+      (let ((inhibit-read-only t))
+        (transpose-regions beg mid mid end)))))
+
+(defun bongo-transpose-backward ()
+  "Transpose the section or track at point backward."
+  (interactive)
+  (save-excursion
+    (bongo-previous-object)
+    (condition-case nil
+        (bongo-transpose-forward)
+      (bongo-no-next-object-line
+       (error "No track or section at point")))))
+
 (defun bongo-delete-empty-sections ()
   "Delete all empty sections from the current Bongo buffer."
-  (let ((inhibit-read-only t))
+  (let ((inhibit-read-only t)
+        (line-move-ignore-invisible nil))
     (save-excursion
       (goto-char (point-min))
-      (bongo-maybe-forward-object-line)
-      (while (bongo-object-line-p)
-        (if (not (bongo-empty-section-p))
-            (bongo-forward-object-line)
-          (bongo-delete-line)
-          (bongo-maybe-forward-object-line))))))
+      (bongo-ignore-movement-errors
+        (while (bongo-snap-to-object-line)
+          (if (not (bongo-empty-section-p))
+              (bongo-next-object-line)
+            (bongo-delete-line)))))))
 
 (defun bongo-delete-played-tracks ()
   "Delete all played tracks from the Bongo playlist."
   (interactive)
   (with-bongo-playlist-buffer
-    (let ((inhibit-read-only t))
+    (let ((inhibit-read-only t)
+          (line-move-ignore-invisible nil))
       (save-excursion
         (goto-char (point-min))
-        (bongo-maybe-forward-object-line)
-        (while (bongo-object-line-p)
-          (if (or (not (bongo-played-track-line-p))
-                  (bongo-currently-playing-track-line-p))
-              (bongo-forward-object-line)
-            (bongo-delete-line)
-            (bongo-maybe-forward-object-line)))
+        (bongo-ignore-movement-errors
+          (while (bongo-snap-to-object-line)
+            (if (or (not (bongo-played-track-line-p))
+                    (bongo-currently-playing-track-line-p))
+                (bongo-next-object-line)
+              (bongo-delete-line))))
         (bongo-delete-empty-sections)))))
 
 (defun bongo-erase-buffer ()
@@ -5712,12 +5904,12 @@ This function uses `bongo-update-references-to-renamed-files'."
             (when (bongo-buffer-p buffer)
               (set-buffer buffer)
               (goto-char (point-min))
-              (bongo-maybe-forward-object-line)
-              (while (not (eobp))
-                (when (string-equal (bongo-line-file-name) old-name)
-                  (bongo-delete-line)
-                  (bongo-insert-line 'bongo-file-name new-name))
-                (bongo-forward-object-line))))
+              (bongo-ignore-movement-errors
+                (while (bongo-snap-to-object-line)
+                  (when (string-equal (bongo-line-file-name) old-name)
+                    (bongo-delete-line)
+                    (bongo-insert-line 'bongo-file-name new-name))
+                  (bongo-next-object-line)))))
         (bongo-delete-line)
         (bongo-insert-line 'bongo-file-name new-name)))))
 
@@ -5845,11 +6037,11 @@ instead, use high-level functions such as `save-buffer'."
     (define-key map "p" 'previous-line)
     (define-key map "n" 'next-line)
     (substitute-key-definition
-     'backward-paragraph 'bongo-backward-header-line map global-map)
+     'backward-paragraph 'bongo-previous-header-line map global-map)
     (substitute-key-definition
-     'forward-paragraph 'bongo-forward-header-line map global-map)
-    (define-key map "\M-p" 'bongo-backward-header-line)
-    (define-key map "\M-n" 'bongo-forward-header-line)
+     'forward-paragraph 'bongo-next-header-line map global-map)
+    (define-key map "\M-p" 'bongo-previous-header-line)
+    (define-key map "\M-n" 'bongo-next-header-line)
     (define-key map "c" 'bongo-copy-line-as-kill)
     (define-key map "k" 'bongo-kill-line)
     (substitute-key-definition
@@ -5878,6 +6070,8 @@ instead, use high-level functions such as `save-buffer'."
     (define-key map "iu" 'bongo-insert-uri)
     (define-key map "e" 'bongo-append-enqueue)
     (define-key map "E" 'bongo-insert-enqueue)
+    (define-key map "t" 'bongo-transpose-forward)
+    (define-key map "T" 'bongo-transpose-backward)
     (define-key map "f" 'bongo-flush-playlist)
     (define-key map "r" 'bongo-rename-line)
     (define-key map "d" 'bongo-dired-line)
