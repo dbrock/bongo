@@ -5203,7 +5203,7 @@ If called interactively, SKIP is always non-nil."
   (let ((line-move-ignore-invisible nil))
     (bongo-line-set-property 'bongo-collapsed t)
     (bongo-redisplay-line)
-    (let ((end (bongo-point-at-next-object)))
+    (let ((end (bongo-point-after-object)))
       (forward-line 1)
       (let ((inhibit-read-only t))
         (put-text-property (point) end 'invisible t))
