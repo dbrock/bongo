@@ -3098,6 +3098,7 @@ SECONDS is the number of seconds sought."
                (:to seconds)
                (:by (+ (bongo-player-elapsed-time player) seconds)))))
     (bongo-player-times-changed player)
+    (bongo-player-put player 'last-seek-time (current-time))
     (run-hook-with-args 'bongo-player-sought-functions
                         player method seconds)
     (when (bongo-buffer-p)
@@ -3274,6 +3275,22 @@ If the player backend cannot report this, return nil."
                 player 'get-total-time
                 'bongo-default-player-get-total-time)))
     (and value (> value 0) value)))
+
+(defun bongo-player-update-elapsed-time (player elapsed-time)
+  "Set PLAYER's `elapsed-time' property unless PLAYER has just sought.
+That is, set it unless PLAYER's last seek happened less than N seconds ago,
+where N is the value of PLAYER's `time-update-delay-after-seek' property."
+  (let ((delay (bongo-player-get player 'time-update-delay-after-seek)))
+    (when (or (null delay) (zerop delay)
+              (let ((time (bongo-player-get player 'last-seek-time)))
+                (or (null time)
+                    (time-less-p (seconds-to-time delay)
+                                 (time-subtract (current-time) time)))))
+      (bongo-player-put player 'elapsed-time elapsed-time))))
+
+(defun bongo-player-update-total-time (player total-time)
+  "Set PLAYER's `total-time' property to TOTAL-TIME."
+  (bongo-player-put player 'total-time total-time))
 
 
 ;;;; Default implementations of player features
@@ -3458,7 +3475,7 @@ If the player backend cannot report this, return nil."
   :matcher '(local-file "mp3" "mp2"))
 
 (defcustom bongo-mpg123-audio-driver nil
-  "The audio driver (\"esd\", \"alsa\", etc.) to be used by mpg123.
+  "Audio driver (\"esd\", \"alsa\", etc.) to be used by mpg123.
 This corresponds to the `-o' option of mpg123."
   :type '(choice (const :tag "System default" nil)
                  (const :tag "\
@@ -3480,7 +3497,7 @@ oss (the Linux Open Sound System)" "oss")
   'bongo-mpg123-audio-driver)
 
 (defcustom bongo-mpg123-audio-device nil
-  "The audio device (e.g., for ALSA, \"1:0\") to be used by mpg123.
+  "Audio device (e.g., for ALSA, \"1:0\") to be used by mpg123.
 This corresponds to the `-a' option of mpg123."
   :type '(choice (const :tag "System default" nil) string)
   :group 'bongo-mpg123)
@@ -3501,17 +3518,28 @@ Setting this to nil disables the pause and seek functionality."
                                       " --version"))))
 
 (defcustom bongo-mpg123-update-granularity
-  (when (bongo-mpg123-is-mpg321-p) 30)
-  "The number of frames to skip between each update from mpg321.
+  (and (bongo-mpg123-is-mpg321-p) 30)
+  "Number of frames to skip between each update from mpg321.
 This corresponds to the mpg321-specific option --skip-printing-frames.
 If your mpg123 does not support that option, set this variable to nil."
   :type '(choice (const :tag "None (lowest)" nil) integer)
   :group 'bongo-mpg123)
 
 (defcustom bongo-mpg123-seek-increment 150
-  "The step size (in frames) to use for relative seeking.
-This is used by `bongo-mpg123-seek-by'."
+  "Step size (in frames) to use for relative seeking.
+This variable is no longer used."
   :type 'integer
+  :group 'bongo-mpg123)
+
+(make-obsolete-variable 'bongo-mpg123-seek-increment
+                        (concat "This variable is no longer used, "
+                                "as the mpg123 backend now accepts "
+                                "numbers of seconds to seek by."))
+
+(defcustom bongo-mpg123-time-update-delay-after-seek 1
+  "Number of seconds to delay time updates from mpg123 after seeking.
+Such delays may prevent jerkiness in the visual seek interface."
+  :type 'number
   :group 'bongo-mpg123)
 
 (defcustom bongo-mpg123-extra-arguments nil
@@ -3580,9 +3608,9 @@ These will come at the end or right before the file name, if any."
               (let* ((elapsed-time (string-to-number (match-string 1)))
                      (total-time (+ elapsed-time (string-to-number
                                                   (match-string 2)))))
-                (bongo-player-put player 'elapsed-time elapsed-time)
-                (bongo-player-put player 'total-time total-time))
-              (bongo-player-times-changed player)))
+                (bongo-player-update-elapsed-time player elapsed-time)
+                (bongo-player-update-total-time player total-time)
+                (bongo-player-times-changed player))))
             (forward-line))))
     ;; Getting errors in process filters is not fun, so stop.
     (error (bongo-stop)
@@ -3613,11 +3641,13 @@ These will come at the end or right before the file name, if any."
                 (cons 'interactive bongo-mpg123-interactive)
                 (cons 'pausing-supported bongo-mpg123-interactive)
                 (cons 'seeking-supported bongo-mpg123-interactive)
+                (cons 'time-update-delay-after-seek
+                      bongo-mpg123-time-update-delay-after-seek)
                 (cons 'paused nil)
                 (cons 'pause/resume 'bongo-mpg123-player-pause/resume)
                 (cons 'seek-by 'bongo-mpg123-player-seek-by)
                 (cons 'seek-to 'bongo-mpg123-player-seek-to)
-                (cons 'seek-unit 'frames))))
+                (cons 'seek-unit 'seconds))))
     (prog1 player
       (set-process-sentinel process 'bongo-default-player-process-sentinel)
       (bongo-process-put process 'bongo-player player)
@@ -3682,7 +3712,7 @@ These will come at the end or right before the file name, if any."
       (reverse result))))
 
 (defcustom bongo-mplayer-audio-driver nil
-  "The audio driver to be used by mplayer.
+  "Audio driver to be used by mplayer.
 This corresponds to the `-ao' option of mplayer."
   :type `(choice (const :tag "System default" nil)
                  ,@(mapcar (lambda (entry)
@@ -3696,7 +3726,7 @@ This corresponds to the `-ao' option of mplayer."
   'bongo-mplayer-audio-driver)
 
 (defcustom bongo-mplayer-video-driver nil
-  "The video driver to be used by mplayer.
+  "Video driver to be used by mplayer.
 This corresponds to the `-vo' option of mplayer."
   :type `(choice (const :tag "System default" nil)
                  ,@(mapcar (lambda (entry)
@@ -3717,9 +3747,15 @@ Setting this to nil disables the pause and seek functionality."
 
 ;; XXX: This variable is weird.
 (defcustom bongo-mplayer-seek-increment 3.0
-  "The step size (in seconds) to use for relative seeking.
+  "Step size (in seconds) to use for relative seeking.
 This is used by `bongo-mplayer-seek-by'."
   :type 'float
+  :group 'bongo-mplayer)
+
+(defcustom bongo-mplayer-time-update-delay-after-seek 1
+  "Number of seconds to delay time updates from mplayer after seeking.
+Such delays may prevent jerkiness in the visual seek interface."
+  :type 'number
   :group 'bongo-mplayer)
 
 (defcustom bongo-mplayer-extra-arguments nil
@@ -3796,12 +3832,12 @@ These will come at the end or right before the file name, if any."
           (while (not (eobp))
             (cond
              ((looking-at "^ANS_TIME_POSITION=\\(.+\\)$")
-              (bongo-player-put player 'elapsed-time
-                (string-to-number (match-string 1)))
+              (bongo-player-update-elapsed-time
+               player (string-to-number (match-string 1)))
               (bongo-player-times-changed player))
              ((looking-at "^ANS_LENGTH=\\(.+\\)$")
-              (bongo-player-put player 'total-time
-                (string-to-number (match-string 1)))
+              (bongo-player-update-total-time
+               player (string-to-number (match-string 1)))
               (bongo-player-times-changed player)))
             (forward-line))))
     ;; Getting errors in process filters is not fun, so stop.
@@ -3830,6 +3866,8 @@ These will come at the end or right before the file name, if any."
                 (cons 'interactive bongo-mplayer-interactive)
                 (cons 'pausing-supported bongo-mplayer-interactive)
                 (cons 'seeking-supported bongo-mplayer-interactive)
+                (cons 'time-update-delay-after-seek
+                      bongo-mplayer-time-update-delay-after-seek)
                 (cons 'paused nil)
                 (cons 'pause/resume 'bongo-mplayer-player-pause/resume)
                 (cons 'seek-by 'bongo-mplayer-player-seek-by)
@@ -3877,6 +3915,12 @@ Setting this to nil disables the pause and seek functionality."
 If this number is too low, there might be a short period of time right
 after VLC starts playing a track during which Bongo thinks that the total
 track length is unknown."
+  :type 'number
+  :group 'bongo-vlc)
+
+(defcustom bongo-vlc-time-update-delay-after-seek 1
+  "Number of seconds to delay time updates from VLC after seeking.
+Such delays may prevent jerkiness in the visual seek interface."
   :type 'number
   :group 'bongo-vlc)
 
@@ -3971,10 +4015,10 @@ These will come at the end or right before the file name, if any."
                 (let ((value (string-to-number (match-string 1))))
                   (ecase (bongo-player-shift player 'pending-queries)
                     (time
-                     (bongo-player-put player 'elapsed-time value)
+                     (bongo-player-update-elapsed-time player value)
                      (bongo-player-times-changed player))
                     (length
-                     (bongo-player-put player 'total-time value)
+                     (bongo-player-update-total-time player value)
                      (bongo-player-times-changed player)))))))
             (forward-line))))
     ;; Getting errors in process filters is not fun, so stop.
@@ -3999,6 +4043,8 @@ These will come at the end or right before the file name, if any."
                 (cons 'interactive bongo-vlc-interactive)
                 (cons 'pausing-supported bongo-vlc-interactive)
                 (cons 'seeking-supported bongo-vlc-interactive)
+                (cons 'time-update-delay-after-seek
+                      bongo-vlc-time-update-delay-after-seek)
                 (cons 'paused nil)
                 (cons 'pause/resume 'bongo-vlc-player-pause/resume)
                 (cons 'seek-by 'bongo-vlc-player-seek-by)
