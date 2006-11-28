@@ -8,7 +8,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: November 25, 2006
+;; Updated: November 28, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -363,9 +363,9 @@ This variable is used by `bongo-play-queued'.")
 
 (defgroup bongo-file-names nil
   "File names and file name parsing in Bongo.
-If your files do not have nice names but they do have nice tags,
-you can use the `tree-from-tags.rb' tool (shipped with Bongo) to
-create a hierarchy of nicely-named links to your files."
+If your files do not have nice names but do have nice tags, then you
+can use the `tree-from-tags.rb' tool (shipped with Bongo) to create a
+hierarchy of nicely-named links to your files."
   :group 'bongo)
 
 (defcustom bongo-file-name-field-separator " - "
@@ -5752,9 +5752,10 @@ Return the playlist position of the newly-inserted text."
   (let ((line-move-ignore-invisible nil))
     (let ((beg (point))
           (end (dotimes (dummy (abs n) (point))
-                 (if (> n 0)
-                     (bongo-next-object)
-                   (bongo-previous-object)))))
+                 (bongo-goto-point
+                  (if (> n 0)
+                      (bongo-point-after-object)
+                    (bongo-point-before-previous-object))))))
       (when (not skip)
         (goto-char beg))
       (bongo-enqueue-region mode (min beg end) (max beg end)))))
