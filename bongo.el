@@ -3781,9 +3781,9 @@ These will come at the end or right before the file name, if any."
     (bongo-mplayer-player-stop-timer player))
    ((not (bongo-player-paused-p player))
     (let ((process (bongo-player-process player)))
-      (process-send-string process "get_time_pos\n")
+      (process-send-string process "pausing_keep get_time_pos\n")
       (when (null (bongo-player-total-time player))
-        (process-send-string process "get_time_length\n"))))))
+        (process-send-string process "pausing_keep get_time_length\n"))))))
 
 ;;; XXX: What happens if a record is split between two calls
 ;;;      to the process filter?
