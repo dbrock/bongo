@@ -2051,14 +2051,19 @@ You should use `bongo-line-infoset' most of the time."
 (defun bongo-header-infoset (&optional point)
   "Return the infoset for the header at POINT.
 You should use `bongo-line-infoset' most of the time."
-  (unless (bongo-header-line-p point)
-    (error "Point is not on a header line"))
-  (let* ((line-move-ignore-invisible nil)
-         (next-track (bongo-point-at-next-track-line)))
-    (if (null next-track)
-        (error "Dangling header line")
-      (bongo-filter-alist (bongo-line-fields)
-                          (bongo-track-infoset next-track)))))
+  (save-excursion
+    (bongo-goto-point point)
+    (unless (bongo-header-line-p)
+      (error "Point is not on a header line"))
+    (let* ((line-move-ignore-invisible nil)
+           (fields (bongo-line-fields))
+           (indentation (bongo-line-indentation)))
+      (while (and (bongo-next-object-line 'no-error)
+                  (> (bongo-line-indentation) indentation)
+                  (not (bongo-track-line-p))))
+      (when (and (> (bongo-line-indentation) indentation)
+                 (bongo-track-line-p))
+        (bongo-filter-alist fields (bongo-track-infoset))))))
 
 (defun bongo-line-infoset (&optional point)
   "Return the infoset for the line at POINT.
@@ -2622,7 +2627,10 @@ If there are not enough sections at point, signal an error."
   (while (> n 0)
     (bongo-snap-to-object-line)
     (if (bongo-header-line-p)
-        (bongo-next-object-line)
+        (let ((indentation (bongo-line-indentation)))
+          (unless (and (bongo-next-object-line 'no-error)
+                       (> (bongo-line-indentation) indentation))
+            (error "Empty section")))
       (error "No section here"))
     (setq n (- n 1))))
 
@@ -5973,7 +5981,14 @@ This function uses `bongo-update-references-to-renamed-files'."
 (defun bongo-dired-line (&optional point)
   "Open a Dired buffer containing the track at POINT."
   (interactive)
-  (dired (file-name-directory (bongo-line-file-name point))))
+  (save-excursion
+    (bongo-goto-point point)
+    (bongo-snap-to-object-line)
+    (dired (file-name-directory
+            (save-excursion
+              (while (bongo-header-line-p)
+                (bongo-down-section))
+              (bongo-line-file-name))))))
 
 
 ;;;; Serializing buffers
