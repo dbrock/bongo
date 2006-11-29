@@ -8,7 +8,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: November 28, 2006
+;; Updated: November 29, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -4947,13 +4947,13 @@ Interactively, expand wildcards and insert all matching files."
                                       default-directory nil nil
                                       (when (eq major-mode 'dired-mode)
                                         (dired-get-filename t))) t)))
-  (cond ((null file-name)
-         (and (interactive-p) (error "No matching file found")))
+  (cond ((and (called-interactively-p) (null file-name))
+         (error "No matching files found"))
         ((consp file-name)
          (if (null (cdr file-name))
              (bongo-insert-file (car file-name))
            (let ((beginning (point)))
-             (mapcar 'bongo-insert-file file-name)
+             (mapc 'bongo-insert-file file-name)
              (bongo-maybe-join-inserted-tracks beginning (point)))))
         ((file-directory-p file-name)
          (bongo-insert-directory-tree file-name))
