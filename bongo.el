@@ -4940,14 +4940,14 @@ FIELDS defaults to the external fields of the current line."
 
 (defun bongo-insert-file (file-name)
   "Insert a new track line corresponding to FILE-NAME.
-If FILE-NAME names a directory, call `bongo-insert-directory'.
+If FILE-NAME names a directory, call `bongo-insert-directory-tree'.
 Interactively, expand wildcards and insert all matching files."
   (interactive (list (file-expand-wildcards
-                      (read-file-name "Insert track: "
+                      (read-file-name "Insert file or directory tree: "
                                       default-directory nil nil
                                       (when (eq major-mode 'dired-mode)
                                         (dired-get-filename t))) t)))
-  (cond ((and (called-interactively-p) (null file-name))
+  (cond ((null file-name)
          (error "No matching files found"))
         ((consp file-name)
          (if (null (cdr file-name))
@@ -4957,11 +4957,12 @@ Interactively, expand wildcards and insert all matching files."
              (bongo-maybe-join-inserted-tracks beginning (point)))))
         ((file-directory-p file-name)
          (bongo-insert-directory-tree file-name))
-        (t (bongo-insert-line 'bongo-file-name file-name)
-           (when (and (interactive-p) (not (bongo-buffer-p)))
-             (message "Inserted track: %s"
-                      (bongo-format-infoset
-                       (bongo-infoset-from-file-name file-name)))))))
+        (t
+         (bongo-insert-line 'bongo-file-name file-name)
+         (when (and (interactive-p) (not (bongo-buffer-p)))
+           (message "Inserted track: %s"
+                    (bongo-format-infoset
+                     (bongo-infoset-from-file-name file-name)))))))
 
 (defun bongo-maybe-insert-album-cover (directory-name)
   "Insert the album cover in DIRECTORY-NAME, if one exists.
