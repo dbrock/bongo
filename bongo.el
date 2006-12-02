@@ -8,7 +8,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: November 29, 2006
+;; Updated: December 2, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -5395,15 +5395,16 @@ If called interactively, SKIP is always non-nil."
             (end (move-marker (make-marker) (bongo-point-after-object))))
         (bongo-delete-line)
         (let ((start (point)))
-          (bongo-ignore-movement-errors
-            (while (< (point) end)
-              (let* ((previous (point))
-                     (old-external
-                      (bongo-line-external-fields))
-                     (new-external
-                      (bongo-set-difference old-external fields)))
-                (bongo-next-object)
-                (bongo-line-set-external-fields new-external previous))))
+          (while (< (point) end)
+            (let* ((previous (point))
+                   (old-external
+                    (bongo-line-external-fields))
+                   (new-external
+                    (bongo-set-difference old-external fields)))
+              (condition-case nil
+                  (bongo-next-object)
+                (bongo-movement-error (goto-char end)))
+              (bongo-line-set-external-fields new-external previous)))
           (move-marker end nil)
           (when (not skip)
             (goto-char start))
