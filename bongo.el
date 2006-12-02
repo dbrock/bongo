@@ -1779,7 +1779,7 @@ This function works like `bongo-point-before-next-object-line'."
   "Move point to the previous object line, if possible.
 If NO-ERROR is non-nil, return non-nil if and only if point was moved.
 If NO-ERROR is not given or nil, and there is no previous object line,
-signal `bongo-no-previous-object-line'."
+signal `bongo-no-previous-object'."
   (interactive "p")
   (let ((position (bongo-point-at-previous-object-line)))
     (if position
@@ -1919,31 +1919,39 @@ This function is a suitable value for `forward-sexp-function'."
 (define-obsolete-function-alias 'bongo-forward-section
   'bongo-forward-expression)
 
-(defun bongo-previous-object (&optional n)
+(defun bongo-previous-object (&optional no-error n)
   "Move to the previous object (either section or track).
 With prefix argument N, do it that many times.
-With negative prefix argument -N, move forward instead."
+With negative prefix argument -N, move forward instead.
+If there is no previous object, signal `bongo-no-previous-object'.
+If NO-ERROR is non-nil, move to the beginning of the buffer instead. "
   (interactive "p")
   (when (null n)
     (setq n 1))
   (if (< n 0)
-      (bongo-next-object (- n))
+      (bongo-next-object no-error (- n))
     (dotimes (dummy n)
       (goto-char (or (bongo-point-at-previous-object)
-                     (signal 'bongo-no-previous-object-line nil))))))
+                     (if no-error
+                         (point-min)
+                       (signal 'bongo-no-previous-object nil)))))))
 
-(defun bongo-next-object (&optional n)
+(defun bongo-next-object (&optional no-error n)
   "Move to the next object (either section or track).
 With prefix argument N, do it that many times.
-With negative prefix argument -N, move backward instead."
-  (interactive "p")
+With negative prefix argument -N, move backward instead.
+If there is no next object, signal `bongo-no-next-object'.
+If NO-ERROR is non-nil, move to end of the buffer instead."
+  (interactive (list nil (prefix-numeric-value current-prefix-arg)))
   (when (null n)
     (setq n 1))
   (if (< n 0)
-      (bongo-previous-object (- n))
+      (bongo-previous-object no-error (- n))
     (dotimes (dummy n)
       (goto-char (or (bongo-point-at-next-object)
-                     (signal 'bongo-no-next-object nil))))))
+                     (if no-error
+                         (point-max)
+                       (signal 'bongo-no-next-object nil)))))))
 
 (defun bongo-point-before-next-track-line (&optional point)
   "Return the character position of the next track line.
