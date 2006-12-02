@@ -486,20 +486,89 @@ Notice that an intermediate header ``[Frank Morton]'' was inserted."
   :type 'boolean
   :group 'bongo-display)
 
-(defcustom bongo-album-format "%t (%y)"
+(defcustom bongo-album-format
+  '(bongo-title
+    (when bongo-year
+      (concat " (" bongo-year ")")))
   "Template for displaying albums in Bongo.
-This is used by the function `bongo-default-format-field'.
-%t means the album title.
-%y means the album year."
-  :type 'string
+Value is a list of expressions, each evaluating to a string or nil.
+When the expressions are evaluated,
+ - `bongo-title' is bound to the formatted album title;
+ - `bongo-year' is bound to the formatted album year or nil;
+ - `bongo-album' is bound to the contents of the `album' field;
+ - `bongo-infoset' is bound to the whole infoset;
+ - `bongo-target' is short for `bongo-infoset-formatting-target';
+ - `bongo-line' is short for `bongo-infoset-formattnig-target-line'.
+The values of the expressions are concatenated.
+
+Value may also be a format string, in which case
+ - %t means the album title, and
+ - %y means the album year.
+This is only allowed for backwards compatibility.
+
+This variable is used by the function `bongo-default-format-field'."
+  :type '(choice (repeat sexp)
+                 (string :tag "Format string (deprecated)"))
   :group 'bongo-display)
 
-(defcustom bongo-track-format "%i. %t"
+(when (stringp bongo-album-format)
+  (message "Warning: `bongo-album-format' should not be a string"))
+
+(defcustom bongo-track-format
+  '((when bongo-index
+      (concat bongo-index ". "))
+    bongo-title
+    (when (and bongo-length (not (bongo-library-buffer-p bongo-target)))
+      (concat (if (bongo-playlist-buffer-p bongo-target) 
+                  (let ((other-fields-width
+                         (length (bongo-format-infoset
+                                  `((track (length . nil)
+                                           ,@bongo-track)
+                                    ,@bongo-infoset))))
+                        (indentation-width
+                         (* (length bongo-indentation-string)
+                            (bongo-line-indentation bongo-line))))
+                    (make-string (max 1 (- 65 indentation-width
+                                           other-fields-width)) 32))
+                " ")
+              bongo-length)))
   "Template for displaying tracks in Bongo.
-This is used by the function `bongo-default-format-field'.
-%t means the track title.
-%i means the track index."
-  :type 'string
+Value is a list of expressions, each evaluating to a string or nil.
+When the expressions are evaluated,
+ - `bongo-title' is bound to the formatted track title;
+ - `bongo-index' is bound to the formatted track index or nil;
+ - `bongo-length' is bound to the formatted track length or nil;
+ - `bongo-track' is bound to the contents of the `track' field;
+ - `bongo-infoset' is bound to the whole infoset;
+ - `bongo-target' is short for `bongo-infoset-formatting-target';
+ - `bongo-line' is short for `bongo-infoset-formattnig-target-line'.
+The values of the expressions are concatenated.
+
+Value may also be a format string, in which case
+ - %t means the track title, and
+ - %i means the track index.
+This is only allowed for backwards compatibility.
+
+This variable is used by the function `bongo-default-format-field'."
+  :type '(choice (repeat sexp)
+                 (string :tag "Format string (deprecated)"))
+  :group 'bongo-display)
+
+(when (stringp bongo-track-format)
+  (message "Warning: `bongo-track-format' should not be a string"))
+
+(defcustom bongo-track-length-format
+  '("[" (bongo-format-seconds bongo-length) "]")
+  "Template for displaying track lengths in Bongo.
+Value is a list of expressions, each evaluating to a string or nil.
+The value of the expressions are concatenated.
+When the expressions are evaluated,
+ - `bongo-length' is bound to the length of the track in seconds;
+ - `bongo-track' is bound to the contents of the `track' field;
+ - `bongo-infoset' is bound to the whole infoset;
+ - `bongo-target' is short for `bongo-infoset-formatting-target';
+ - `bongo-line' is short for `bongo-infoset-formattnig-target-line'."
+  :type '(repeat sexp)
   :group 'bongo-display)
 
 (defcustom bongo-expanded-header-format "[%s]"
@@ -1262,8 +1331,8 @@ By default, each field consists of another alist:
  * the `artist' field consists of a single mandatory `name' subfield;
  * the `album' field consists of both a mandatory `title' subfield
    and an optional `year' subfield; and finally,
- * the `track' field consists of a mandatory `title' subfield
-   and an optional `index' subfield.
+ * the `track' field consists of a mandatory `title' subfield,
+   an optional `index' subfield, and an optional `length' subfield.
 
 Currently, this list needs to be completely ordered, starting with
 the most general field and ending with the most specific field.
@@ -1384,7 +1453,7 @@ This is used by `bongo-default-format-infoset'."
   :group 'bongo-faces)
 
 (defface bongo-track '((t nil))
-  "Face used for Bongo tracks (index, title, and punctuation)."
+  "Face used for Bongo tracks (index, title, length, and punctuation)."
   :group 'bongo-faces)
 
 (defface bongo-track-title
@@ -1395,6 +1464,11 @@ This is used by `bongo-default-format-infoset'."
 (defface bongo-track-index
   '((t (:inherit bongo-track)))
   "Face used for Bongo track indices."
+  :group 'bongo-faces)
+
+(defface bongo-track-length
+  '((t (:inherit bongo-track)))
+  "Face used for Bongo track lengths."
   :group 'bongo-faces)
 
 (defface bongo-played-track
@@ -1425,11 +1499,39 @@ and `bongo-collapsed-header-format'."
 This function just calls `bongo-infoset-formatting-function'."
   (funcall bongo-infoset-formatting-function infoset))
 
+(defvar bongo-infoset-formatting-target 'unspecified
+  "Target of the current infoset formatting.
+When an infoset is formatted for display in a Bongo buffer,
+  this variable is dynamically bound to the target buffer.
+When there is no particular target, the value is `unspecified'.
+This value can be used by the formatting function.")
+
+(defvar bongo-infoset-formatting-target-line nil
+  "Target line of the current infoset formatting, or nil.
+When an infoset is formatted for display on a line in a Bongo buffer,
+  this variable is dynamically bound to the buffer position of the line.
+The buffer itself appears in `bongo-infoset-formatting-target'.
+When the formatting target is not a Bongo buffer line, the value is nil.
+This value can be used by the formatting function.")
+
 (defun bongo-default-format-infoset (infoset)
   "Format INFOSET by calling `bongo-format-field' on each field.
-Separate the obtained formatted field values by
-  `bongo-field-separator'."
-  (mapconcat 'bongo-format-field infoset bongo-field-separator))
+Only format fields whose names are in `bongo-fields', and format the
+  fields in the same order as they appear in `bongo-fields'.
+Dynamically bind `bongo-infoset' to INFOSET while formatting.
+Return the concatenation of the obtained formatted field values
+  separated by `bongo-field-separator'."
+  (let* ((bongo-infoset infoset)
+         (bongo-target bongo-infoset-formatting-target)
+         (bongo-line bongo-infoset-formatting-target-line)
+         (formatted-fields
+          (apply 'nconc
+                 (mapcar (lambda (field-name)
+                           (let ((field (assq field-name bongo-infoset)))
+                             (when field
+                               (list (bongo-format-field field)))))
+                         bongo-fields))))
+    (mapconcat 'identity formatted-fields bongo-field-separator)))
 
 (defun bongo-file-name-from-infoset (infoset)
   "Represent INFOSET as a file name, if possible.
@@ -1457,30 +1559,50 @@ each field and separates the obtained field values using
   (funcall bongo-field-formatting-function field))
 
 (defun bongo-default-format-field (field)
-  (require 'format-spec)
   (let ((type (car field))
         (data (cdr field)))
     (case type
      ((artist)
       (propertize (bongo-alist-get data 'name) 'face 'bongo-artist))
      ((album)
-      (let ((title (bongo-alist-get data 'title))
-            (year (bongo-alist-get data 'year)))
-        (if (null year) (propertize title 'face 'bongo-album-title)
-          (format-spec bongo-album-format
-                       `((?t . ,(propertize
-                                 title 'face 'bongo-album-title))
-                         (?y . ,(propertize
-                                 year 'face 'bongo-album-year)))))))
+      ;; These variables are used in `bongo-album-format',
+      ;; so their names are significant.
+      (let* ((bongo-title (propertize (bongo-alist-get data 'title)
+                                      'face 'bongo-album-title))
+             (bongo-year (when (bongo-alist-get data 'year)
+                           (propertize (bongo-alist-get data 'year)
+                                       'face 'bongo-album-year)))
+             (bongo-artist data))
+        (if (listp bongo-album-format)
+            (apply 'concat (mapcar 'eval bongo-album-format))
+          (if (null bongo-year)
+              bongo-title
+            (require 'format-spec)
+            (format-spec bongo-album-format `((?t . ,bongo-title)
+                                              (?y . ,bongo-year)))))))
      ((track)
-      (let ((title (bongo-alist-get data 'title))
-            (index (bongo-alist-get data 'index)))
-        (if (null index) (propertize title 'face 'bongo-track-title)
-          (format-spec bongo-track-format
-                       `((?t . ,(propertize
-                                 title 'face 'bongo-track-title))
-                         (?i . ,(propertize
-                                 index 'face 'bongo-track-index))))))))))
+      ;; These variables are used in `bongo-track-format',
+      ;; so their names are significant.
+      (let* ((bongo-title (propertize (bongo-alist-get data 'title)
+                                      'face 'bongo-track-title))
+             (bongo-index (when (bongo-alist-get data 'index)
+                            (propertize (bongo-alist-get data 'index)
+                                        'face 'bongo-track-index)))
+             (bongo-track data)
+             (bongo-length (bongo-alist-get data 'length))
+             (length-string
+              (when bongo-length
+                (apply 'concat (mapcar 'eval bongo-track-length-format))))
+             (bongo-length
+              (when length-string
+                (propertize length-string 'face 'bongo-track-length))))
+        (if (listp bongo-track-format)
+            (apply 'concat (mapcar 'eval bongo-track-format))
+          (if (null bongo-index)
+              bongo-title
+            (require 'format-spec)
+            (format-spec bongo-track-format `((?t . ,bongo-title)
+                                              (?i . ,bongo-index))))))))))
 
 (defun bongo-file-name-part-from-field (field)
   "Represent FIELD as part of a file name.
@@ -2056,7 +2178,8 @@ If there are no sections or tracks before POINT, return nil."
 You should use `bongo-line-infoset' most of the time."
   (unless (bongo-track-line-p point)
     (error "Point is not on a track line"))
-  (bongo-infoset-from-file-name (bongo-line-file-name point)))
+  (or (bongo-line-get-property 'bongo-infoset point)
+      (bongo-infoset-from-file-name (bongo-line-file-name point))))
 
 (defun bongo-header-infoset (&optional point)
   "Return the infoset for the header at POINT.
@@ -2424,7 +2547,8 @@ Actually only look at the terminating newline."
   (get-text-property (bongo-point-at-eol point) name))
 
 (defvar bongo-line-semantic-properties
-  (list 'bongo-file-name 'bongo-header 'bongo-collapsed
+  (list 'bongo-file-name 'bongo-infoset
+        'bongo-header 'bongo-collapsed
         'bongo-fields 'bongo-external-fields
         'bongo-player 'bongo-played)
   "The list of semantic text properties used in Bongo buffers.
@@ -3220,7 +3344,8 @@ If PLAYER has no property called METHOD, use DEFAULT instead."
 
 (defun bongo-player-infoset (player)
   "Return the infoset for the file played by PLAYER."
-  (bongo-infoset-from-file-name (bongo-player-file-name player)))
+  (or (bongo-player-get player 'infoset)
+      (bongo-infoset-from-file-name (bongo-player-file-name player))))
 
 (defun bongo-player-show-infoset (player)
   "Display in the minibuffer what PLAYER is playing."
@@ -3283,8 +3408,10 @@ If PLAYER does not support seeking, signal an error."
 (defun bongo-player-elapsed-time (player)
   "Return the number of seconds PLAYER has played so far.
 If the player backend cannot report this, return nil."
-  (bongo-player-call-with-default
-   player 'get-elapsed-time 'bongo-default-player-get-elapsed-time))
+  (let ((value (bongo-player-call-with-default
+                player 'get-elapsed-time
+                'bongo-default-player-get-elapsed-time)))
+    (and value (> value 0) value)))
 
 (defun bongo-player-total-time (player)
   "Return the total number of seconds PLAYER has and will use.
@@ -4102,6 +4229,299 @@ These will come at the end or right before the file name, if any."
                       string-end))))
 
 
+;;;; Audio CD and CDDB support
+
+(defgroup bongo-audio-cd nil
+  "Audio CD playback and CDDB support in Bongo."
+  :group 'bongo)
+
+(defcustom bongo-cd-device nil
+  "Default CD device used by Bongo, or nil for system default."
+  :type '(choice string (const :tag "System default" nil))
+  :group 'bongo-audio-cd)
+
+(defcustom bongo-cdda-info-function
+  (cond ((executable-find bongo-libcddb-cddb-query-program-name)
+         'bongo-libcddb-cdda-info)
+        ((executable-find bongo-cdtool-cdir-program-name)
+         'bongo-cdtool-cdda-info))
+  "Function used to find basic information about audio CDs.
+This function should behave like `bongo-cdda-info'."
+  :type '(choice
+          (function-item :tag "Use `cddb_query' from the libcddb package"
+                         bongo-libcddb-cdda-info)
+          (function-item :tag "Use `cdir' from the cdtool package"
+                         bongo-cdtool-cdda-info)
+          (const :tag "Disable finding basic audio CD information" nil))
+  :group 'bongo-audio-cd)
+
+(defcustom bongo-use-cddb t
+  "If non-nil, look up CDDB information about audio CDs."
+  :type 'boolean
+  :group 'bongo-audio-cd)
+
+(defcustom bongo-cddb-server "freedb.org"
+  "Host name of the CDDB server to use."
+  :type 'string
+  :group 'bongo-audio-cd)
+
+(defcustom bongo-cddb-server-port 888
+  "Port number of the CDDB server to use."
+  :type 'integer
+  :group 'bongo-audio-cd)
+
+(defcustom bongo-cddb-info-function
+  (cond ((executable-find bongo-libcddb-cddb-query-program-name)
+         'bongo-libcddb-cddb-info)
+        ((executable-find bongo-cdtool-cdown-program-name)
+         'bongo-cdtool-cddb-info))
+  "Function used to find CDDB information about audio CDs.
+The function should behave like `bongo-cddb-info'."
+  :type '(choice
+          (function-item :tag "Use `cddb_query' from the libcddb package"
+                         bongo-libcddb-cddb-info)
+          (function-item :tag "Use `cdown' from the cdtool package"
+                         bongo-cdtool-cddb-info)
+          (const :tag "Disable finding CDDB information" nil))
+  :group 'bongo-audio-cd)
+
+(defun bongo-cdda-info (&optional device omit-lengths)
+  "Find the track count and track lengths of an audio CD.
+Return (TRACK-COUNT . TRACK-LENGTHS), or nil on failure.
+If OMIT-LENGTHS is non-nil, TRACK-LENGTHS will be nil.
+Optional argument DEVICE overrides `bongo-cd-device'."
+  (funcall bongo-cdda-info-function device))
+
+(defun bongo-cdda-track-count (&optional device)
+  "Find the track count of an audio CD.
+Return nil if the track count could not be found for some reason.
+Optional argument DEVICE overrides `bongo-cd-device'."
+  (car (bongo-cdda-info device 'omit-lengths)))
+
+(defun bongo-cddb-info (&optional device omit-lengths)
+  "Find CDDB information about an audio CD.
+Return ((ARTIST-NAME ALBUM-TITLE ALBUM-YEAR) TRACK-COUNT . TRACKS),
+Entries in TRACKS are of the form (TRACK-TITLE . TRACK-LENGTH).
+If OMIT-LENGTHS is non-nil, TRACK-LENGTH will be nil for all tracks.
+Return nil if the audio CD could not be read or some other error occured.
+Optional argument DEVICE overrides `bongo-cd-device'."
+  (funcall bongo-cddb-info-function device))
+
+(defcustom bongo-libcddb-cddb-query-program-name "cddb_query"
+  "Name of the `cddb_query' executable (distributed with libcddb)."
+  :type 'string
+  :group 'bongo-audio-cd)
+
+(defun bongo-libcddb-cdda-info (&optional device omit-lengths)
+  "Use `cddb_query' to find the number of tracks on an audio CD.
+This function is a suitable value for `bongo-cdda-info-function'."
+  (if omit-lengths
+      (with-temp-buffer
+        (apply 'call-process bongo-libcddb-cddb-query-program-name nil t nil
+               (nconc (when (or device bongo-cd-device)
+                        (list "-i" (or device bongo-cd-device)))
+                      (list "calc")))
+        (goto-char (point-min))
+        (when (re-search-forward "^CD contains \\(.+\\) track" nil t)
+          (string-to-number (match-string 1))))
+    (let ((cddb-info (bongo-libcddb-cddb-info device)))
+      (when cddb-info
+        (cons (cadr cddb-info)
+              (mapcar 'cdr (cddr cddb-info)))))))
+
+(defun bongo-libcddb-cddb-info (&optional device omit-lengths)
+  "Use `cddb_query' to find CDDB information about an audio CD.
+This function is a suitable value for `bongo-cddb-info-function'."
+  (with-current-buffer (get-buffer-create " *CDDB query*")
+    (erase-buffer)
+    (let ((coding-system-for-read 'utf-8))
+      (apply 'call-process bongo-libcddb-cddb-query-program-name nil t nil
+             (nconc (when (or device bongo-cd-device)
+                      (list "-i" (or device bongo-cd-device)))
+                    (when bongo-cddb-server
+                      (list "-s" bongo-cddb-server))
+                    (when bongo-cddb-server-port
+                      (list "-p" (number-to-string bongo-cddb-server-port)))
+                    (list "read")))
+      (goto-char (point-min))
+      (when (re-search-forward "^CD contains \\(.+\\) track" nil t)
+        (let ((track-count (string-to-number (match-string 1)))
+              artist-name album-title album-year tracks)
+          (save-excursion
+            (when (re-search-forward "^Artist:\\s-*\\(.+\\)$" nil t)
+              (setq artist-name (match-string 1))))
+          (save-excursion
+            (when (re-search-forward "^Title:\\s-*\\(.+\\)$" nil t)
+              (setq album-title (match-string 1))))
+          (save-excursion
+            (when (re-search-forward "^Year:\\s-*\\(.+\\)$" nil t)
+              (setq album-year (match-string 1))))
+          (while (re-search-forward (concat "^\\s-+\\[[0-9]+\\] '\\(.+\\)'"
+                                            "\\s-+.*(\\(.+\\))$") nil t)
+            (push (cons (match-string 1)
+                        (bongo-parse-time (match-string 2)))
+                  tracks))
+          (cons (list artist-name album-title album-year)
+                (cons track-count (nreverse tracks))))))))
+
+(defcustom bongo-cdtool-cdir-program-name "cdir"
+  "Name of the `cdir' executable (distributed with cdtool)."
+  :type 'string
+  :group 'bongo-audio-cd)
+
+(defcustom bongo-cdtool-cdown-program-name "cdown"
+  "Name of the `cdown' executable (distributed with cdtool)."
+  :type 'string
+  :group 'bongo-audio-cd)
+
+(defun bongo-cdtool-cdda-info (&optional device omit-lengths)
+  "Use `cdir' to find the track information of an audio CD.
+This function is a suitable value for `bongo-cdda-info-function'."
+  (with-temp-buffer
+    (apply 'call-process bongo-cdtool-cdir-program-name nil t nil "-n"
+           (when (or device bongo-cd-device)
+             (list "-d" (or device bongo-cd-device))))
+    (goto-char (point-min))
+    (when (re-search-forward "\\<in \\(.+\\) tracks\\>" nil t)
+      (let ((track-count (string-to-number (match-string 1)))
+            (track-lengths nil))
+        (unless omit-lengths
+          (while (re-search-forward "^\\s-+\\([0-9:.]+\\)" nil t)
+            (push (bongo-parse-time (match-string 1)) track-lengths)))
+        (cons track-count track-lengths)))))
+
+(defun bongo-cdtool-cddb-info (&optional device omit-lengths)
+  "Use `cdown' to find CDDB information about an audio CD.
+This function is a suitable value for `bongo-cddb-info-function'.
+Note that this function cannot report album release year information.
+It also has problems with multiple CDDB matches."
+  (with-current-buffer (get-buffer-create " *CDDB query*")
+    (erase-buffer)
+    (apply 'call-process bongo-cdtool-cdown-program-name nil t nil
+           (nconc (when (or device bongo-cd-device)
+                    (list "-d" (or device bongo-cd-device)))
+                  (when bongo-cddb-server
+                    (list "-H" bongo-cddb-server))
+                  (when bongo-cddb-server-port
+                    (list "-P" (number-to-string bongo-cddb-server-port)))))
+    (goto-char (point-min))
+    (let (track-count artist-name album-title tracks)
+      (when (re-search-forward "^tracks \\([0-9]+\\)" nil t)
+        (setq track-count (string-to-number (match-string 1))))
+      (when (re-search-forward "^cdname \\(.+\\)$" nil t)
+        (setq album-title (match-string 1)))
+      (when (re-search-forward "^artist \\(.+\\)$" nil t)
+        (setq artist-name (match-string 1)))
+      (let (track-titles)
+        (while (re-search-forward "^track \\(.+\\)$" nil t)
+          (push (match-string 1) track-titles))
+        (setq track-titles (nreverse track-titles))
+        (let ((track-lengths (unless omit-lengths
+                               (cdr (bongo-cdtool-cdda-info device)))))
+          (dotimes (dummy track-count)
+            (push (cons (car track-titles) (car track-lengths)) tracks)
+            (setq track-titles (cdr track-titles))
+            (setq track-lengths (cdr track-lengths)))))
+      (cons (list artist-name album-title nil)
+            (cons track-count tracks)))))
+
+(defun bongo-read-cd-device-name ()
+  "Prompt the user for a CD device name.
+Return a CD device name or nil."
+  (let ((file-name
+         (read-file-name (format "CD device name (default `%s'): "
+                                 bongo-cd-device)
+                         "/dev/" bongo-cd-device t)))
+    (unless (string-equal file-name "")
+      (expand-file-name file-name))))
+
+(defun bongo-insert-cd-track (track-index &optional cddb-info device)
+  "Insert a new track line corresponding to an audio CD track.
+Prefix argument TRACK-INDEX is the index of the CD track.
+Optional argument CDDB-INFO is a CDDB info structure for the CD, as
+  returned by `bongo-cddb-info', used to set the metadata for the track.
+If CDDB-INFO is nil but `bongo-use-cddb' is non-nil, call `bongo-cddb-info'
+  to obtain a CDDB info structure for the CD.
+Optional argument DEVICE overrides `bongo-cd-device'.
+With C-u as prefix argument, prompt for the CD device to use."
+  (interactive
+   (let ((device (or (when (consp current-prefix-arg)
+                       (bongo-read-cd-device-name))
+                     bongo-cd-device)))
+     (list (if (integerp current-prefix-arg)
+               current-prefix-arg
+             (let* ((track-count (bongo-cdda-track-count device))
+                    (range-string (when track-count
+                                    (format " (1-%d)" track-count))))
+               (read-number (format "Audio CD track number%s: "
+                                    (or range-string "")))))
+           nil device)))
+  (when (and (null cddb-info) bongo-use-cddb)
+    (setq cddb-info (bongo-cddb-info device)))
+  (when (null device)
+    (setq device bongo-cd-device))
+  (destructuring-bind ((artist-name album-title album-year)
+                       track-count . tracks)
+      (or cddb-info (list (list nil nil nil) nil))
+    (destructuring-bind (track-title . track-length)
+        (or (nth (- track-index 1) tracks) (cons nil nil))
+      (bongo-insert-line
+       'bongo-file-name
+       (format "cdda://%s@%d" (or device "") track-index)
+       'bongo-infoset
+       (nconc `((artist (name . ,(or artist-name "Audio CD"))))
+              (when (or artist-name album-title device)
+                `((album (title
+                          . ,(cond ((and artist-name album-title)
+                                    (format "%s (%s)" album-title
+                                            (if device
+                                                (format "`%s'" device)
+                                              "CD")))
+                                   (album-title album-title)
+                                   (t (format "Device: `%s'" device))))
+                         ,@(when album-year
+                             `((year . ,album-year))))))
+              `((track (title . ,(or track-title
+                                     (format "Track %d" track-index)))
+                       (index . ,(format "%02d" track-index))
+                       ,@(when track-length
+                           `((length . ,track-length))))))))))
+
+(defun bongo-insert-cd (&optional device)
+  "Insert a new track line for each track on an audio CD.
+Optional argument DEVICE overrides `bongo-cd-device'.
+With C-u as prefix argument, prompt for CD device to use.
+With a numerical prefix argument, insert only that particular track."
+  (interactive
+   (list (when (consp current-prefix-arg)
+           (expand-file-name
+            (read-file-name (format "Audio CD device (default `%s'): "
+                                    bongo-cd-device)
+                            "/dev/" bongo-cd-device t))))) 
+  (if (integerp current-prefix-arg)
+      (bongo-insert-cd-track current-prefix-arg nil device)
+    (let* ((cdda-info (bongo-cdda-info device))
+           (track-count (car cdda-info)))
+      (if (null track-count)
+          (error (concat "Cannot read audio CD"
+                         (when (or device bongo-cd-device)
+                           (format "in `%s'" (or device bongo-cd-device)))))
+        (with-bongo-buffer
+          (let ((beginning (point))
+                (cddb-info (if bongo-use-cddb
+                               (bongo-cddb-info device)
+                             (cons (list nil nil nil)
+                                   (cons track-count
+                                         (mapcar (lambda (length)
+                                                   (cons nil length))
+                                                 (cdr cdda-info)))))))
+            (dotimes (n track-count)
+              (bongo-insert-cd-track (+ n 1) cddb-info device))
+            (bongo-maybe-join-inserted-tracks beginning (point))))
+        (when (and (interactive-p) (not (bongo-buffer-p)))
+          (message "Inserted %d tracks." track-count))))))
+
+
 ;;;; DWIM commands
 
 ;; XXX: Should interpret numerical prefix argument as count.
@@ -4451,6 +4871,7 @@ If there is no track on the line at POINT, signal an error."
         (bongo-player-stop bongo-player))
       (bongo-set-current-track-position)
       (let ((player (bongo-play-file (bongo-line-file-name))))
+        (bongo-player-put player 'infoset (bongo-line-infoset))
         (setq bongo-player player)
         (bongo-line-set-property 'bongo-player player)
         (bongo-set-current-track-marker bongo-playing-track-marker)
@@ -5411,9 +5832,7 @@ If called interactively, SKIP is always non-nil."
                     (bongo-line-external-fields))
                    (new-external
                     (bongo-set-difference old-external fields)))
-              (condition-case nil
-                  (bongo-next-object)
-                (bongo-movement-error (goto-char end)))
+              (goto-char (or (bongo-point-at-next-object) end))
               (bongo-line-set-external-fields new-external previous)))
           (move-marker end nil)
           (when (not skip)
@@ -5453,12 +5872,17 @@ If the value is a symbol, treat it as if it were a singleton list."
         (properties (bongo-line-get-semantic-properties)))
     (save-excursion
       (bongo-clear-line)
+      (bongo-line-set-properties properties)
       (dotimes (dummy indentation)
         (insert bongo-indentation-string))
-      (let ((content (apply 'propertize (bongo-format-infoset infoset)
-                            'follow-link t 'mouse-face 'highlight
-                            (when invisible
-                              (list 'invisible invisible)))))
+      (let* ((bongo-infoset-formatting-target
+              (current-buffer))
+             (bongo-infoset-formatting-target-line
+              (bongo-point-before-line))
+             (content (apply 'propertize (bongo-format-infoset infoset)
+                             'follow-link t 'mouse-face 'highlight
+                             (when invisible
+                               (list 'invisible invisible)))))
         (insert
          (cond (header
                 (bongo-format-header content collapsed))
@@ -5466,8 +5890,7 @@ If the value is a symbol, treat it as if it were a singleton list."
                 (bongo-facify content 'bongo-currently-playing-track))
                (played
                 (bongo-facify content 'bongo-played-track))
-               (t content))))
-      (bongo-line-set-properties properties))))
+               (t content)))))))
 
 (defun bongo-redisplay-region (beg end)
   "Redisplay the Bongo objects in the region."
@@ -5515,24 +5938,27 @@ If no track is currently playing, just call `recenter'."
       (recenter)
       (select-window original-window))))
 
+(defvar bongo-time-regexp
+  (eval-when-compile
+    (rx string-start
+        (optional (optional
+                   ;; Hours.
+                   (submatch (one-or-more digit)) ":")
+                  ;; Minutes.
+                  (submatch (one-or-more digit)) ":")
+        ;; Seconds.
+        (submatch (one-or-more digit)
+                  (optional "." (one-or-more digit)))
+        string-end))
+  "Regular expression matching a [[H:]M:]S[.F] time string.
+There are three submatches: hours, minutes, and seconds.")
+
 (defun bongo-parse-time (time)
   "Return the total number of seconds of TIME, or nil.
 If TIME is a string of the form [[H:]M:]S[.F], where H, M, S and F
   may each be any number of digits, return 3600H + 60M + S.F.
 If TIME is any other string, return nil."
-  (when (string-match
-         (eval-when-compile
-           (rx string-start
-               (optional (optional
-                          ;; Hours.
-                          (submatch (one-or-more digit)) ":")
-                         ;; Minutes.
-                         (submatch (one-or-more digit)) ":")
-               ;; Seconds.
-               (submatch (one-or-more digit)
-                         (optional "." (one-or-more digit)))
-               string-end))
-         time)
+  (when (string-match bongo-time-regexp time)
     (let ((hours (match-string 1 time))
           (minutes (match-string 2 time))
           (seconds (match-string 3 time)))
@@ -6317,22 +6743,28 @@ See the function `bongo-playlist-buffer'.")
 
 (defun bongo-buffer-p (&optional buffer)
   "Return non-nil if BUFFER is in Bongo mode.
-If BUFFER is nil, test the current buffer instead."
-  (with-current-buffer (or buffer (current-buffer))
-    (or (eq 'bongo-playlist-mode major-mode)
-        (eq 'bongo-library-mode major-mode))))
+If BUFFER is nil, test the current buffer instead.
+If BUFFER is neither nil nor a buffer, return nil."
+  (when (or (null buffer) (bufferp buffer))
+    (with-current-buffer (or buffer (current-buffer))
+      (or (eq 'bongo-playlist-mode major-mode)
+          (eq 'bongo-library-mode major-mode)))))
 
 (defun bongo-library-buffer-p (&optional buffer)
   "Return non-nil if BUFFER is in Bongo Library mode.
-If BUFFER is nil, test the current buffer instead."
-  (with-current-buffer (or buffer (current-buffer))
-    (eq 'bongo-library-mode major-mode)))
+If BUFFER is nil, test the current buffer instead.
+If BUFFER is neither nil nor a buffer, return nil."
+  (when (or (null buffer) (bufferp buffer))
+    (with-current-buffer (or buffer (current-buffer))
+      (eq 'bongo-library-mode major-mode))))
 
 (defun bongo-playlist-buffer-p (&optional buffer)
   "Return non-nil if BUFFER is in Bongo Playlist mode.
-If BUFFER is nil, test the current buffer instead."
-  (with-current-buffer (or buffer (current-buffer))
-    (eq 'bongo-playlist-mode major-mode)))
+If BUFFER is nil, test the current buffer instead.
+If BUFFER is neither nil nor a buffer, return nil."
+  (when (or (null buffer) (bufferp buffer))
+    (with-current-buffer (or buffer (current-buffer))
+      (eq 'bongo-playlist-mode major-mode))))
 
 (defun bongo-embolden-quoted-substrings (string)
   "Embolden each quoted `SUBSTRING' in STRING."
