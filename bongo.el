@@ -519,7 +519,7 @@ This variable is used by the function `bongo-default-format-field'."
       (concat bongo-index ". "))
     bongo-title
     (when (and bongo-length (not (bongo-library-buffer-p bongo-target)))
-      (concat (if (bongo-playlist-buffer-p bongo-target) 
+      (concat (if (bongo-playlist-buffer-p bongo-target)
                   (let ((other-fields-width
                          (length (bongo-format-infoset
                                   `((track (length . nil)
@@ -3695,7 +3695,7 @@ These will come at the end or right before the file name, if any."
 (defun bongo-mpg123-player-pause/resume (player)
   (when (not (bongo-player-interactive-p player))
     (error (concat "This mpg123 process is not interactive "
-                   "and so does not support pausing"))) 
+                   "and so does not support pausing")))
   (process-send-string (bongo-player-process player) "PAUSE\n")
   (bongo-player-put player 'paused
     (not (bongo-player-get player 'paused)))
@@ -3892,7 +3892,7 @@ These will come at the end or right before the file name, if any."
 (defun bongo-mplayer-player-pause/resume (player)
   (when (not (bongo-player-interactive-p player))
     (error (concat "This mplayer process is not interactive "
-                   "and so does not support pausing"))) 
+                   "and so does not support pausing")))
   (process-send-string (bongo-player-process player) "pause\n")
   (bongo-player-put player 'paused
     (not (bongo-player-get player 'paused)))
@@ -4229,14 +4229,18 @@ This function should behave like `bongo-cdda-info'."
   :type 'boolean
   :group 'bongo-audio-cd)
 
-(defcustom bongo-cddb-server "freedb.org"
+(defcustom bongo-cddb-server nil
   "Host name of the CDDB server to use."
-  :type 'string
+  :type '(choice (const :tag "Unspecified" nil)
+                 (const "freedb.org")
+                 string)
   :group 'bongo-audio-cd)
 
-(defcustom bongo-cddb-server-port 888
+(defcustom bongo-cddb-server-port nil
   "Port number of the CDDB server to use."
-  :type 'integer
+  :type '(choice (const :tag "Unspecified")
+                 (const 888)
+                 integer)
   :group 'bongo-audio-cd)
 
 (defcustom bongo-cddb-info-function
@@ -4259,13 +4263,22 @@ The function should behave like `bongo-cddb-info'."
 Return (TRACK-COUNT . TRACK-LENGTHS), or nil on failure.
 If OMIT-LENGTHS is non-nil, TRACK-LENGTHS will be nil.
 Optional argument DEVICE overrides `bongo-cd-device'."
-  (funcall bongo-cdda-info-function device))
+  (cond (bongo-cdda-info-function
+         (funcall bongo-cdda-info-function device omit-lengths))
+        (bongo-cddb-info-function
+         (let ((cddb-info (funcall bongo-cddb-info-function
+                                   device omit-lengths)))
+           (when cddb-info
+             (cons (cadr cddb-info) (mapcar 'cdr (cddr cddb-info))))))))
 
 (defun bongo-cdda-track-count (&optional device)
   "Find the track count of an audio CD.
 Return nil if the track count could not be found for some reason.
 Optional argument DEVICE overrides `bongo-cd-device'."
-  (car (bongo-cdda-info device 'omit-lengths)))
+  (cond (bongo-cdda-info-function
+         (car (bongo-cdda-info device 'omit-lengths)))
+        (bongo-cddb-info-function
+         (cadr (bongo-cddb-info device 'omit-lengths)))))
 
 (defun bongo-cddb-info (&optional device omit-lengths)
   "Find CDDB information about an audio CD.
@@ -4274,7 +4287,8 @@ Entries in TRACKS are of the form (TRACK-TITLE . TRACK-LENGTH).
 If OMIT-LENGTHS is non-nil, TRACK-LENGTH will be nil for all tracks.
 Return nil if the audio CD could not be read or some other error occured.
 Optional argument DEVICE overrides `bongo-cd-device'."
-  (funcall bongo-cddb-info-function device))
+  (when bongo-cddb-info-function
+    (funcall bongo-cddb-info-function device)))
 
 (defun bongo-libcddb-cdda-info (&optional device omit-lengths)
   "Use `cddb_query' to find the number of tracks on an audio CD.
@@ -4451,29 +4465,37 @@ With a numerical prefix argument, insert only that particular track."
            (expand-file-name
             (read-file-name (format "Audio CD device (default `%s'): "
                                     bongo-cd-device)
-                            "/dev/" bongo-cd-device t))))) 
+                            "/dev/" bongo-cd-device t)))))
+  (when (null device)
+    (setq device bongo-cd-device))
   (if (integerp current-prefix-arg)
       (bongo-insert-cd-track current-prefix-arg nil device)
-    (let* ((cdda-info (bongo-cdda-info device))
-           (track-count (car cdda-info)))
-      (if (null track-count)
-          (error (concat "Cannot read audio CD"
-                         (when (or device bongo-cd-device)
-                           (format "in `%s'" (or device bongo-cd-device)))))
-        (with-bongo-buffer
-          (let ((beginning (point))
-                (cddb-info (if bongo-use-cddb
-                               (bongo-cddb-info device)
-                             (cons (list nil nil nil)
-                                   (cons track-count
-                                         (mapcar (lambda (length)
-                                                   (cons nil length))
-                                                 (cdr cdda-info)))))))
-            (dotimes (n track-count)
-              (bongo-insert-cd-track (+ n 1) cddb-info device))
-            (bongo-maybe-join-inserted-tracks beginning (point))))
-        (when (and (interactive-p) (not (bongo-buffer-p)))
-          (message "Inserted %d tracks." track-count))))))
+    (if (null bongo-cdda-info-function)
+        (progn
+          (message (concat "Cannot find track count of audio CD; "
+                           "please customize `bongo-cdda-info-function'."))
+          (bongo-insert-uri
+           (format "cdda://%s" (or device ""))))
+      (let* ((cdda-info (bongo-cdda-info device))
+             (track-count (car cdda-info)))
+        (if (null track-count)
+            (error (concat "Cannot read audio CD"
+                           (when device
+                             (format "in `%s'" device))))
+          (with-bongo-buffer
+            (let ((beginning (point))
+                  (cddb-info (if bongo-use-cddb
+                                 (bongo-cddb-info device)
+                               (cons (list nil nil nil)
+                                     (cons track-count
+                                           (mapcar (lambda (length)
+                                                     (cons nil length))
+                                                   (cdr cdda-info)))))))
+              (dotimes (n track-count)
+                (bongo-insert-cd-track (+ n 1) cddb-info device))
+              (bongo-maybe-join-inserted-tracks beginning (point))))
+          (when (and (interactive-p) (not (bongo-buffer-p)))
+            (message "Inserted %d tracks." track-count)))))))
 
 
 ;;;; DWIM commands
