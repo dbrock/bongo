@@ -4194,6 +4194,21 @@ These will come at the end or right before the file name, if any."
   :type '(choice string (const :tag "System default" nil))
   :group 'bongo-audio-cd)
 
+(defcustom bongo-libcddb-cddb-query-program-name "cddb_query"
+  "Name of the `cddb_query' executable (distributed with libcddb)."
+  :type 'string
+  :group 'bongo-audio-cd)
+
+(defcustom bongo-cdtool-cdir-program-name "cdir"
+  "Name of the `cdir' executable (distributed with cdtool)."
+  :type 'string
+  :group 'bongo-audio-cd)
+
+(defcustom bongo-cdtool-cdown-program-name "cdown"
+  "Name of the `cdown' executable (distributed with cdtool)."
+  :type 'string
+  :group 'bongo-audio-cd)
+
 (defcustom bongo-cdda-info-function
   (cond ((executable-find bongo-libcddb-cddb-query-program-name)
          'bongo-libcddb-cdda-info)
@@ -4261,11 +4276,6 @@ Return nil if the audio CD could not be read or some other error occured.
 Optional argument DEVICE overrides `bongo-cd-device'."
   (funcall bongo-cddb-info-function device))
 
-(defcustom bongo-libcddb-cddb-query-program-name "cddb_query"
-  "Name of the `cddb_query' executable (distributed with libcddb)."
-  :type 'string
-  :group 'bongo-audio-cd)
-
 (defun bongo-libcddb-cdda-info (&optional device omit-lengths)
   "Use `cddb_query' to find the number of tracks on an audio CD.
 This function is a suitable value for `bongo-cdda-info-function'."
@@ -4317,16 +4327,6 @@ This function is a suitable value for `bongo-cddb-info-function'."
                   tracks))
           (cons (list artist-name album-title album-year)
                 (cons track-count (nreverse tracks))))))))
-
-(defcustom bongo-cdtool-cdir-program-name "cdir"
-  "Name of the `cdir' executable (distributed with cdtool)."
-  :type 'string
-  :group 'bongo-audio-cd)
-
-(defcustom bongo-cdtool-cdown-program-name "cdown"
-  "Name of the `cdown' executable (distributed with cdtool)."
-  :type 'string
-  :group 'bongo-audio-cd)
 
 (defun bongo-cdtool-cdda-info (&optional device omit-lengths)
   "Use `cdir' to find the track information of an audio CD.
