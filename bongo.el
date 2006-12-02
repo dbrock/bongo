@@ -5380,19 +5380,22 @@ FIELDS defaults to the external fields of the current line."
 (defun bongo-insert-file (file-name)
   "Insert a new track line corresponding to FILE-NAME.
 If FILE-NAME names a directory, call `bongo-insert-directory-tree'.
-
-Interactively, expand wildcards and insert all matching files,
+Interactively, expand wildcards and insert all matching files
 unless `find-file-wildcards' is set to nil."
-  (interactive (list (let ((file-string
-                            (read-file-name "Insert file or directory tree: "
-                                            default-directory nil nil
-                                            (when (eq major-mode 'dired-mode)
-                                              (dired-get-filename t)))))
-                       (cond ((string-match "\\`/:" file-string)
-                              (expand-file-name (substring file-string 2)))
-                             ((null find-file-wildcards)
-                              (expand-file-name file-string))
-                             (t (file-expand-wildcards file-string t))))))
+  (interactive
+   (list (let ((file-string
+                (read-file-name "Insert file or directory tree: "
+                                default-directory nil nil
+                                (when (eq major-mode 'dired-mode)
+                                  (dired-get-filename t)))))
+           (cond ((string-match "\\`/:" file-string)
+                  (expand-file-name (substring file-string 2)))
+                 ((null find-file-wildcards)
+                  (expand-file-name file-string))
+                 (t
+                  (or (file-expand-wildcards file-string t)
+                      (when (file-exists-p file-string)
+                        (expand-file-name file-string))))))))
   (cond ((null file-name)
          (error "No matching files found"))
         ((consp file-name)
