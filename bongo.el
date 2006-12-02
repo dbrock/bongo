@@ -1991,15 +1991,17 @@ If there are no sections or tracks at POINT, return nil."
 By object is meant either section or track.
 If there are no sections or tracks after the one at POINT, return nil."
   (save-excursion
-    (if (bongo-object-line-p point)
-        (let ((indentation (bongo-line-indentation point)))
-          (goto-char (bongo-point-after-object point))
-          (bongo-snap-to-object-line)
-          (if (= (bongo-line-indentation) indentation)
-              (point)
-            (signal 'bongo-no-next-object nil)))
-      (bongo-goto-point point)
-      (bongo-snap-to-object-line))))
+    (bongo-goto-point point)
+    (when line-move-ignore-invisible
+      (bongo-skip-invisible))
+    (if (bongo-object-line-p)
+        (let ((indentation (bongo-line-indentation)))
+          (goto-char (bongo-point-after-object))
+          (when (and (bongo-snap-to-object-line 'no-error)
+                     (= (bongo-line-indentation) indentation))
+            (point)))
+      (when (bongo-snap-to-object-line 'no-error)
+        (point)))))
 
 (defun bongo-point-before-previous-object (&optional point)
   "Return the character position of the object previous to POINT.
