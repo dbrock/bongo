@@ -6584,6 +6584,7 @@ instead, use high-level functions such as `save-buffer'."
     (define-key map "id" 'bongo-insert-directory)
     (define-key map "it" 'bongo-insert-directory-tree)
     (define-key map "iu" 'bongo-insert-uri)
+    (define-key map "iC" 'bongo-insert-cd)
     (define-key map "e" 'bongo-append-enqueue)
     (define-key map "E" 'bongo-insert-enqueue)
     (define-key map "t" 'bongo-transpose-forward)
