@@ -3233,7 +3233,11 @@ This hook is only run for players started in Bongo buffers."
     (when (buffer-live-p (bongo-player-buffer player))
       (set-buffer (bongo-player-buffer player)))
     (bongo-cancel-lastfm-timer player)
-    (bongo-player-put player 'elapsed-time (max 0 new-elapsed-time))
+    (bongo-player-put player 'elapsed-time
+      (max 0 (if (bongo-player-total-time player)
+                 (min new-elapsed-time
+                      (bongo-player-total-time player ))
+               new-elapsed-time)))
     (bongo-player-times-changed player)
     (bongo-player-put player 'last-seek-time (current-time))
     (run-hook-with-args 'bongo-player-sought-functions player)
@@ -4503,7 +4507,6 @@ With a numerical prefix argument, insert only that particular track."
 ;; XXX: Should interpret numerical prefix argument as count.
 (defun bongo-dwim (&optional prefix-argument)
   "In Bongo, do what the user means to the object at point.
-
 If point is on a header, collapse or expand the section below.
 If point is on a track, the action is contingent on the mode:
   In Bongo Playlist mode, call `bongo-play-line'.
@@ -4511,7 +4514,6 @@ If point is on a track, the action is contingent on the mode:
     insert the track into the playlist.  Then start playing
     that track, unless either `bongo-avoid-interrupting-playback'
     xor PREFIX-ARGUMENT is non-nil.
-
 If point is neither on a track nor on a header, do nothing."
   (interactive "P")
   (cond
@@ -5229,9 +5231,10 @@ That is, when `bongo-seek-electric-mode' is non-nil.")
                (bar-width (if (and (bongo-playing-p)
                                    (bongo-elapsed-time)
                                    (bongo-total-time))
-                              (round (* (/ (float (bongo-elapsed-time))
-                                           (bongo-total-time))
-                                        available-width))
+                              (round
+                               (* (min 1 (/ (float (bongo-elapsed-time))
+                                            (bongo-total-time)))
+                                  available-width))
                             available-width))
                (label (if (and (bongo-playing-p)
                                (bongo-elapsed-time)
