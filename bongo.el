@@ -5404,7 +5404,8 @@ unless `find-file-wildcards' is set to nil."
         ((file-directory-p file-name)
          (bongo-insert-directory-tree file-name))
         (t
-         (bongo-insert-line 'bongo-file-name file-name)
+         (with-bongo-buffer
+           (bongo-insert-line 'bongo-file-name file-name))
          (when (and (interactive-p) (not (bongo-buffer-p)))
            (message "Inserted track: %s"
                     (bongo-format-infoset
@@ -5558,7 +5559,8 @@ This function descends each subdirectory of DIRECTORY-NAME recursively."
                                   (format " (default `%s')" default))))
            (read-string (concat "Insert URI" default-string ": ")
                         nil nil default))))
-  (bongo-insert-line 'bongo-file-name uri)
+  (with-bongo-buffer
+    (bongo-insert-line 'bongo-file-name uri))
   (when (and (interactive-p) (not (bongo-buffer-p)))
     (message "Inserted URI: %s"
              (bongo-format-infoset
