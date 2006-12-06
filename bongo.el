@@ -5142,6 +5142,7 @@ That is, when `bongo-seek-electric-mode' is non-nil.")
   (setq major-mode 'bongo-seek-mode)
   (setq mode-name "Bongo Seek")
   (use-local-map bongo-seek-mode-map)
+  (setq buffer-undo-list t)
   (run-mode-hooks 'bongo-seek-mode-hook))
 
 (defvar bongo-seek-mode-map
