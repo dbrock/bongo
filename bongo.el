@@ -8,7 +8,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: December 2, 2006
+;; Updated: December 8, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -61,9 +61,6 @@
 
 ;; Better error messages when players fail.
 
-;; Cache metadata?  Maybe even make it editable?  This would
-;; be a good way to let the user put titles on URLs.
-
 ;; The user should have a way to say ``play this track using
 ;; that backend.''
 
@@ -71,25 +68,14 @@
 
 ;; Implement intra-track region repeat.
 
-;; Install audio CD functionality by Daniel Jensen.
-
 ;; Provide a way to switch to the playlist by clicking on
 ;; something in the mode line.
-
-;; Provide a way to easily change `bongo-next-action'.
-
-;; Allow pseudo-tracks that perform some action when played
-;; instead of actually starting a player backend.  You could
-;; have a pseudo-track that would stop playback, for example,
-;; or one that would change the value of `bongo-next-action'.
-
-;; Phase out `bongo-avoid-interrupting-playback'.  Giving a
-;; prefix argument N to `bongo-stop' should insert a stop
-;; sentinel pseudo-track after the Nth next track.
 
 ;; Provide a way to specify that intermediate headers
 ;; (cf. `bongo-insert-intermediate-headers') should be
 ;; inserted even for singleton albums.
+
+;; Display `bongo-next-action' indicator in the mode line.
 
 ;;; Code:
 
@@ -113,7 +99,6 @@
 (defmacro with-bongo-buffer (&rest body)
   "Execute the forms in BODY in some Bongo buffer.
 The value returned is the value of the last form in BODY.
-
 If the current buffer is not a Bongo buffer, switch to
 the buffer returned by the function `bongo-buffer'."
   (declare (indent 0) (debug t))
@@ -126,7 +111,6 @@ the buffer returned by the function `bongo-buffer'."
 (defmacro with-bongo-library-buffer (&rest body)
   "Execute the forms in BODY in some Bongo library buffer.
 The value returned is the value of the last form in BODY.
-
 If the current buffer is not a library buffer, switch to
 the buffer returned by the function `bongo-library-buffer'."
   (declare (indent 0) (debug t))
@@ -139,7 +123,6 @@ the buffer returned by the function `bongo-library-buffer'."
 (defmacro with-bongo-playlist-buffer (&rest body)
   "Execute the forms in BODY in some Bongo playlist buffer.
 The value returned is the value of the last form in BODY.
-
 If the current buffer is not a playlist buffer, switch to
 the buffer returned by the function `bongo-playlist-buffer'."
   (declare (indent 0) (debug t))
@@ -160,9 +143,8 @@ If there is no next track line, signal an error."
        (bongo-skip-invisible))
      (let ((line-move-ignore-invisible nil))
        (when (not (bongo-track-line-p))
-         (bongo-goto-point (bongo-point-at-next-track-line)))
-       (when (not (bongo-track-line-p))
-         (error "No track at point"))
+         (bongo-goto-point (or (bongo-point-at-next-track-line)
+                               (error "No track at point"))))
        ,@body)))
 
 (defmacro bongo-ignore-movement-errors (&rest body)
@@ -284,49 +266,51 @@ URI (specify scheme followed by a colon)")))
 Please read the documentation for that variable, as the new usage
 differs slightly from the old.")
 
-(defcustom bongo-prefer-library-buffers t
-  "If non-nil, prefer library buffers over playlist buffers.
-This affects what kind of buffer is created by `\\[bongo]' when there
-are no existing Bongo buffers.
-
-Regardless of this setting, you can a specific type of Bongo buffer
-using `\\[bongo-library]' or `\\[bongo-playlist]'.  To create a new one,
-simply create a new buffer and then switch to a Bongo mode using
-`\\[bongo-library-mode]' or `\\[bongo-playlist-mode]'.
-
-If you set this variable to nil, you can happily use Bongo without ever
-seeing a library buffer (that is, unless you create one yourself)."
-  :type 'boolean
-  :group 'bongo)
-
-(defcustom bongo-avoid-interrupting-playback nil
-  "If non-nil, Bongo will not interrupt playback unless forced.
-This affects playlist commands like `bongo-play-random'; to avoid
-interrupting playback, they will merely change the playback order.
-
-Most such commands take a prefix argument, which forces them to
-interrupt playback if they normally wouldn't, or asks them not to
-if they normally would.  (That is, the prefix argument makes the
-command act as if this variable was temporarily toggled.)"
-  :type 'boolean
-  :group 'bongo)
-
-(defcustom bongo-display-playlist-after-enqueue t
-  "If non-nil, Bongo will display the playlist after enqueuing a track."
-  :type 'boolean
-  :group 'bongo)
-
 (defcustom bongo-default-directory nil
-  "Default directory for Bongo buffers, or nil."
+  "Default directory for Bongo buffers, or nil.
+If nil, use the value of `default-directory' when the buffer is created."
   :type '(choice (const :tag "None in particular" nil)
                  directory)
   :group 'bongo
   :group 'bongo-file-names)
 
+(defcustom bongo-prefer-library-buffers t
+  "If non-nil, prefer library buffers over playlist buffers.
+This affects what kind of buffer is created by `\\[bongo]' when there
+are no existing Bongo buffers.
+
+Regardless of this setting, you can switch to a specific type of Bongo
+buffer using the commands `\\[bongo-library]' and `\\[bongo-playlist]'.
+To create a new library or playlist, create a new buffer and then switch to
+the right mode using `\\[bongo-library-mode]' or `\\[bongo-playlist-mode]'.
+
+If you set this variable to nil, you can happily use Bongo without ever
+seeing a library buffer (unless you create one yourself, of course)."
+  :type 'boolean
+  :group 'bongo)
+
+(make-obsolete-variable 'bongo-avoid-interrupting-playback
+                        "use playback command prefix arguments instead"
+                        "2006-12-03")
+
+(defcustom bongo-display-playlist-after-enqueue t
+  "If non-nil, display the playlist after enqueuing a track."
+  :type 'boolean
+  :group 'bongo)
+
+(defcustom bongo-mark-played-tracks t
+  "If non-nil, mark played tracks and display them in a special face.
+Tracks marked as played are not selected for random playback.
+To mark all tracks as unplayed, use the command `\\[bongo-reset-playlist]'.
+To delete all played tracks, use the command `\\[bongo-flush-playlist]'.
+Played tracks are displayed with the face `bongo-played-track'."
+  :type 'boolean
+  :group 'bongo)
+
 (defcustom bongo-confirm-flush-playlist t
   "If non-nil, ask for confirmation before flushing the playlist.
-This affects only the command `bongo-flush-playlist'.
-In particular, `bongo-erase-buffer' and `bongo-delete-played-tracks'
+This affects only the command `\\[bongo-flush-playlist]'.
+In particular, `\\[bongo-erase-buffer]' and `\\[bongo-delete-played-tracks]'
 never ask for confirmation, regardless of the value of this variable."
   :type 'boolean
   :group 'bongo)
@@ -351,9 +335,9 @@ never ask for confirmation, regardless of the value of this variable."
           (function-item :tag "Play the same track again"
                          bongo-replay-current)
           (function-item :tag "Play the previous track"
-                         bongo-play-previous)
+                         bongo-play-previous-or-stop)
           (function-item :tag "Play a random track"
-                         bongo-play-random))
+                         bongo-play-random-or-stop))
   :group 'bongo)
 (make-variable-buffer-local 'bongo-next-action)
 
@@ -561,12 +545,25 @@ This variable is used by the function `bongo-default-format-field'."
   '("[" (bongo-format-seconds bongo-length) "]")
   "Template for displaying track lengths in Bongo.
 Value is a list of expressions, each evaluating to a string or nil.
-The value of the expressions are concatenated.
+The values of the expressions are concatenated.
 When the expressions are evaluated,
  - `bongo-length' is bound to the length of the track in seconds;
  - `bongo-track' is bound to the contents of the `track' field;
  - `bongo-infoset' is bound to the whole infoset;
  - `bongo-target' is short for `bongo-infoset-formatting-target';
+ - `bongo-line' is short for `bongo-infoset-formattnig-target-line'."
+  :type '(repeat sexp)
+  :group 'bongo-display)
+
+(defcustom bongo-action-format
+  '("Action: " bongo-action-description)
+  "Template for displaying action tracks in Bongo.
+Value is a list of expressions, each evaluating to a string or nil.
+The values of the expressions are concatenated.
+When the expressions are evaluated,
+ - `bongo-action-description' is bound to the action description;
+ - `bongo-action-expression' is bound to the action expression;
+ - `bongo-target' is short for `bongo-infoset-formattnig-target';
  - `bongo-line' is short for `bongo-infoset-formattnig-target-line'."
   :type '(repeat sexp)
   :group 'bongo-display)
@@ -1320,41 +1317,20 @@ With any other ARGUMENT, turn the mode on."
   "Structured track information in Bongo."
   :group 'bongo)
 
-(defcustom bongo-fields '(artist album track)
-  "The fields that will be used to describe tracks and headers.
-
-This list names the possible keys of a type of alist called an infoset.
-The value of a field may be some arbitrarily complex data structure,
-but the name of each field must be a simple symbol.
-
-By default, each field consists of another alist:
- * the `artist' field consists of a single mandatory `name' subfield;
- * the `album' field consists of both a mandatory `title' subfield
-   and an optional `year' subfield; and finally,
- * the `track' field consists of a mandatory `title' subfield,
-   an optional `index' subfield, and an optional `length' subfield.
-
+(defcustom bongo-potential-external-fields '(artist album)
+  "The fields that may be used to join tracks into sections.
 Currently, this list needs to be completely ordered, starting with
-the most general field and ending with the most specific field.
-This restriction may be relaxed in the future to either allow partially
-ordered field lists, or to abandon the hard-coded ordering completely.
-
-The meaning and content of the fields are defined implicitly by the
-functions that use and operate on fields and infosets (sets of fields).
-Therefore, if you change this list, you probably also need to change
- (a) either `bongo-infoset-formatting-function' or
-     `bongo-field-formatting-function',
- (b) `bongo-infoset-from-file-name-function', and
- (c) either `bongo-file-name-from-infoset-function' or
-     `bongo-file-name-part-from-field-function'."
+the most general field and ending with the most specific field."
   :type '(repeat symbol)
   :group 'bongo-infosets)
+
+(define-obsolete-variable-alias 'bongo-fields
+  'bongo-potential-external-fields "2006-12-07")
 
 (defcustom bongo-infoset-from-file-name-function
   'bongo-default-infoset-from-file-name
   "Function used to convert file names into infosets.
-This function should be chosen so that the following
-identity holds at all times:
+This function should be chosen so that the following identity holds:
    (equal (file-name-sans-extension
            (file-name-nondirectory FILE-NAME))
           (bongo-file-name-from-infoset
@@ -1373,8 +1349,7 @@ See also `bongo-file-name-from-infoset-function'."
 (defcustom bongo-file-name-from-infoset-function
   'bongo-default-file-name-from-infoset
   "Function used to represent an infoset as a file name.
-This function should be chosen so that the following
-identity holds at all times:
+This function should be chosen so that the following identity holds:
    (equal (file-name-sans-extension
            (file-name-nondirectory FILE-NAME))
           (bongo-file-name-from-infoset
@@ -1481,6 +1456,21 @@ This is used by `bongo-default-format-infoset'."
   "Face used for the currently playing Bongo track."
   :group 'bongo-faces)
 
+(defface bongo-action-track '((t nil))
+  "Face used for Bongo action tracks."
+  :group 'bongo-faces)
+
+(defface bongo-action-track-description
+  '((t (:weight bold :inherit (font-lock-builtin-face
+                               bongo-action-track))))
+  "Face used for Bongo action track descriptions."
+  :group 'bongo-faces)
+
+(defface bongo-action-track-expression
+  '((t (:inherit bongo-action-track)))
+  "Face used for Bongo action track expressions."
+  :group 'bongo-faces)
+
 
 ;;;; Infoset- and field-related functions
 
@@ -1516,21 +1506,23 @@ This value can be used by the formatting function.")
 
 (defun bongo-default-format-infoset (infoset)
   "Format INFOSET by calling `bongo-format-field' on each field.
-Only format fields whose names are in `bongo-fields', and format the
-  fields in the same order as they appear in `bongo-fields'.
+Only the first instance of each field with a given name is considered.
 Dynamically bind `bongo-infoset' to INFOSET while formatting.
 Return the concatenation of the obtained formatted field values
-  separated by `bongo-field-separator'."
+separated by `bongo-field-separator'."
   (let* ((bongo-infoset infoset)
          (bongo-target bongo-infoset-formatting-target)
          (bongo-line bongo-infoset-formatting-target-line)
+         (processed-fields nil)
          (formatted-fields
           (apply 'nconc
-                 (mapcar (lambda (field-name)
-                           (let ((field (assq field-name bongo-infoset)))
-                             (when field
-                               (list (bongo-format-field field)))))
-                         bongo-fields))))
+                 (mapcar (lambda (field)
+                           (unless (or (memq (car field) processed-fields)
+                                       (null (cdr field))
+                                       (eq (cdr field) 'unknown))
+                             (push (car field) processed-fields)
+                             (list (bongo-format-field field))))
+                         infoset))))
     (mapconcat 'identity formatted-fields bongo-field-separator)))
 
 (defun bongo-file-name-from-infoset (infoset)
@@ -1575,6 +1567,7 @@ each field and separates the obtained field values using
              (bongo-artist data))
         (if (listp bongo-album-format)
             (apply 'concat (mapcar 'eval bongo-album-format))
+          ;; XXX: This is deprecated.
           (if (null bongo-year)
               bongo-title
             (require 'format-spec)
@@ -1598,11 +1591,36 @@ each field and separates the obtained field values using
                 (propertize length-string 'face 'bongo-track-length))))
         (if (listp bongo-track-format)
             (apply 'concat (mapcar 'eval bongo-track-format))
+          ;; XXX: This is deprecated.
           (if (null bongo-index)
               bongo-title
             (require 'format-spec)
             (format-spec bongo-track-format `((?t . ,bongo-title)
-                                              (?i . ,bongo-index))))))))))
+                                              (?i . ,bongo-index)))))))
+     ((action)
+      (let ((bongo-action-expression data)
+            (bongo-action-description
+             (let ((description-specifier
+                    (when (listp data)
+                      (get (car data) 'bongo-action-description))))
+               (cond ((null description-specifier)
+                      (bongo-facify (with-temp-buffer
+                                      (emacs-lisp-mode)
+                                      (insert (prin1-to-string data))
+                                      (let ((font-lock-verbose nil))
+                                        (font-lock-fontify-buffer))
+                                      (buffer-string))
+                                    'bongo-action-track-expression))
+                     ((stringp description-specifier)
+                      (bongo-facify description-specifier
+                                    'bongo-action-track-description))
+                     ((functionp description-specifier)
+                      (bongo-facify (apply description-specifier data)
+                                    'bongo-action-track-description))
+                     (t (error (concat "Invalid action description "
+                                       "specifier: `%S'")
+                               description-specifier))))))
+        (apply 'concat (mapcar 'eval bongo-action-format)))))))
 
 (defun bongo-file-name-part-from-field (field)
   "Represent FIELD as part of a file name.
@@ -1660,7 +1678,9 @@ This is used by `bongo-default-file-name-from-infoset'."
 
 (defun bongo-default-infoset-from-file-name (file-name)
   (if (bongo-uri-p file-name)
-      `((track (title . ,(bongo-unescape-uri file-name))))
+      `((artist . unknown)
+        (album . unknown)
+        (track (title . ,(bongo-unescape-uri file-name))))
     (let* ((base-name (file-name-sans-extension
                        (file-name-nondirectory file-name)))
            (values (split-string base-name bongo-file-name-field-separator)))
@@ -1702,9 +1722,12 @@ This is used by `bongo-default-file-name-from-infoset'."
           (track (title . ,(nth 2 values)))))
        ((= 2 (length values))
         `((artist (name . ,(nth 0 values)))
+          (album . unknown)
           (track (title . ,(nth 1 values)))))
        ((= 1 (length values))
-        `((track (title . ,(nth 0 values)))))))))
+        `((artist . unknown)
+          (album . unknown)
+          (track (title . ,(nth 0 values)))))))))
 
 (defun bongo-simple-infoset-from-file-name (file-name)
   `((track (title . ,(file-name-sans-extension
@@ -1769,11 +1792,13 @@ An empty line at the end of the buffer doesn't count."
   (>= (1+ (bongo-point-at-eol point)) (point-max)))
 
 (defun bongo-first-object-line-p (&optional point)
-  "Return non-nil if POINT is on the first object line."
+  "Return non-nil if POINT is on the first object line.
+See also `bongo-point-at-previous-object-line'."
   (null (bongo-point-at-previous-object-line point)))
 
 (defun bongo-last-object-line-p (&optional point)
-  "Return non-nil if POINT is on the last object line."
+  "Return non-nil if POINT is on the last object line.
+See also `bongo-point-at-next-object-line'."
   (null (bongo-point-at-next-object-line point)))
 
 (defalias 'bongo-point-before-line 'bongo-point-at-bol
@@ -1864,6 +1889,27 @@ This function works like `bongo-point-before-next-line-satisfying'."
                       predicate point)))
     (when before-next
       (bongo-point-at-eol before-next))))
+
+(defun bongo-point-at-first-line-satisfying (predicate &optional point)
+  "Return the position of the first line satisfying PREDICATE.
+If POINT is non-nil, the search starts at the line at POINT.
+If POINT is nil, it starts at the first line in the buffer.
+If no matching line is found, return nil."
+  (when (null point)
+    (goto-char (point-min)))
+  (if (funcall predicate)
+      (point)
+    (bongo-point-at-next-line-satisfying predicate)))
+
+(defun bongo-point-at-random-line-satisfying (predicate)
+  "Return the position of a random line satisfying PREDICATE.
+If there are no lines that satisfy PREDICATE, loop forever."
+  (save-excursion
+    (while (progn (goto-char (+ (point-min)
+                                (random (- (point-max)
+                                           (point-min)))))
+                  (not (funcall predicate))))
+    (point)))
 
 (defun bongo-point-before-previous-object-line (&optional point)
   "Return the character position of the previous object line.
@@ -2179,7 +2225,10 @@ You should use `bongo-line-infoset' most of the time."
   (unless (bongo-track-line-p point)
     (error "Point is not on a track line"))
   (or (bongo-line-get-property 'bongo-infoset point)
-      (bongo-infoset-from-file-name (bongo-line-file-name point))))
+      (cond ((bongo-line-file-name point)
+             (bongo-infoset-from-file-name (bongo-line-file-name point)))
+            ((bongo-line-action point)
+             `((action . ,(bongo-line-action point)))))))
 
 (defun bongo-header-infoset (&optional point)
   "Return the infoset for the header at POINT.
@@ -2200,13 +2249,18 @@ You should use `bongo-line-infoset' most of the time."
 
 (defun bongo-line-infoset (&optional point)
   "Return the infoset for the line at POINT.
-For track lines, the infoset is obtained by passing the file name to
-  `bongo-file-name-parsing-function'.
-For header lines, it is derived from the `bongo-fields' text property
-  and the infoset of the nearest following track line."
-    (cond
-     ((bongo-track-line-p point) (bongo-track-infoset point))
-     ((bongo-header-line-p point) (bongo-header-infoset point))))
+For header lines, derive the infoset from the `bongo-fields' text
+  property and the infoset of the nearest following track line.
+For track lines, first check the `bongo-infoset' text property:  If the
+  value is non-nil, return it; otherwise, construct the infoset as follows.
+For action track lines, construct the infoset as ((action . ACTION)),
+  where ACTION is the value of the `bongo-action' text property.
+For file track lines, construct the infoset by passing the file name to
+  the value of `bongo-file-name-parsing-function'."
+    (cond ((bongo-track-line-p point)
+           (bongo-track-infoset point))
+          ((bongo-header-line-p point)
+           (bongo-header-infoset point))))
 
 (defun bongo-line-internal-infoset (&optional point)
   "Return the internal infoset for the line at POINT.
@@ -2258,7 +2312,6 @@ FIELDS should be a list of field names."
   "Return the external fields proposal of the line at POINT.
 This proposal is a list of field names that subsequent lines can
 externalize if their field values match those of this line.
-
 For track lines, this is always the same as the external field names.
 For header lines, the internal field names are also added."
   (cond ((bongo-track-line-p point)
@@ -2280,28 +2333,52 @@ See `bongo-line-external-fields-proposal'."
   "Return the external fields proposed to the line at POINT.
 This is nil for the first line, and equal to the external field names
 proposal of the previous object line for all other lines."
-  (if (bongo-first-object-line-p point) nil
+  (catch 'return
     (bongo-line-external-fields-proposal
-     (bongo-point-at-previous-object-line point))))
+     (or (bongo-point-at-previous-object-line point)
+         (throw 'return nil)))))
 
 (defun bongo-line-proposed-indentation (&optional point)
   "Return the number of external fields proposed to the line at POINT.
 See `bongo-line-proposed-external-fields'."
-  (if (bongo-first-object-line-p point) 0
+  (catch 'return
     (bongo-line-indentation-proposal
-     (bongo-point-at-previous-object-line point))))
+     (or (bongo-point-at-previous-object-line point)
+         (throw 'return 0)))))
 
 ;;; (defun bongo-line-relatively-outdented-p ()
 ;;;   (< (bongo-line-indentation) (bongo-line-proposed-indentation)))
 
 (defun bongo-line-file-name (&optional point)
-  "Return the `bongo-file-name' text property of the file at POINT.
-This will be nil for header lines and non-nil for track lines."
+  "Return the `bongo-file-name' text property of the line at POINT."
   (bongo-line-get-property 'bongo-file-name point))
+
+(defun bongo-line-action (&optional point)
+  "Return the `bongo-action' text property of the line at POINT."
+  (bongo-line-get-property 'bongo-action point))
+
+(defun bongo-file-track-line-p (&optional point)
+  "Return non-nil if the line at POINT is a file track line."
+  (bongo-line-file-name point))
+
+(defun bongo-uri-track-line-p (&optional point)
+  "Return non-nil if the line at POINT is a URI track line."
+  (and (bongo-file-track-line-p point)
+       (bongo-uri-p (bongo-line-file-name point))))
+
+(defun bongo-local-file-track-line-p (&optional point)
+  "Return non-nil if the line at POINT is a local file track line."
+  (and (bongo-file-track-line-p point)
+       (not (bongo-uri-track-line-p point))))
+
+(defun bongo-action-track-line-p (&optional point)
+  "Return non-nil if the line at POINT is an action track line."
+  (bongo-line-action point))
 
 (defun bongo-track-line-p (&optional point)
   "Return non-nil if the line at POINT is a track line."
-  (not (null (bongo-line-file-name point))))
+  (or (bongo-file-track-line-p point)
+      (bongo-action-track-line-p point)))
 
 (defun bongo-currently-playing-track-line-p (&optional point)
   "Return non-nil if the line at POINT is currently playing."
@@ -2352,10 +2429,11 @@ Collapsed header lines are header lines whose sections are collapsed."
   "Return non-nil if the line at POINT is an empty section.
 That is, the header line of a section that has no content."
   (and (bongo-header-line-p point)
-       (or (bongo-last-object-line-p point)
-           (not (> (bongo-line-indentation
-                    (bongo-point-at-next-object-line point))
-                   (bongo-line-indentation point))))))
+       (catch 'return
+         (not (> (bongo-line-indentation
+                  (or (bongo-point-at-next-object-line point)
+                      (throw 'return t)))
+                 (bongo-line-indentation point))))))
 
 
 ;;;; General convenience routines
@@ -2423,7 +2501,7 @@ Comparisons are done with `eq'.  Element order is not significant."
 (defun bongo-alist-get (alist key)
   "Return the cdr of the element in ALIST whose car equals KEY.
 If no such element exists, return nil."
-  (cdr-safe (assoc key alist)))
+  (cdr (assoc key alist)))
 
 (defun bongo-alist-put (alist key value)
   "Set the cdr of the element in ALIST whose car equals KEY to VALUE.
@@ -2547,7 +2625,7 @@ Actually only look at the terminating newline."
   (get-text-property (bongo-point-at-eol point) name))
 
 (defvar bongo-line-semantic-properties
-  (list 'bongo-file-name 'bongo-infoset
+  (list 'bongo-file-name 'bongo-action 'bongo-infoset
         'bongo-header 'bongo-collapsed
         'bongo-fields 'bongo-external-fields
         'bongo-player 'bongo-played)
@@ -2604,107 +2682,121 @@ The text properties will only be removed from the terminating newline."
 
 ;;;; Sectioning
 
-(defun bongo-field-common-in-region-p (beg end field)
-  "Return non-nil if FIELD is common between BEG and END.
-FIELD should be the name of a field (i.e., a symbol).
-A field is common in a region if all object lines inside
-the region share the same value for the field."
+(defun bongo-joinable-field-values-p (a b)
+  "Return non-nil if A and B are joinable field values.
+Field values are joinable if they are `equal', except that nil is
+joinable with everything and `unknown' is not joinable with anything."
+  (or (null a) (null b)
+      (and (not (eq a 'unknown))
+           (equal a b))))
+
+(defun bongo-region-joinable-on-field-p (beg end field)
+  "Return non-nil if all lines in the region are joinable on FIELD.
+FIELD is a symbol naming a field (for example, `artist' or `title').
+Two lines are joinable on FIELD if their values for FIELD are joinable.
+If there is less than two object lines between BEG and END, return nil.
+Also return nil if the value for FIELD is nil throughout the region.
+See `bongo-joinable-field-values-p' about what it means for two field
+values to be joinable."
   (save-excursion
-    (let ((last-value nil)
-          (result t))
+    (let ((result 'maybe))
       (goto-char beg)
       (bongo-ignore-movement-errors
         (bongo-snap-to-object-line)
-        (when (< (point) end)
-          (if (null (setq last-value (bongo-line-field-value field)))
-              (setq result nil)
+        (let ((last (bongo-line-field-value field)))
+          (while (and (< (point) end) result)
             (bongo-next-object-line)
-            (while (and result (< (point) end))
-              (if (equal last-value (bongo-line-field-value field))
-                  (bongo-next-object-line)
+            (let ((current (bongo-line-field-value field)))
+              (if (bongo-joinable-field-values-p last current)
+                  (when (or last current)
+                    (setq result t))
                 (setq result nil))))))
-      result)))
+      (eq result t))))
 
-;; XXX: This will not work properly unless the fields are
-;;      strictly hierarchical.
-(defun bongo-common-fields-in-region (beg end)
-  "Return the names of all fields that are common between BEG and END.
-See `bongo-field-common-in-region-p'."
-  (let ((fields (reverse bongo-fields))
-        (common-fields nil))
+(define-obsolete-function-alias 'bongo-field-common-in-region-p
+  'bongo-region-joinable-on-field-p "2006-12-07")
+
+;; XXX: This will not work properly unless the list of
+;;      potential external fields is completely ordered.
+(defun bongo-potential-external-fields-in-region (beg end)
+  "Return the names of the fields that could join the region.
+That is, the fields on which the region between BEG and END is joinable.
+See `bongo-region-joinable-on-field-p' about what it means for a region
+to be joinable on a field."
+  (let ((fields (reverse bongo-potential-external-fields))
+        (joining-fields nil))
     (while fields
-      (if (bongo-field-common-in-region-p beg end (car fields))
-          (when (null common-fields)
-            (setq common-fields fields))
-        (setq common-fields nil))
+      (if (bongo-region-joinable-on-field-p beg end (car fields))
+          (when (null joining-fields)
+            (setq joining-fields fields))
+        (setq joining-fields nil))
       (setq fields (cdr fields)))
-    common-fields))
+    joining-fields))
 
-(defun bongo-common-fields-at-point (&optional point)
-  "Return the names of all fields that are common at POINT.
-A field is common at POINT if it is common in the region around
-the object at POINT and either the previous or the next object."
-  (save-excursion
-    (bongo-goto-point point)
-    (unless (bongo-object-line-p)
-      (error "Point is not on an object line"))
-    (let ((before-previous (bongo-point-before-previous-object-line))
-          (after-next (bongo-point-after-next-object-line)))
-      (bongo-longest
-       (when before-previous
-         (bongo-common-fields-in-region before-previous
-                                        (bongo-point-after-line)))
-       (when after-next
-         (bongo-common-fields-in-region (bongo-point-before-line)
-                                        after-next))))))
+(define-obsolete-function-alias 'bongo-common-fields-in-region
+  'bongo-potential-external-fields-in-region "2006-12-07")
 
-;; XXX: This will not work properly unless the fields are
-;;      strictly hierarchical.
-(defun bongo-fields-external-in-region-p (beg end fields)
-  "Return non-nil if FIELDS are external between BEG and END.
-Return nil if there is a field in FIELDS that is not external for
-at least one line in the region."
-  (save-excursion
-    (let ((result t))
-      (goto-char beg)
-      (while (and (< (point) end) result)
-        (when (< (bongo-line-indentation) (length fields))
-          (setq result nil))
-        (forward-line))
-      result)))
+(defun bongo-potential-external-fields-at-point (&optional point)
+  "Return the names of the fields that could join tracks around POINT.
+That is, find the largest subset of `bongo-potential-external-fields'
+such that some region around POINT is joinable on all those fields.
+See `bongo-potential-external-fields-in-region'."
+  (let ((interesting-line-p
+         (lambda ()
+           (catch 'return
+             (dolist (field (bongo-line-fields) nil)
+               (when (and (bongo-line-field-value field)
+                          (memq field bongo-potential-external-fields))
+                 (throw 'return t)))))))
+    (save-excursion
+      (bongo-goto-point point)
+      (let ((before-previous
+             (bongo-point-before-previous-line-satisfying
+              interesting-line-p))
+            (after-next
+             (bongo-point-after-next-line-satisfying
+              interesting-line-p)))
+        (if (funcall interesting-line-p)
+            (bongo-longest
+             (when before-previous
+               (bongo-potential-external-fields-in-region
+                before-previous (bongo-point-after-line)))
+             (when after-next
+               (bongo-potential-external-fields-in-region
+                (bongo-point-before-line) after-next)))
+          (when (and before-previous after-next)
+            (bongo-potential-external-fields-in-region
+             before-previous after-next)))))))
 
-;;; (defun bongo-external-fields-in-region-equal-p (beg end)
-;;;   "In Bongo, return the fields that are external in the region.
-;;; The region delimiters BEG and END should be integers or markers.
+;;; XXX: This will not work properly unless the list of
+;;;      potential external fields is completely ordered.
 ;;;
-;;; Only the fields that are external for all objects throughout
-;;; the region are considered to be external ``in the region.''"
+;;; This function appears to be unused, and since its
+;;; implementation is not general, I commented it out.
+;;;
+;;; (defun bongo-fields-external-in-region-p (beg end fields)
+;;;   "Return non-nil if FIELDS are external between BEG and END.
+;;; FIELDS is a list of symbols naming fields (for example, `artist').
+;;; More precisely, return nil if and only if there is a field in FIELDS
+;;; that is not external for some line in the region."
 ;;;   (save-excursion
-;;;     (goto-char beg)
-;;;     (let* ((equal t)
-;;;            (fields (bongo-external-fields))
-;;;            (values (bongo-get fields)))
-;;;       (while (and (< (point) end) equal)
-;;;         (unless (equal (bongo-get fields) values)
-;;;           (setq equal nil))
+;;;     (let ((result t))
+;;;       (goto-char beg)
+;;;       (while (and (< (point) end) result)
+;;;         (when (< (bongo-line-indentation) (length fields))
+;;;           (setq result nil))
 ;;;         (forward-line))
-;;;       equal)))
-;;;
-;;; (defun bongo-external-fields-at-point-equal-to-previous-p (&optional point)
-;;;   (if (bongo-first-line-p point)
-;;;       (zerop (bongo-indentation-at-point point))
-;;;     (bongo-external-fields-in-region-equal-p
-;;;      (bongo-point-before-previous-line point)
-;;;      (bongo-point-after-line point))))
+;;;       result)))
 
 (defun bongo-line-potential-external-fields (&optional point)
   "Return the fields of the line at POINT that could be external.
 That is, return the names of the fields that are common between
   the line at POINT and the object line before that.
 If the line at POINT is the first line, return nil."
-  (unless (bongo-first-object-line-p point)
-    (bongo-common-fields-in-region
-     (bongo-point-before-previous-object-line point)
+  (catch 'return
+    (bongo-potential-external-fields-in-region
+     (or (bongo-point-before-previous-object-line point)
+         (throw 'return nil))
      (bongo-point-after-line point))))
 
 (defun bongo-line-externalizable-fields (&optional point)
@@ -2743,13 +2835,6 @@ This function respects `bongo-insert-intermediate-headers',
                     (when (bongo-subset-p potential proposal)
                       (setq fields proposal))))
                 fields)))))))
-
-(defun bongo-redundant-header-line-p (&optional point)
-  "Return non-nil if the line at POINT is a redundant header.
-Redundant headers are headers whose internal fields are all externalizable."
-  (and (bongo-header-line-p point)
-       (bongo-set-equal-p (bongo-line-externalizable-fields point)
-                          (bongo-line-internal-fields point))))
 
 (defun bongo-down-section (&optional n)
   "Move to the first object line in the section at point.
@@ -2929,8 +3014,7 @@ to automatically enable Bongo Last.fm mode in Bongo playlist buffers."
       (let ((value bongo-lastfm-mode))
         (kill-local-variable 'bongo-lastfm-mode)
         (when (not (null value))
-          (error (concat "Bongo Last.fm mode can only be enabled "
-                         "in Bongo playlists"))))))
+          (error "Bongo Last.fm mode can only be enabled in playlists")))))
 
 (defun bongo-turn-on-lastfm-mode-if-applicable ()
   (when (bongo-playlist-buffer-p)
@@ -2962,11 +3046,18 @@ to automatically enable Bongo Last.fm mode in Bongo playlist buffers."
       (message "Submitted to Last.fm: %s" formatted-infoset))))
 
 (defun bongo-lastfm-submit-player (player)
-  "Submit PLAYER's song information to Last.fm.
+  "Submit PLAYER's track to Last.fm, if not submitted already.
+This function looks at and may change PLAYER's `lastfm-submitted' property.
 See `bongo-lastfm-submit'."
-  (bongo-lastfm-submit (bongo-infoset-from-file-name
-                        (bongo-player-file-name player))
-                       (bongo-player-total-time player)))
+  ;; In a perfect world, the `lastfm-sumbitted' property
+  ;; would not be necessary.  We use it as a precaution in
+  ;; case we miss cancelling the Last.fm timer.  That is a
+  ;; serious bug in itself, but there is no reason to submit
+  ;; the same song over and over just because we have a bug.
+  (unless (bongo-player-get player 'lastfm-sumbitted)
+    (bongo-lastfm-submit (bongo-player-infoset player)
+                         (bongo-player-total-time player))
+    (bongo-player-put player 'lastfm-sumbitted t)))
 
 (defun bongo-lastfm-submit-current ()
   "Sumbit the currently playing track to Last.fm."
@@ -2995,14 +3086,15 @@ See `bongo-lastfm-submit'."
     (bongo-cancel-lastfm-timer player)))
 
 (defun bongo-start-lastfm-timer (player)
-  (when (and (bongo-player-elapsed-time player)
-             (bongo-player-total-time player)
-             ;; ``Songs with a duration of less than 30
-             ;; seconds should not be submitted,'' says the
-             ;; Audioscrobbler website.
-             (>= (bongo-player-total-time player) 30))
-    (bongo-player-put player 'lastfm-timer
-      (run-with-timer 1 1 'bongo-lastfm-tick player))))
+  (unless (bongo-player-get player 'lastfm-timer)
+    (when (and (bongo-player-elapsed-time player)
+               (bongo-player-total-time player)
+               ;; ``Songs with a duration of less than 30
+               ;; seconds should not be submitted,'' says the
+               ;; Audioscrobbler website.
+               (>= (bongo-player-total-time player) 30))
+      (bongo-player-put player 'lastfm-timer
+        (run-with-timer 1 1 'bongo-lastfm-tick player)))))
 
 
 ;;;; Players
@@ -3134,8 +3226,7 @@ The next action is specified by `bongo-next-action'."
   (interactive)
   (with-bongo-playlist-buffer
     (when bongo-next-action
-      (let ((bongo-avoid-interrupting-playback nil))
-        (funcall bongo-next-action)))))
+      (funcall bongo-next-action))))
 
 (defun bongo-player-finished (player)
   "Run the hooks appropriate for when PLAYER has finished.
@@ -3187,13 +3278,15 @@ This hook is only run for players started in Bongo buffers."
     (bongo-cancel-lastfm-timer player)
     (run-hook-with-args 'bongo-player-stopped-functions player)
     (when (bongo-buffer-p)
-      (save-excursion
-        (let ((position (bongo-point-at-current-track-line)))
-          (when position
-            (bongo-line-set-property 'bongo-played t position)
-            (bongo-redisplay-line position)))
-        (bongo-set-current-track-marker bongo-stopped-track-marker)
-        (run-hooks 'bongo-player-stopped-hook)))
+      (when bongo-mark-played-tracks
+        (save-excursion
+          (catch 'abort
+            (goto-char (or (bongo-point-at-current-track-line)
+                           (throw 'abort nil)))
+            (bongo-line-set-property 'bongo-played t)
+            (bongo-redisplay-line))))
+      (bongo-set-current-track-marker bongo-stopped-track-marker)
+      (run-hooks 'bongo-player-stopped-hook))
     (when (bufferp bongo-seek-buffer)
       (bongo-seek-redisplay))))
 
@@ -3351,7 +3444,8 @@ If PLAYER has no property called METHOD, use DEFAULT instead."
 
 (defun bongo-player-running-p (player)
   "Return non-nil if PLAYER's process is currently running."
-  (eq 'run (process-status (bongo-player-process player))))
+  (bongo-player-call-with-default
+   player 'running-p 'bongo-default-player-running-p))
 
 (defun bongo-player-explicitly-stopped-p (player)
   "Return non-nil if PLAYER was explicitly stopped."
@@ -3439,9 +3533,17 @@ where N is the value of PLAYER's `time-update-delay-after-seek' property."
 ;;;; Default implementations of player features
 
 (defun bongo-default-player-stop (player)
-  "Delete the process associated with PLAYER."
-  (delete-process (bongo-player-process player))
+  "Delete the process associated with PLAYER, if any.
+Then call `bongo-player-explicitly-stopped'."
+  (let ((process (bongo-player-process player)))
+    (when process
+      (delete-process process)))
   (bongo-player-explicitly-stopped player))
+
+(defun bongo-default-player-running-p (player)
+  "Return non-nil if PLAYER has a running process."
+  (let ((process (bongo-player-process player)))
+    (and process (eq 'run (process-status process)))))
 
 (defun bongo-default-player-interactive-p (player)
   "Return the value of PLAYER's `interactive' property."
@@ -3534,6 +3636,30 @@ where N is the value of PLAYER's `time-update-delay-after-seek' property."
     (prog1 player
       (set-process-sentinel process 'bongo-default-player-process-sentinel)
       (bongo-process-put process 'bongo-player player))))
+
+(defun bongo-action-player-run (player)
+  (bongo-player-put player 'running t)
+  (unwind-protect
+      (eval (bongo-player-get player 'expression))
+    (bongo-player-put player 'running nil))
+  (unless (bongo-player-explicitly-stopped-p player)
+    (bongo-player-succeeded player)))
+
+(defun bongo-action-player-stop (player)
+  (bongo-player-put player 'running nil)
+  (bongo-player-explicitly-stopped player))
+
+(defun bongo-action-player-running-p (player)
+  (bongo-player-get player 'running))
+
+(defun bongo-start-action-player (expression)
+  (let ((player (list 'action
+                      (cons 'expression expression)
+                      (cons 'buffer (current-buffer))
+                      (cons 'stop 'bongo-action-player-stop)
+                      (cons 'running-p 'bongo-action-player-running-p))))
+    (prog1 player
+      (run-with-timer 0 nil 'bongo-action-player-run player))))
 
 (defmacro define-bongo-backend (name &rest options)
   (let* ((group-name
@@ -4057,7 +4183,7 @@ These will come at the end or right before the file name, if any."
   (bongo-player-sought player seconds))
 
 (define-obsolete-function-alias 'bongo-vlc-player-seek-by
-  'bongo-vlc-player-seek-by)
+  'bongo-default-player-seek-by)
 
 (defun bongo-vlc-player-stop-timer (player)
   (let ((timer (bongo-player-get player 'timer)))
@@ -4504,33 +4630,37 @@ With a numerical prefix argument, insert only that particular track."
 
 ;;;; DWIM commands
 
-;; XXX: Should interpret numerical prefix argument as count.
-(defun bongo-dwim (&optional prefix-argument)
+(defun bongo-dwim (&optional n)
   "In Bongo, do what the user means to the object at point.
 If point is on a header, collapse or expand the section below.
-If point is on a track, the action is contingent on the mode:
-  In Bongo Playlist mode, call `bongo-play-line'.
-  In Bongo Library mode, call `bongo-insert-enqueue-line' to
-    insert the track into the playlist.  Then start playing
-    that track, unless either `bongo-avoid-interrupting-playback'
-    xor PREFIX-ARGUMENT is non-nil.
-If point is neither on a track nor on a header, do nothing."
+If point is on a playlist track, just start playing the track.
+If point is on a library track, enqueue the track in the playlist
+  and then immediately start playing it.
+If point is neither on a track nor on a header, do nothing.
+With numerical prefix argument N, play or enqueue the next N tracks.
+With \\[universal-argument] as prefix argument in a playlist buffer,
+  intra-playlist-enqueue the track instead of playing it."
   (interactive "P")
-  (cond
-   ((and (bongo-track-line-p) (bongo-library-buffer-p))
-    (let ((position (if (bongo-playing-p)
-                        (bongo-insert-enqueue-line)
-                      (bongo-append-enqueue-line))))
-      (with-bongo-playlist-buffer
-        (unless (and (bongo-playing-p)
-                     (bongo-xor bongo-avoid-interrupting-playback
-                                prefix-argument))
-          (let ((bongo-avoid-interrupting-playback nil))
-            (bongo-play-line position prefix-argument))))))
-   ((and (bongo-track-line-p) (bongo-playlist-buffer-p))
-    (bongo-play-line (point) prefix-argument))
-   ((bongo-header-line-p)
-    (bongo-toggle-collapsed))))
+  (cond ((and (bongo-track-line-p) (bongo-library-buffer-p))
+         (let ((position (if (bongo-playing-p)
+                             (bongo-insert-enqueue-line
+                              (prefix-numeric-value n))
+                           (bongo-append-enqueue-line
+                            (prefix-numeric-value n)))))
+           (with-bongo-playlist-buffer
+             (bongo-play-line position))))
+        ((and (bongo-track-line-p) (bongo-playlist-buffer-p))
+         (cond ((consp n)
+                (if (bongo-queued-track-line-p)
+                    (bongo-unset-queued-track-position)
+                  (bongo-set-queued-track-position)))
+               ((= (prefix-numeric-value n) 1)
+                (bongo-play-line))
+               (t
+                (bongo-play-line)
+                (bongo-stop n))))
+        ((bongo-header-line-p)
+         (bongo-toggle-collapsed))))
 
 (defun bongo-mouse-dwim (event)
   "In Bongo, do what the user means to the object that was clicked on.
@@ -4728,10 +4858,7 @@ This is used by `bongo-play-queued'.
 
 The functions `bongo-set-queued-track-position' and
 `bongo-unset-queued-track-position' can properly manipulate this
-variable and its value.
-
-If `bongo-avoid-interrupting-playback' is non-nil and a track is
-currently being played, `bongo-play-line' sets the queued track.")
+variable and its value. ")
 (make-variable-buffer-local 'bongo-queued-track-marker)
 
 (defun bongo-point-at-queued-track-line ()
@@ -4825,36 +4952,26 @@ of `bongo-next-action' and set the latter to `bongo-play-queued'."
 (define-obsolete-function-alias 'bongo-set-queued-track
   'bongo-set-queued-track-position)
 
-(defun bongo-play-line (&optional point toggle-interrupt)
+(defun bongo-play-line (&optional point)
   "Start playing the track on the line at POINT.
-If `bongo-avoid-interrupting-playback' is non-nil and a track is
-  currently being played, call `bongo-set-queued-track' instead.
-If TOGGLE-INTERRUPT (prefix argument if interactive) is non-nil,
-  act as if `bongo-avoid-interrupting-playback' were reversed.
-If there is no track on the line at POINT, signal an error."
-  (interactive "d\nP")
+If there is no track at POINT, play the first track after POINT or
+signal an error if there is no track after POINT."
+  (interactive "d")
   (unless (bongo-playlist-buffer-p)
     (error "Not a Bongo playlist buffer"))
   (with-point-at-bongo-track point
-    (if (and (bongo-playing-p)
-             (bongo-xor bongo-avoid-interrupting-playback
-                        toggle-interrupt))
-        ;; Something is being played and we should not
-        ;; interrupt it.
-        (if (bongo-queued-track-line-p)
-            (bongo-unset-queued-track-position)
-          (bongo-set-queued-track-position))
-      ;; Nothing is being played or we should interrupt it.
-      (when bongo-player
-        (bongo-player-stop bongo-player))
-      (bongo-set-current-track-position)
-      (let ((player (bongo-play-file (bongo-line-file-name))))
-        (bongo-player-put player 'infoset (bongo-line-infoset))
-        (setq bongo-player player)
-        (bongo-line-set-property 'bongo-player player)
-        (bongo-set-current-track-marker bongo-playing-track-marker)
-        (run-hooks 'bongo-player-started-hook)
-        (bongo-redisplay-line)))))
+    (when bongo-player
+      (bongo-player-stop bongo-player))
+    (bongo-set-current-track-position)
+    (let ((player (if (bongo-action-track-line-p)
+                      (bongo-start-action-player (bongo-line-action))
+                    (bongo-play-file (bongo-line-file-name)))))
+      (bongo-player-put player 'infoset (bongo-line-infoset))
+      (setq bongo-player player)
+      (bongo-line-set-property 'bongo-player player)
+      (bongo-set-current-track-marker bongo-playing-track-marker)
+      (run-hooks 'bongo-player-started-hook)
+      (bongo-redisplay-line))))
 
 (defun bongo-blink-queued-track-arrow ()
   "Blink the overlay arrow indicating the queued track.
@@ -4871,146 +4988,283 @@ Then call `bongo-unset-queued-track'."
                        (error "No queued track")))
   (bongo-unset-queued-track-position))
 
-(defun bongo-replay-current (&optional toggle-interrupt)
+(defun bongo-repeating-playback-mode (&optional default)
+  "Switch to repeating playback mode in the nearest playlist buffer.
+In repeating playback mode, the current track is played over and over.
+With prefix argument DEFAULT, make repeating playback the default mode.
+This function sets the buffer-local or global value of `bongo-next-action'."
+  (cond (default
+          (setq-default bongo-next-action 'bongo-replay-current)
+          (message "Repeating playback is now the default mode."))
+        (t
+         (setq bongo-next-action 'bongo-replay-current)
+         (message "Switched to repeating playback mode."))))
+
+(defun bongo-replay-current (&optional argument)
   "Play the current track in the nearest playlist from the start.
-If `bongo-avoid-interrupting-playback' is non-nil,
-  just set `bongo-next-action' to `bongo-replay-current'.
-If TOGGLE-INTERRUPT (prefix argument if interactive) is non-nil,
-  act as if `bongo-avoid-interrupting-playback' were reversed."
+With \\[universal-argument] as prefix argument, just switch to \
+repeating playback mode."
   (interactive "P")
-  (with-bongo-playlist-buffer
-    (if (not (bongo-xor bongo-avoid-interrupting-playback
-                        toggle-interrupt))
-        ;; We should interrupt playback, so play the current
-        ;; track from the beginning.
-        (let ((position (bongo-point-at-current-track-line))
-              (bongo-avoid-interrupting-playback nil))
-          (if position
-              (bongo-play-line position)
-            (error "No current track")))
-      ;; We should not interrupt playback.
-      (if (eq bongo-next-action 'bongo-replay-current)
-          (message (concat "Switched to repeating playback "
-                           "(prefix argument forces)."))
-        (setq bongo-next-action 'bongo-replay-current)
-        (message "Switched to repeating playback.")))))
+  (if (consp argument)
+      (bongo-repeating-playback-mode)
+    (with-bongo-playlist-buffer
+      (bongo-play-line (or (bongo-point-at-current-track-line)
+                           (error "No current track"))))))
+
+(defun bongo-progressive-playback-mode (&optional default)
+  "Switch to progressive playback mode in the nearest playlist buffer.
+In progressive playback mode, tracks are played in order (top-to-bottom).
+With prefix argument DEFAULT, make progressive playback the default mode.
+This function sets the buffer-local or global value of `bongo-next-action'."
+  (cond (default
+          (setq-default bongo-next-action 'bongo-play-next-or-stop)
+          (message "Progressive playback is now the default mode."))
+        (t
+         (setq bongo-next-action 'bongo-play-next-or-stop)
+         (message "Switched to progressive playback mode."))))
+
+(put 'bongo-progressive-playback-mode 'bongo-action-description
+     "Start playing tracks in order (downwards)")
 
 (defun bongo-play-next (&optional n)
   "Start playing the next track in the nearest Bongo playlist buffer.
 If there is no next track to play, signal an error.
-With prefix argument N, skip that many tracks."
-  (interactive "p")
-  (with-bongo-playlist-buffer
-    (let ((line-move-ignore-invisible nil)
-          (position (bongo-point-at-current-track-line))
-          (bongo-avoid-interrupting-playback nil))
-      (when (null position)
-        (error "No current track"))
-      (dotimes (dummy (or n 1))
-        (setq position (bongo-point-at-next-track-line position))
-        (when (null position)
-          (error "No next track")))
-      (bongo-play-line position))))
+With numerical prefix argument N, skip that many tracks.
+With \\[universal-argument] as prefix argument, just switch to \
+progressive playback mode.
+With \\[universal-argument] \\[universal-argument] as prefix argument, \
+insert an action track at point."
+  (interactive "P")
+  (if (consp n)
+      (if (> (prefix-numeric-value n) 4)
+          (bongo-insert-line 'bongo-action '(bongo-progressive-playback-mode))
+        (bongo-progressive-playback-mode))
+    (if (< (prefix-numeric-value n) 0)
+        (bongo-play-previous (- (prefix-numeric-value n)))
+      (with-bongo-playlist-buffer
+        (let ((line-move-ignore-invisible nil))
+          (save-excursion
+            (goto-char (or (bongo-point-at-current-track-line)
+                           (bongo-point-at-first-track-line)
+                           (error "No tracks in playlist")))
+            (dotimes (dummy (prefix-numeric-value n))
+              (goto-char (or (bongo-point-at-next-track-line)
+                             (error "No next track"))))
+            (bongo-play-line)))))))
 
 (defun bongo-play-next-or-stop (&optional n)
   "Maybe start playing the next track in the nearest playlist buffer.
-If there is no next track to play, stop playback.
-With prefix argument N, skip that many tracks."
-  (interactive "p")
-  (when (null n)
-    (setq n 1))
-  (with-bongo-playlist-buffer
-    (let ((line-move-ignore-invisible nil)
-          (position (bongo-point-at-current-track-line))
-          (bongo-avoid-interrupting-playback nil))
-      (when (null position)
-        (error "No current track"))
-      (while (and position (> n 0))
-        (setq position (bongo-point-at-next-track-line position))
-        (setq n (- n 1)))
-      (if position
-          (bongo-play-line position)
-        (bongo-stop)))))
+If there is no next track to play, just stop playback.
+With numerical prefix argument N, skip that many tracks.
+With \\[universal-argument] as prefix argument, just switch to \
+progressive playback.
+With \\[universal-argument] \\[universal-argument] as prefix argument, \
+insert an action track at point."
+  (interactive "P")
+  (condition-case nil
+      (bongo-play-next n)
+    (error (bongo-stop))))
+
+(defun bongo-regressive-playback-mode (&optional default)
+  "Switch to regressive playback mode in the nearest playlist buffer.
+In regressive playback mode, tracks are played in reverse order.
+With prefix argument DEFAULT, make regressive playback the default mode.
+This function sets the buffer-local or global value of `bongo-next-action'."
+  (cond (default
+          (setq-default bongo-next-action 'bongo-play-previous-or-stop)
+          (message "Regressive playback is now the default mode."))
+        (t
+         (setq bongo-next-action 'bongo-play-previous-or-stop)
+         (message "Switched to regressive playback mode."))))
+
+(put 'bongo-regressive-playback-mode 'bongo-action-description
+     "Start playing tracks in reverse order (upwards)")
 
 (defun bongo-play-previous (&optional n)
   "Start playing the previous track in the nearest playlist buffer.
 If there is no previous track to play, signal an error.
-With prefix argument N, skip that many tracks."
-  (interactive "p")
-  (with-bongo-playlist-buffer
-    (let ((line-move-ignore-invisible nil)
-          (position (bongo-point-at-current-track-line))
-          (bongo-avoid-interrupting-playback nil))
-      (when (null position)
-        (error "No current track"))
-      (dotimes (dummy (or n 1))
-        (setq position (bongo-point-at-previous-track-line position))
-        (when (null position)
-          (error "No previous track")))
-      (bongo-play-line position))))
+With numerical prefix argument N, skip that many tracks.
+With \\[universal-argument] as prefix argument, just switch to \
+regressive playback mode.
+With \\[universal-argument] \\[universal-argument] as prefix argument, \
+insert an action track at point."
+  (interactive "P")
+  (if (consp n)
+      (if (> (prefix-numeric-value n) 4)
+          (bongo-insert-line 'bongo-action '(bongo-regressive-playback-mode))
+        (bongo-regressive-playback-mode))
+    (if (< (prefix-numeric-value n) 0)
+        (bongo-play-next (- (prefix-numeric-value n)))
+      (with-bongo-playlist-buffer
+        (let ((line-move-ignore-invisible nil))
+          (save-excursion
+            (goto-char (or (bongo-point-at-current-track-line)
+                           (bongo-point-at-last-track-line)
+                           (error "No tracks in playlist")))
+            (dotimes (dummy (prefix-numeric-value n))
+              (goto-char (or (bongo-point-at-previous-track-line)
+                             (error "No previous track"))))
+            (bongo-play-line)))))))
 
-(defun bongo-play-random (&optional toggle-interrupt)
+(defun bongo-play-previous-or-stop (&optional n)
+  "Maybe start playing the previous track in the playlist buffer.
+If there is no previous track to play, just stop playback.
+With numerical prefix argument N, skip that many tracks.
+With \\[universal-argument] as prefix argument, just switch to \
+regressive playback.
+With \\[universal-argument] \\[universal-argument] as prefix argument, \
+insert an action track at point."
+  (interactive "P")
+  (condition-case nil
+      (bongo-play-previous n)
+    (error (bongo-stop))))
+
+(defun bongo-random-playback-mode (&optional default)
+  "Switch to random playback mode in the nearest playlist buffer.
+In progressive playback mode, tracks are played in random order.
+With prefix argument DEFAULT, make random playback the default mode.
+This function sets the buffer-local or global value of `bongo-next-action'."
+  (interactive "P")
+  (if (not default)
+      (with-bongo-playlist-buffer
+        (setq bongo-next-action 'bongo-play-random-or-stop)
+        (message "Switched to random playback mode."))
+    (setq-default bongo-next-action 'bongo-play-random-or-stop)
+    (message "Random playback is now the default mode.")))
+
+(put 'bongo-random-playback-mode 'bongo-action-description
+     "Start playing tracks in random order")
+
+(defun bongo-randomly-playable-track-line-p (&optional point)
+  "Return non-nil if the track line at POINT is randomly playable.
+That is, if the track is an appropriate choice during random playback.
+Currently, the only non-randomly-playable tracks are action tracks."
+  (and (bongo-track-line-p point)
+       (not (bongo-action-track-line-p point))))
+
+(defun bongo-unplayed-randomly-playable-track-line-p (&optional point)
+  "Return non-nil for unplayed and randomly playable track lines.
+See `bongo-randomly-playable-track-line-p' and `bongo-played-track-line-p'."
+  (and (bongo-randomly-playable-track-line-p point)
+       (not (bongo-played-track-line-p))))
+
+(defun bongo-play-random (&optional argument)
   "Start playing a random track in the nearest Bongo playlist buffer.
-If `bongo-avoid-interrupting-playback' is non-nil,
-  just set `bongo-next-action' to `bongo-play-random'.
-If TOGGLE-INTERRUPT (prefix argument if interactive) is non-nil,
-  act as if `bongo-avoid-interrupting-playback' were reversed."
+If there are no randomly playable tracks, signal an error.
+Randomly playable tracks are unplayed non-action tracks.
+With \\[universal-argument] as prefix argument, just switch to \
+random playback mode.
+With \\[universal-argument] \\[universal-argument] as prefix argument, \
+insert an action track at point."
   (interactive "P")
   (with-bongo-playlist-buffer
-    (if (not (bongo-xor bongo-avoid-interrupting-playback
-                        toggle-interrupt))
-        ;; We should interrupt playback, so start playing a
-        ;; random track immediately.
-        (let ((line-move-ignore-invisible nil)
-              (bongo-avoid-interrupting-playback nil))
-          (unless (bongo-track-lines-exist-p)
-            (error "Buffer contains no tracks"))
-          (save-excursion
-            (goto-char (1+ (random (point-max))))
-            (bongo-play-line)))
-      ;; We should not interrupt playback.
-      (if (eq bongo-next-action 'bongo-play-random)
-          (message (concat "Switched to random playback "
-                           "(prefix argument forces)."))
-        (setq bongo-next-action 'bongo-play-random)
-        (message "Switched to random playback.")))))
+    (if (consp argument)
+        (if (> (prefix-numeric-value argument) 4)
+            (bongo-insert-line 'bongo-action '(bongo-random-playback-mode))
+          (bongo-random-playback-mode))
+      (let ((line-move-ignore-invisible nil))
+        (cond ((null (bongo-point-at-first-line-satisfying
+                      'bongo-randomly-playable-track-line-p))
+               (error "No randomly playable tracks in playlist"))
+              ((null (bongo-point-at-first-line-satisfying
+                      'bongo-unplayed-randomly-playable-track-line-p))
+               (error (concat "No unplayed tracks in playlist; use "
+                              "`M-x bongo-reset-playlist' to reset")))
+              (t (bongo-play-line
+                  (bongo-point-at-random-line-satisfying
+                   'bongo-unplayed-randomly-playable-track-line-p))))))))
+
+(defun bongo-play-random-or-stop (&optional argument)
+  "Start playing a random track in the nearest Bongo playlist buffer.
+If there are no randomly playable tracks, just stop playback.
+Randomly playable tracks are unplayed non-action tracks.
+With \\[universal-argument] as prefix argument, just switch to \
+random playback mode.
+With \\[universal-argument] \\[universal-argument] as prefix argument, \
+insert an action track at point."
+  (interactive "P")
+  (condition-case nil
+      (bongo-play-random argument)
+    (error (bongo-stop))))
 
 (defun bongo-start ()
   "Start playing the current track in the nearest playlist buffer.
-If something is already playing, do nothing.
-If there is no current track, start playing the first track."
+If there is no current track, play the first track appropriate for the current
+playback mode (for example, for regressive playback, play the last track).
+However, if something is already playing, do nothing."
   (with-bongo-playlist-buffer
     (unless (bongo-playing-p)
-      (bongo-play-line (or (bongo-point-at-current-track-line)
-                           (bongo-point-at-first-track-line)
-                           (error "No tracks in playlist"))))))
+      (let ((position (bongo-point-at-current-track-line)))
+        (if (and position
+                 (not (and (bongo-action-track-line-p position)
+                           (equal (bongo-line-action position)
+                                  '(bongo-stop)))))
+            (bongo-play-line position)
+          (bongo-perform-next-action))))))
 
-(defun bongo-stop (&optional toggle-interrupt)
+(defun bongo-start/stop-playback-mode (&optional default)
+  "Switch to start/stop playback mode in the nearest playlist buffer.
+In start/stop playback mode, playback stops after each track.
+With prefix argument DEFAULT, make start/stop playback the default mode.
+This function sets the buffer-local or global value of `bongo-next-action'."
+  (interactive "P")
+  (if (not default)
+      (with-bongo-playlist-buffer
+        (setq bongo-next-action 'bongo-stop)
+        (message "Switched to start/stop playback mode."))
+    (setq-default bongo-next-action 'bongo-stop)
+    (message "Start/stop playback is now the default mode.")))
+
+(defun bongo-stop (&optional n)
   "Permanently stop playback in the nearest Bongo playlist buffer.
-If `bongo-avoid-interrupting-playback' is non-nil,
-  just set `bongo-next-action' to `bongo-stop'.
-If TOGGLE-INTERRUPT (prefix argument if interactive) is non-nil,
-  act as if `bongo-avoid-interrupting-playback' were reversed."
+With numerical prefix argument N, stop playback after N tracks.
+With \\[universal-argument] as prefix argument, just switch to \
+start/stop playback.
+With \\[universal-argument] \\[universal-argument] as prefix argument, \
+stop when playback reaches point."
   (interactive "P")
   (with-bongo-playlist-buffer
-    (if (not (bongo-xor bongo-avoid-interrupting-playback
-                        toggle-interrupt))
-        ;; We should interrupt playback.
+    (if (or (null n) (zerop (prefix-numeric-value n)))
         (when bongo-player
           (bongo-player-stop bongo-player))
-      ;; We should not interrupt playback.
-      (if (eq bongo-next-action 'bongo-stop)
-          (message (concat "Playback will stop after the current track "
-                           "(prefix argument forces)."))
-        (setq bongo-next-action 'bongo-stop)
-        (message "Playback will stop after the current track.")))))
+      (if (consp n)
+          (if (> (prefix-numeric-value n) 4)
+              (bongo-insert-line 'bongo-action '(bongo-stop))
+            (bongo-start/stop-playback-mode))
+        (let ((line-move-ignore-invisible nil))
+          (save-excursion
+            (goto-char (or (bongo-point-at-current-track-line)
+                           (bongo-point-at-first-track-line)
+                           (error "No tracks in playlist")))
+            (catch 'done
+              (if (> n 0)
+                  (dotimes (dummy n)
+                    (let ((position (bongo-point-at-next-track-line)))
+                      (if position
+                          (goto-char position)
+                        (goto-char (bongo-point-after-line))
+                        (throw 'done nil))
+                      (when (and (bongo-action-track-line-p)
+                                 (equal (bongo-line-action) '(bongo-stop)))
+                        (bongo-delete-line))))
+                (dotimes (dummy (- -1 n))
+                  (goto-char (or (bongo-point-at-previous-track-line)
+                                 (throw 'done nil))))))
+            (bongo-insert-line 'bongo-action '(bongo-stop))))))))
 
-(defun bongo-start/stop (&optional toggle-interrupt)
+(put 'bongo-stop 'bongo-action-description
+     (lambda (bongo-stop &optional n)
+       (if (integerp n)
+           (format "Stop playback after %d track%s"
+                   n (if (= n 1) "" "s"))
+         "Stop playback")))
+
+(defun bongo-start/stop (&optional argument)
   "Start or stop playback in the nearest Bongo playlist buffer.
-See `bongo-stop' for the meaning of TOGGLE-INTERRUPT."
+With prefix ARGUMENT, call `bongo-stop' even if already stopped. "
   (interactive "P")
-  (if (bongo-playing-p)
-      (bongo-stop toggle-interrupt)
+  (if (or argument (bongo-playing-p))
+      (bongo-stop argument)
     (bongo-start)))
 
 (defun bongo-pause/resume ()
@@ -5341,14 +5595,13 @@ Point is left immediately after the new line."
   (if (bongo-empty-header-line-p)
       (bongo-delete-line)
     (bongo-redisplay-line)
-    (if (or (bongo-header-line-p)
-            (bongo-last-object-line-p)
-            (>= (bongo-line-indentation)
-                (save-excursion
-                  (bongo-next-object-line)
-                  (bongo-line-indentation))))
-        (forward-line)
-      (forward-line)
+    (forward-line)
+    (unless (or (bongo-header-line-p)
+                (catch 'return
+                  (>= (bongo-line-indentation)
+                      (bongo-line-indentation
+                       (or (bongo-point-at-next-object-line)
+                           (throw 'return t))))))
       (bongo-insert-header))))
 
 (defun bongo-insert-header (&optional fields)
@@ -5528,22 +5781,34 @@ This function descends each subdirectory of DIRECTORY-NAME recursively."
       (bongo-maybe-join-inserted-tracks beginning (point))))
   (message "Inserting directory tree...done"))
 
-(defun bongo-insert-uri (uri)
-  "Insert a new track line corresponding to URI."
+(defun bongo-insert-uri (uri &optional title)
+  "Insert a new track line corresponding to URI.
+Optional argument TITLE specifies a custom title for the URI."
   (interactive
-   (list (let* ((default
-                  (or (and (x-selection-exists-p)
-                           (let ((primary (x-get-selection)))
-                             (and (bongo-uri-p primary) primary)))
-                      (and (x-selection-exists-p 'CLIPBOARD)
-                           (let ((clipboard (x-get-clipboard)))
-                             (and (bongo-uri-p clipboard) clipboard)))))
-                (default-string (when default
-                                  (format " (default `%s')" default))))
-           (read-string (concat "Insert URI" default-string ": ")
-                        nil nil default))))
+   (let* ((default-uri
+            (or (and (x-selection-exists-p)
+                     (let ((primary (x-get-selection)))
+                       (and (bongo-uri-p primary) primary)))
+                (and (x-selection-exists-p 'CLIPBOARD)
+                     (let ((clipboard (x-get-clipboard)))
+                       (and (bongo-uri-p clipboard) clipboard)))))
+          (uri
+           (read-string (concat "Insert URI"
+                                (when default-uri
+                                  (format " (default `%s')"
+                                          default-uri))
+                                ": ")
+                        nil nil default-uri))
+          (title
+           (read-string (format "Title (default `%s'): " uri)
+                        nil nil uri)))
+     (list uri title)))
   (with-bongo-buffer
-    (bongo-insert-line 'bongo-file-name uri))
+    (apply 'bongo-insert-line 'bongo-file-name uri
+           (when title
+             (list 'bongo-infoset `((artist . unknown)
+                                    (album . unknown)
+                                    (track (title . ,title)))))))
   (when (and (interactive-p) (not (bongo-buffer-p)))
     (message "Inserted URI: %s"
              (bongo-format-infoset
@@ -5708,21 +5973,15 @@ If point is neither on a header line nor in a section, signal an error."
 
 (defun bongo-join-region (beg end &optional fields)
   "Join all tracks between BEG and END by externalizing FIELDS.
-If FIELDS is nil, externalize all common fields between BEG and END.
-If there are no common fields, or the fields are already external,
-  or the region contains less than two lines, signal an error.
+If FIELDS is nil, externalize as many fields as possible.
+If there are no externalizable fields, signal an error.
 This function creates a new header if necessary."
   (interactive "r")
   (let ((line-move-ignore-invisible nil))
     (when (null fields)
-      (unless (setq fields (bongo-common-fields-in-region beg end))
-        (error "Cannot join tracks: no common fields")))
-    (when (= 0 (bongo-region-line-count beg end))
-      (error "Cannot join tracks: region empty"))
-    (when (bongo-fields-external-in-region-p beg end fields)
-      (error "Cannot join tracks: already joined"))
-    (when (= 1 (bongo-region-line-count beg end))
-      (error "Cannot join tracks: need more than one"))
+      (setq fields (bongo-potential-external-fields-in-region beg end)))
+    (when (null fields)
+      (error "Cannot join region: no common fields"))
     (save-excursion
       (setq end (move-marker (make-marker) end))
       (goto-char beg)
@@ -5734,21 +5993,19 @@ This function creates a new header if necessary."
               (bongo-line-set-external-fields fields))
             (bongo-next-object-line))))
       (move-marker end nil)
-;;;     (when (bongo-redundant-header-line-p)
-;;;       (bongo-delete-line))
       (goto-char beg)
       (bongo-insert-header))))
 
 (defun bongo-join (&optional skip)
-  "Join the fields around point or in the region.
+  "Join the tracks around point or in the region.
 If the region is active, delegate to `bongo-join-region'.
-Otherwise, find all common fields at point, and join all tracks around
-point that share those fields.  (See `bongo-common-fields-at-point'.)
+Otherwise, join the tracks around point by externalizing as many
+fields as possible.  (See `bongo-potential-external-fields-at-point'.)
 
 If SKIP is nil, leave point at the newly created header line.
 If SKIP is non-nil, leave point at the first object line after
   the newly created section.
-If there are no common fields at point and SKIP is nil, signal an error.
+If no tracks could be joined and SKIP is nil, signal an error.
 When called interactively, SKIP is always non-nil."
   (interactive "p")
   (if (bongo-region-active-p)
@@ -5756,23 +6013,30 @@ When called interactively, SKIP is always non-nil."
     (when line-move-ignore-invisible
       (bongo-skip-invisible))
     (let* ((line-move-ignore-invisible nil)
-           (fields (bongo-common-fields-at-point)))
+           (fields (bongo-potential-external-fields-at-point)))
       (if (null fields)
           (if skip
               (progn (bongo-snap-to-object-line)
                      (or (bongo-next-object-line 'no-error)
                          (bongo-forward-expression)))
             (error "No common fields at point"))
+        (when (bongo-action-track-line-p)
+          (condition-case nil
+              (bongo-next-object-line)
+            (bongo-no-next-object
+             (bongo-previous-object-line))))
         (let ((values (bongo-line-field-values fields))
               (before (bongo-point-before-line))
               (after (bongo-point-after-line)))
           (save-excursion
             (while (and (bongo-previous-object-line 'no-error)
-                        (equal values (bongo-line-field-values fields)))
+                        (or (bongo-action-track-line-p)
+                            (equal values (bongo-line-field-values fields))))
               (setq before (bongo-point-before-line))))
           (save-excursion
             (while (and (bongo-next-object-line 'no-error)
-                        (equal values (bongo-line-field-values fields)))
+                        (or (bongo-action-track-line-p)
+                            (equal values (bongo-line-field-values fields))))
               (setq after (bongo-point-after-line))))
           (setq after (move-marker (make-marker) after))
           (bongo-join-region before after fields)
@@ -5787,9 +6051,8 @@ If point is not on a header line, split the section at point.
 
 If SKIP is nil, leave point at the first object in the section.
 If SKIP is non-nil, leave point at the first object after the section.
-If point is neither on a header line nor in a section,
-  and SKIP is nil, signal an error.
-If called interactively, SKIP is always non-nil."
+If there is no section at point and SKIP is nil, signal an error.
+When called interactively, SKIP is always non-nil."
   (interactive "p")
   (when (not (bongo-object-line-p))
     (or (bongo-previous-object-line 'no-error)
@@ -6080,19 +6343,34 @@ See `kill-region'."
             (when (bongo-line-get-property 'bongo-queued-track-flag)
               (bongo-line-remove-property 'bongo-queued-track-flag)
               (bongo-set-queued-track-position)))
+          (let (new-external-fields)
+            ;; Internalize all null fields to avoid creating
+            ;; a section joined on null fields.
+            (dolist (field (bongo-line-external-fields))
+              (when (not (null (bongo-line-field-value field)))
+                (push field new-external-fields)))
+            ;; Externalize all null fields that are external
+            ;; on the next line to avoid splitting a section
+            ;; for the purpose of internalizing null fields.
+            ;;
+            ;; (If we wanted, we could externalize all the
+            ;; proposed external null fields instead; that
+            ;; would also effect reasonable behavior.)
+            (catch 'abort
+              (dolist (field (bongo-line-external-fields
+                              (or (bongo-point-at-next-object-line)
+                                  (throw 'abort nil))))
+                (when (null (bongo-line-field-value field))
+                  (push field new-external-fields))))
+            (bongo-line-set-external-fields new-external-fields))
           (bongo-next-object-line)))
-      ;; These headers will stay if they are needed,
-      ;; or disappear automatically otherwise.
       (goto-char beg)
-      (bongo-insert-header)
-      (goto-char end)
-      (unless (bongo-last-object-line-p)
+      (when (and (bongo-snap-to-object-line 'no-error)
+                 (< (point) end))
         (bongo-insert-header))
-      ;; In case the upper header does disappear,
-      ;; we need to merge backwards to connect.
-      (bongo-ignore-movement-errors
-        (bongo-snap-to-object-line)
-        (bongo-externalize-fields))
+      (goto-char end)
+      (when (bongo-snap-to-object-line 'no-error)
+        (bongo-insert-header))
       (move-marker end nil))))
 
 (defun bongo-insert (text &optional redisplay-flag)
@@ -6299,27 +6577,24 @@ If the region is active, ignore N and enqueue the region instead."
 ;;;; Miscellaneous commands
 
 (defun bongo-transpose-forward ()
-  "Transpose the section or track at point forward."
+  "Transpose forward the section or track at point."
   (interactive)
+  (bongo-snap-to-object-line)
   (let ((beg (bongo-point-before-line))
         (mid (bongo-point-at-next-object)))
     (when (null mid)
-      (error "No track or section at point"))
+      (error 'bongo-no-next-object nil))
     (let ((end (bongo-point-after-object mid)))
-      (when (null end)
-        (signal 'bongo-no-next-object nil))
       (let ((inhibit-read-only t))
         (transpose-regions beg mid mid end)))))
 
 (defun bongo-transpose-backward ()
-  "Transpose the section or track at point backward."
+  "Transpose backward the section or track at point."
   (interactive)
+  (bongo-snap-to-object-line)
   (save-excursion
     (bongo-previous-object)
-    (condition-case nil
-        (bongo-transpose-forward)
-      (bongo-no-next-object
-       (error "No track or section at point")))))
+    (bongo-transpose-forward)))
 
 (defun bongo-delete-empty-sections ()
   "Delete all empty sections from the current Bongo buffer."
@@ -6379,14 +6654,48 @@ With prefix argument DELETE-ALL, clear the entire playlist."
                 (y-or-n-p "Delete all played tracks from the playlist? "))
         (bongo-delete-played-tracks)))))
 
-(defun bongo-rename-line (new-name &optional point)
+(defun bongo-reset-playlist ()
+  "Mark all tracks as unplayed and unset the current track marker.
+However, only unset the current track marker if nothing is playing."
+  (interactive)
+  (with-bongo-playlist-buffer
+    (unless (bongo-playing-p)
+      (bongo-unset-current-track-position))
+    (let ((inhibit-read-only t)
+          (line-move-ignore-invisible nil))
+      (save-excursion
+        (goto-char (point-min))
+        (bongo-snap-to-object-line)
+        (while (bongo-next-object-line 'no-error)
+          (bongo-line-remove-property 'bongo-played)
+          (bongo-redisplay-line))))))
+
+(defun bongo-rename-line ()
+  "Interactively rename the track at point.
+If there is no track at point, signal an error.
+This function dispatches to one of the following functions:
+ - `bongo-rename-local-file-track'
+ - `bongo-rename-uri-track'
+ - `bongo-rename-action-track'."
+  (interactive)
+  (cond ((bongo-local-file-track-line-p)
+         (call-interactively 'bongo-rename-local-file-track))
+        ((bongo-uri-track-line-p)
+         (call-interactively 'bongo-rename-uri-track))
+        ((bongo-action-track-line-p)
+         (call-interactively 'bongo-rename-action-track))
+        (t (error "No track at point"))))
+
+(defun bongo-rename-local-file-track (new-name &optional point)
   "Rename the file corresponding to the track at POINT to NEW-NAME.
 This function uses `bongo-update-references-to-renamed-files'."
   (interactive
-   (when (bongo-track-line-p)
-     (list (read-from-minibuffer "Rename track to: "
+   (when (bongo-local-file-track-line-p)
+     (list (read-from-minibuffer "Rename file to: "
                                  (bongo-line-file-name)))))
   (with-point-at-bongo-track point
+    (when (not (bongo-local-file-track-line-p))
+      (error "No local file track at point"))
     (let ((old-name (bongo-line-file-name)))
       (rename-file old-name new-name)
       (if (or (and (eq bongo-update-references-to-renamed-files 'ask)
@@ -6407,6 +6716,40 @@ This function uses `bongo-update-references-to-renamed-files'."
         (bongo-delete-line)
         (bongo-insert-line 'bongo-file-name new-name)))))
 
+(defun bongo-rename-uri-track (new-uri &optional new-title point)
+  "Change and retitle the URI at POINT."
+  (interactive
+   (when (bongo-uri-track-line-p)
+     (list (read-from-minibuffer "Change URI to: " (bongo-line-file-name))
+           (let ((old-title
+                  (cdr (assq 'title
+                             (cdr (assq 'track
+                                        (bongo-line-infoset)))))))
+             (read-from-minibuffer "Change URI title to: " old-title)))))
+  (with-point-at-bongo-track point
+    (when (not (bongo-uri-track-line-p))
+      (error "No URI track at point"))
+    (bongo-line-set-property 'bongo-file-name new-uri)
+    (when new-title
+      (bongo-line-set-property 'bongo-infoset
+                               `((artist . unknown)
+                                 (album . unknown)
+                                 (track (title . ,new-title)))))
+    (bongo-redisplay-line)))
+
+(defun bongo-rename-action-track (new-action &optional point)
+  "Change the action of the track at POINT."
+  (interactive (when (bongo-action-track-line-p)
+                 (list (read-from-minibuffer "Change action to: "
+                                             (prin1-to-string
+                                              (bongo-line-action))
+                                             nil 'read))))
+  (with-point-at-bongo-track point
+    (when (not (bongo-action-track-line-p))
+      (error "No action track at point"))
+    (bongo-line-set-property 'bongo-action new-action)
+    (bongo-redisplay-line)))
+
 (defun bongo-dired-line (&optional point)
   "Open a Dired buffer containing the track at POINT."
   (interactive)
@@ -6417,7 +6760,9 @@ This function uses `bongo-update-references-to-renamed-files'."
             (save-excursion
               (while (bongo-header-line-p)
                 (bongo-down-section))
-              (bongo-line-file-name))))))
+              (if (bongo-local-file-track-line-p)
+                  (bongo-line-file-name)
+                (error "No local file track here")))))))
 
 
 ;;;; Serializing buffers
@@ -6575,6 +6920,7 @@ instead, use high-level functions such as `save-buffer'."
     (define-key map "t" 'bongo-transpose-forward)
     (define-key map "T" 'bongo-transpose-backward)
     (define-key map "f" 'bongo-flush-playlist)
+    (define-key map "F" 'bongo-reset-playlist)
     (define-key map "r" 'bongo-rename-line)
     (define-key map "d" 'bongo-dired-line)
     (when (require 'volume nil t)
