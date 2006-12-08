@@ -207,6 +207,14 @@ See `bongo-backends' for a list of available backends."
                                                  backend-name)
                                           ,backend-name))
                                 bongo-backends)))
+    :set (lambda (name value)
+           (set-default name value)
+           (dolist (buffer (if custom-local-buffer
+                               (list (current-buffer))
+                             (buffer-list)))
+             (when (bongo-buffer-p buffer)
+               (with-current-buffer buffer
+                 (bongo-update-enabled-backends-list)))))
     :group 'bongo)
   (custom-reevaluate-setting 'bongo-enabled-backends)
 
@@ -6390,22 +6398,9 @@ See `kill-region'."
         (bongo-insert-header))
       (move-marker end nil))))
 
-(defun bongo-insert (text &optional redisplay-flag)
-  (let ((inhibit-read-only t))
-    (beginning-of-line)
-    (when line-move-ignore-invisible
-      (bongo-skip-invisible))
-    (let ((beg (point)))
-      (insert text)
-      (when redisplay-flag
-        (bongo-redisplay-region beg (point)))
-      (bongo-clean-up-after-insertion beg (point)))))
-
-(defun bongo-insert-comment (text)
-  (bongo-insert (bongo-facify text 'bongo-comment)))
-
-(defun bongo-insert-warning (text)
-  (bongo-insert (bongo-facify text 'bongo-warning)))
+(make-obsolete 'bongo-insert "\
+use `insert' and manually call `bongo-redisplay' and
+`bongo-clean-up-after-insertion' instead" "2006-12-08")
 
 (defun bongo-yank (&optional arg)
   "In Bongo, reinsert the last sequence of killed lines.
@@ -6460,7 +6455,11 @@ If MODE is `append', append TEXT to the end of the playlist."
                                        (list 'invisible nil
                                              'bongo-collapsed nil)
                                        text)
-               (bongo-insert text 'redisplay))))))
+               (let ((beg (point))
+                     (inhibit-read-only t))
+                 (insert text)
+                 (bongo-redisplay-region beg (point))
+                 (bongo-clean-up-after-insertion beg (point))))))))
     (prog1 insertion-point
       (when (and (bongo-library-buffer-p)
                  (or (get-buffer-window (bongo-playlist-buffer))
@@ -7117,7 +7116,7 @@ If BUFFER is neither nil nor a buffer, return nil."
       (eq 'bongo-playlist-mode major-mode))))
 
 (defun bongo-embolden-quoted-substrings (string)
-  "Embolden each quoted `SUBSTRING' in STRING."
+  "Return a copy of STRING with each quoted `SUBSTRING' emboldened."
   (with-temp-buffer
     (insert string)
     (goto-char (point-min))
@@ -7133,32 +7132,61 @@ If BUFFER is neither nil nor a buffer, return nil."
                :foreground (face-foreground 'bongo-comment nil t)
                :background (face-background 'bongo-comment nil t)))))
 
+(defun bongo-insert-comment-text (text)
+  (let ((inhibit-read-only t))
+    (insert (bongo-facify text 'bongo-comment))))
+
+(defun bongo-insert-warning-text (text)
+  (let ((inhibit-read-only t))
+    (insert (bongo-facify text 'bongo-warning))))
+
+(define-obsolete-function-alias 'bongo-insert-comment
+  'bongo-insert-comment-text "2006-12-08")
+
+(define-obsolete-function-alias 'bongo-insert-warning
+  'bongo-insert-warning-text "2006-12-08")
+
+(defun bongo-update-enabled-backends-list ()
+  (let* ((beg (next-single-property-change
+               (point-min) 'bongo-enabled-backends-list))
+         (end (when beg
+                (next-single-property-change
+                 beg 'bongo-enabled-backends-list))))
+    (when (and beg end)
+      (save-excursion
+        (let ((inhibit-read-only t))
+          (delete-region beg end)
+          (goto-char beg)
+          (if (null bongo-enabled-backends)
+              (bongo-insert-warning-text
+               (propertize "(none)" 'bongo-enabled-backends-list t))
+            (bongo-insert-comment-text
+             (propertize
+              (mapconcat
+               (lambda (backend-name)
+                 (bongo-facify
+                  (bongo-backend-pretty-name backend-name) 'bold))
+               bongo-enabled-backends ", ")
+              'bongo-enabled-backends-list t))))))))
+
 (defun bongo-insert-enabled-backends-comment ()
-  (bongo-insert-comment "\
+  (bongo-insert-comment-text
+   (format "\
+  Enabled backends: %s\n"
+           (propertize "dummy" 'bongo-enabled-backends-list t)))
+  (bongo-update-enabled-backends-list)
+  (bongo-insert-comment-text "\
+  To modify this list, customize `bongo-enabled-backends'.\n\n")
+  (when (fboundp 'help-xref-button)
+    (let ((inhibit-read-only t))
+      (save-excursion
+        (search-backward "customize")
+        (replace-match (bongo-facify (match-string 0) 'underline))
+        (help-xref-button 0 'help-customize-variable
+                          'bongo-enabled-backends))))
+  (bongo-insert-comment-text "\
   Bongo is free software licensed under the GNU GPL.
-  Report bugs to Daniel Brockman <daniel@brockman.se>.\n\n")
-  (if bongo-enabled-backends
-      (bongo-insert-comment
-       (format
-        "  Enabled backends: %s\n\n"
-        (mapconcat
-         (lambda (backend-name)
-           (bongo-facify
-            (bongo-backend-pretty-name backend-name) 'bold))
-         bongo-enabled-backends ", ")))
-    (bongo-insert-warning "\
-  Warning:  No backends are enabled.  You will not be able to
-            insert tracks or play anything.  Please customize
-            the variable `bongo-enabled-backends'.  Then kill
-            this buffer and restart Bongo.\n\n")
-    (when (fboundp 'help-xref-button)
-      (let ((inhibit-read-only t))
-        (save-excursion
-          (search-backward "customize")
-          (replace-match (bongo-facify (match-string 0)
-                                       'underline))
-          (help-xref-button 0 'help-customize-variable
-                            'bongo-enabled-backends))))))
+  Report bugs to Bongo's amigos <bongo-devel@nongnu.org>.\n\n"))
 
 (defun bongo-default-library-buffer ()
   (or (get-buffer bongo-default-library-buffer-name)
@@ -7172,9 +7200,9 @@ If BUFFER is neither nil nor a buffer, return nil."
                 (insert-image bongo-logo "[Bongo logo]")
                 (insert "\n")))
             (when bongo-prefer-library-buffers
-              (bongo-insert-comment "
+              (bongo-insert-comment-text "
   Welcome to Bongo, the buffer-oriented media player!\n"))
-            (bongo-insert-comment
+            (bongo-insert-comment-text
              (bongo-embolden-quoted-substrings "
   This is a Bongo library buffer.  It's empty now, but in a
   few moments it could hold your entire media collection ---
@@ -7201,9 +7229,9 @@ If BUFFER is neither nil nor a buffer, return nil."
                 (insert-image bongo-logo "[Bongo logo]")
                 (insert "\n")))
             (when (not bongo-prefer-library-buffers)
-              (bongo-insert-comment "
+              (bongo-insert-comment-text "
   Welcome to Bongo, the buffer-oriented media player!\n"))
-            (bongo-insert-comment
+            (bongo-insert-comment-text
              (bongo-embolden-quoted-substrings "
   This is a Bongo playlist buffer.  It holds things that are
   about to be played, and things that have already been played.
