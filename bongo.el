@@ -2219,6 +2219,9 @@ If there are no sections or tracks before POINT, return nil."
         (bongo-point-at-bol)
       (bongo-point-at-previous-track-line))))
 
+(defun bongo-infoset-from-action (action)
+  `((action . ,action)))
+
 (defun bongo-track-infoset (&optional point)
   "Return the infoset for the track at POINT.
 You should use `bongo-line-infoset' most of the time."
@@ -2228,7 +2231,7 @@ You should use `bongo-line-infoset' most of the time."
       (cond ((bongo-line-file-name point)
              (bongo-infoset-from-file-name (bongo-line-file-name point)))
             ((bongo-line-action point)
-             `((action . ,(bongo-line-action point)))))))
+             (bongo-infoset-from-action (bongo-line-action point))))))
 
 (defun bongo-header-infoset (&optional point)
   "Return the infoset for the header at POINT.
@@ -5814,6 +5817,12 @@ Optional argument TITLE specifies a custom title for the URI."
              (bongo-format-infoset
               (bongo-infoset-from-file-name uri)))))
 
+(defun bongo-insert-action (action)
+  "Insert a new action track line corresponding to ACTION."
+  (interactive "xInsert action: ")
+  (with-bongo-buffer
+    (bongo-insert-line 'bongo-action action)))
+
 
 ;;;; Drag-and-drop support
 
@@ -6910,6 +6919,7 @@ instead, use high-level functions such as `save-buffer'."
     (define-key map "\C-c\C-r" 'bongo-play-random)
     (define-key map "\C-c\C-s" 'bongo-start/stop)
     (define-key map "s" 'bongo-seek)
+    (define-key map "ia" 'bongo-insert-action)
     (define-key map "if" 'bongo-insert-file)
     (define-key map "id" 'bongo-insert-directory)
     (define-key map "it" 'bongo-insert-directory-tree)
