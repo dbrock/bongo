@@ -209,12 +209,13 @@ See `bongo-backends' for a list of available backends."
                                 bongo-backends)))
     :set (lambda (name value)
            (set-default name value)
-           (dolist (buffer (if custom-local-buffer
-                               (list (current-buffer))
-                             (buffer-list)))
-             (when (bongo-buffer-p buffer)
-               (with-current-buffer buffer
-                 (bongo-update-enabled-backends-list)))))
+           (when (fboundp 'bongo-buffer-p)
+             (dolist (buffer (if custom-local-buffer
+                                 (list (current-buffer))
+                               (buffer-list)))
+               (when (bongo-buffer-p buffer)
+                 (with-current-buffer buffer
+                   (bongo-update-enabled-backends-list))))))
     :group 'bongo)
   (custom-reevaluate-setting 'bongo-enabled-backends)
 
