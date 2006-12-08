@@ -5192,18 +5192,26 @@ insert an action track at point."
 
 (defun bongo-start ()
   "Start playing the current track in the nearest playlist buffer.
-If there is no current track, play the first track appropriate for the current
+If there is no current track, perform the action appropriate for the current
 playback mode (for example, for regressive playback, play the last track).
 However, if something is already playing, do nothing."
   (with-bongo-playlist-buffer
     (unless (bongo-playing-p)
       (let ((position (bongo-point-at-current-track-line)))
-        (if (and position
-                 (not (and (bongo-action-track-line-p position)
-                           (equal (bongo-line-action position)
-                                  '(bongo-stop)))))
-            (bongo-play-line position)
-          (bongo-perform-next-action))))))
+        (cond ((null position)
+               (case bongo-next-action
+                 ((bongo-play-next bongo-play-next-or-stop)
+                  (bongo-play-line (bongo-point-at-first-track-line)))
+                 ((bongo-play-previous bongo-play-previous-or-stop)
+                  (bongo-play-line (bongo-point-at-last-track-line)))
+                 (t
+                  (bongo-perform-next-action))))
+              ((and (bongo-action-track-line-p position)
+                    (equal (bongo-line-action position)
+                           '(bongo-stop)))
+               (bongo-perform-next-action))
+              (t
+               (bongo-play-line position)))))))
 
 (defun bongo-start/stop-playback-mode (&optional default)
   "Switch to start/stop playback mode in the nearest playlist buffer.
