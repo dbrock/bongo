@@ -8,7 +8,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: December 8, 2006
+;; Updated: December 9, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -2801,9 +2801,9 @@ See `bongo-potential-external-fields-in-region'."
 ;;;       result)))
 
 (defun bongo-line-potential-external-fields (&optional point)
-  "Return the fields of the line at POINT that could be external.
-That is, return the names of the fields that are common between
-  the line at POINT and the object line before that.
+  "Return the field names of the line at POINT that could be external.
+That is, return the largest subset of `bongo-potential-external-fields'
+that could join the line at POINT with the previous object line.
 If the line at POINT is the first line, return nil."
   (catch 'return
     (bongo-potential-external-fields-in-region
@@ -2888,8 +2888,15 @@ If the first outer header is too specific, split it in two."
         (bongo-backward-up-section)
         (let ((proposal (bongo-line-external-fields-proposal)))
           (unless (bongo-set-equal-p current proposal)
-            (bongo-insert-header current)
-            (bongo-externalize-fields)))))))
+            ;; The new header will not display properly
+            ;; until the header below is indented correctly,
+            ;; so call `bongo-externalize-fields' on the old
+            ;; header before calling `bongo-redisplay-line'
+            ;; on the new header.
+            (let ((header-line-position (point)))
+              (bongo-insert-header current)
+              (bongo-externalize-fields)
+              (bongo-redisplay-line header-line-position))))))))
 
 (defun bongo-externalize-fields ()
   "Externalize as many fields of the current line as possible.
@@ -6051,18 +6058,22 @@ When called interactively, SKIP is always non-nil."
               (bongo-next-object-line)
             (bongo-no-next-object
              (bongo-previous-object-line))))
-        (let ((values (bongo-line-field-values fields))
+        (let (;; Avoid the name `values', as the debugger
+              ;; will interfere with that.
+              (field-values (bongo-line-field-values fields))
               (before (bongo-point-before-line))
               (after (bongo-point-after-line)))
           (save-excursion
             (while (and (bongo-previous-object-line 'no-error)
                         (or (bongo-action-track-line-p)
-                            (equal values (bongo-line-field-values fields))))
+                            (equal field-values
+                                   (bongo-line-field-values fields))))
               (setq before (bongo-point-before-line))))
           (save-excursion
             (while (and (bongo-next-object-line 'no-error)
                         (or (bongo-action-track-line-p)
-                            (equal values (bongo-line-field-values fields))))
+                            (equal field-values
+                                   (bongo-line-field-values fields))))
               (setq after (bongo-point-after-line))))
           (setq after (move-marker (make-marker) after))
           (bongo-join-region before after fields)
