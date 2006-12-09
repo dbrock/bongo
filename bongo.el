@@ -75,8 +75,6 @@
 ;; (cf. `bongo-insert-intermediate-headers') should be
 ;; inserted even for singleton albums.
 
-;; Display `bongo-next-action' indicator in the mode line.
-
 ;;; Code:
 
 ;; We try to load this library so that we can later decide
@@ -5012,12 +5010,14 @@ Then call `bongo-unset-queued-track'."
 In repeating playback mode, the current track is played over and over.
 With prefix argument DEFAULT, make repeating playback the default mode.
 This function sets the buffer-local or global value of `bongo-next-action'."
-  (cond (default
-          (setq-default bongo-next-action 'bongo-replay-current)
-          (message "Repeating playback is now the default mode."))
-        (t
-         (setq bongo-next-action 'bongo-replay-current)
-         (message "Switched to repeating playback mode."))))
+  (interactive "P")
+  (if (not default)
+      (with-bongo-playlist-buffer
+        (setq bongo-next-action 'bongo-replay-current)
+        (message "Switched to repeating playback mode."))
+    (setq-default bongo-next-action 'bongo-replay-current)
+    (message "Repeating playback is now the default mode."))
+  (force-mode-line-update))
 
 (defun bongo-replay-current (&optional argument)
   "Play the current track in the nearest playlist from the start.
@@ -5030,17 +5030,22 @@ repeating playback mode."
       (bongo-play-line (or (bongo-point-at-current-track-line)
                            (error "No current track"))))))
 
+(put 'bongo-replay-current
+     'bongo-playback-mode-description "repeat")
+
 (defun bongo-progressive-playback-mode (&optional default)
   "Switch to progressive playback mode in the nearest playlist buffer.
 In progressive playback mode, tracks are played in order (top-to-bottom).
 With prefix argument DEFAULT, make progressive playback the default mode.
 This function sets the buffer-local or global value of `bongo-next-action'."
-  (cond (default
-          (setq-default bongo-next-action 'bongo-play-next-or-stop)
-          (message "Progressive playback is now the default mode."))
-        (t
-         (setq bongo-next-action 'bongo-play-next-or-stop)
-         (message "Switched to progressive playback mode."))))
+  (interactive "P")
+  (if (not default)
+      (with-bongo-playlist-buffer
+        (setq bongo-next-action 'bongo-play-next-or-stop)
+        (message "Switched to progressive playback mode."))
+    (setq-default bongo-next-action 'bongo-play-next-or-stop)
+    (message "Progressive playback is now the default mode."))
+  (force-mode-line-update))
 
 (put 'bongo-progressive-playback-mode 'bongo-action-description
      "Start playing tracks in order (downwards)")
@@ -5084,17 +5089,24 @@ insert an action track at point."
       (bongo-play-next n)
     (error (bongo-stop))))
 
+(put 'bongo-play-next
+     'bongo-playback-mode-description "")
+(put 'bongo-play-next-or-stop
+     'bongo-playback-mode-description "")
+
 (defun bongo-regressive-playback-mode (&optional default)
   "Switch to regressive playback mode in the nearest playlist buffer.
 In regressive playback mode, tracks are played in reverse order.
 With prefix argument DEFAULT, make regressive playback the default mode.
 This function sets the buffer-local or global value of `bongo-next-action'."
-  (cond (default
-          (setq-default bongo-next-action 'bongo-play-previous-or-stop)
-          (message "Regressive playback is now the default mode."))
-        (t
-         (setq bongo-next-action 'bongo-play-previous-or-stop)
-         (message "Switched to regressive playback mode."))))
+  (interactive "P")
+  (if (not default)
+      (with-bongo-playlist-buffer
+        (setq bongo-next-action 'bongo-play-previous-or-stop)
+        (message "Switched to regressive playback mode."))
+    (setq-default bongo-next-action 'bongo-play-previous-or-stop)
+    (message "Regressive playback is now the default mode."))
+  (force-mode-line-update))
 
 (put 'bongo-regressive-playback-mode 'bongo-action-description
      "Start playing tracks in reverse order (upwards)")
@@ -5138,6 +5150,11 @@ insert an action track at point."
       (bongo-play-previous n)
     (error (bongo-stop))))
 
+(put 'bongo-play-previous
+     'bongo-playback-mode-description "reverse")
+(put 'bongo-play-previous-or-stop
+     'bongo-playback-mode-description "reverse")
+
 (defun bongo-random-playback-mode (&optional default)
   "Switch to random playback mode in the nearest playlist buffer.
 In progressive playback mode, tracks are played in random order.
@@ -5149,7 +5166,8 @@ This function sets the buffer-local or global value of `bongo-next-action'."
         (setq bongo-next-action 'bongo-play-random-or-stop)
         (message "Switched to random playback mode."))
     (setq-default bongo-next-action 'bongo-play-random-or-stop)
-    (message "Random playback is now the default mode.")))
+    (message "Random playback is now the default mode."))
+  (force-mode-line-update))
 
 (put 'bongo-random-playback-mode 'bongo-action-description
      "Start playing tracks in random order")
@@ -5206,6 +5224,11 @@ insert an action track at point."
       (bongo-play-random argument)
     (error (bongo-stop))))
 
+(put 'bongo-play-random
+     'bongo-playback-mode-description "random")
+(put 'bongo-play-random-or-stop
+     'bongo-playback-mode-description "random")
+
 (defun bongo-start ()
   "Start playing the current track in the nearest playlist buffer.
 If there is no current track, perform the action appropriate for the current
@@ -5240,7 +5263,8 @@ This function sets the buffer-local or global value of `bongo-next-action'."
         (setq bongo-next-action 'bongo-stop)
         (message "Switched to start/stop playback mode."))
     (setq-default bongo-next-action 'bongo-stop)
-    (message "Start/stop playback is now the default mode.")))
+    (message "Start/stop playback is now the default mode."))
+  (force-mode-line-update))
 
 (defun bongo-stop (&optional n)
   "Permanently stop playback in the nearest Bongo playlist buffer.
@@ -5279,6 +5303,7 @@ stop when playback reaches point."
                                  (throw 'done nil))))))
             (bongo-insert-line 'bongo-action '(bongo-stop))))))))
 
+(put 'bongo-stop 'bongo-playback-mode-description "stop")
 (put 'bongo-stop 'bongo-action-description
      (lambda (bongo-stop &optional n)
        (if (integerp n)
@@ -7068,6 +7093,17 @@ as they have the ability to play tracks.
 
 \\{bongo-playlist-mode-map}"
   :group 'bongo :syntax-table nil :abbrev-table nil
+  (setq mode-line-process
+        '(:eval (let ((description
+                       (get bongo-next-action
+                            'bongo-playback-mode-description)))
+                  (when (functionp description)
+                    (setq description (funcall description)))
+                  (when (null description)
+                    (setq description "custom"))
+                  (if (equal description "")
+                      ""
+                    `("[" ,description "]")))))
   (setq bongo-stopped-track-marker (make-marker))
   (setq bongo-playing-track-marker (make-marker))
   (setq bongo-paused-track-marker (make-marker))
