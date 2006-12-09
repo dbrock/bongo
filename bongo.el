@@ -707,12 +707,21 @@ With any other ARGUMENT, turn the mode on."
   bongo-header-line-mode)
 
 (defgroup bongo-mode-line nil
-  "Display of Bongo mode line indicator."
+  "Display of Bongo mode line indicators."
   :group 'bongo
   :group 'bongo-display)
 
+(defcustom bongo-display-playback-mode-indicator t
+  "Display playback mode indicators in playlist buffer mode lines.
+These indicate which playback mode is in effect.
+However, nothing is shown for normal in-order playback.
+To change playback mode, try (for example) `\\[bongo-random-playback-mode]'."
+  :type 'boolean
+  :group 'bongo-mode-line
+  :group 'bongo-display)
+
 (defcustom bongo-mode-line-indicator-mode t
-  "Display a Bongo status indicator in the mode line.
+  "Display a Bongo playback status indicator in the global mode line.
 See `bongo-mode-line-indicator-format'."
   :type 'boolean
   :initialize 'custom-initialize-default
@@ -5031,7 +5040,7 @@ repeating playback mode."
                            (error "No current track"))))))
 
 (put 'bongo-replay-current
-     'bongo-playback-mode-description "repeat")
+     'bongo-playback-mode-indicator "repeat")
 
 (defun bongo-progressive-playback-mode (&optional default)
   "Switch to progressive playback mode in the nearest playlist buffer.
@@ -5090,9 +5099,9 @@ insert an action track at point."
     (error (bongo-stop))))
 
 (put 'bongo-play-next
-     'bongo-playback-mode-description "")
+     'bongo-playback-mode-indicator "")
 (put 'bongo-play-next-or-stop
-     'bongo-playback-mode-description "")
+     'bongo-playback-mode-indicator "")
 
 (defun bongo-regressive-playback-mode (&optional default)
   "Switch to regressive playback mode in the nearest playlist buffer.
@@ -5151,9 +5160,9 @@ insert an action track at point."
     (error (bongo-stop))))
 
 (put 'bongo-play-previous
-     'bongo-playback-mode-description "reverse")
+     'bongo-playback-mode-indicator "reverse")
 (put 'bongo-play-previous-or-stop
-     'bongo-playback-mode-description "reverse")
+     'bongo-playback-mode-indicator "reverse")
 
 (defun bongo-random-playback-mode (&optional default)
   "Switch to random playback mode in the nearest playlist buffer.
@@ -5225,9 +5234,9 @@ insert an action track at point."
     (error (bongo-stop))))
 
 (put 'bongo-play-random
-     'bongo-playback-mode-description "random")
+     'bongo-playback-mode-indicator "random")
 (put 'bongo-play-random-or-stop
-     'bongo-playback-mode-description "random")
+     'bongo-playback-mode-indicator "random")
 
 (defun bongo-start ()
   "Start playing the current track in the nearest playlist buffer.
@@ -5303,7 +5312,7 @@ stop when playback reaches point."
                                  (throw 'done nil))))))
             (bongo-insert-line 'bongo-action '(bongo-stop))))))))
 
-(put 'bongo-stop 'bongo-playback-mode-description "stop")
+(put 'bongo-stop 'bongo-playback-mode-indicator "stop")
 (put 'bongo-stop 'bongo-action-description
      (lambda (bongo-stop &optional n)
        (if (integerp n)
@@ -7094,16 +7103,17 @@ as they have the ability to play tracks.
 \\{bongo-playlist-mode-map}"
   :group 'bongo :syntax-table nil :abbrev-table nil
   (setq mode-line-process
-        '(:eval (let ((description
-                       (get bongo-next-action
-                            'bongo-playback-mode-description)))
-                  (when (functionp description)
-                    (setq description (funcall description)))
-                  (when (null description)
-                    (setq description "custom"))
-                  (if (equal description "")
-                      ""
-                    `("[" ,description "]")))))
+        '(:eval (when bongo-display-playback-mode-indicator
+                  (let ((description
+                         (get bongo-next-action
+                              'bongo-playback-mode-indicator)))
+                    (when (functionp description)
+                      (setq description (funcall description)))
+                    (when (null description)
+                      (setq description "custom"))
+                    (if (equal description "")
+                        ""
+                      `("[" ,description "]"))))))
   (setq bongo-stopped-track-marker (make-marker))
   (setq bongo-playing-track-marker (make-marker))
   (setq bongo-paused-track-marker (make-marker))
