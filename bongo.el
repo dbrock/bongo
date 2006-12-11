@@ -6940,7 +6940,10 @@ This is run for both playlist and library buffers.")
 These keys form a little playback control panel on QWERTY keyboards.
 The bindings are `previous', `start', `pause/resume', `stop', and `next'.
 This causes Bongo to move the usual bindings of the affected keys to their
-uppercase counterparts.  For example, `\\[volume]' becomes bound to `V'."
+uppercase counterparts.  For example, `\\[volume]' becomes bound to `V'.
+
+You should call `bongo-redefine-keys' after changing this variable.
+However, setting it through Custom does this automatically."
   :type 'boolean
   :set (lambda (variable value)
          (custom-set-default variable value)
