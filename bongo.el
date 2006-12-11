@@ -8,7 +8,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: December 9, 2006
+;; Updated: December 11, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -5243,6 +5243,7 @@ insert an action track at point."
 If there is no current track, perform the action appropriate for the current
 playback mode (for example, for regressive playback, play the last track).
 However, if something is already playing, do nothing."
+  (interactive)
   (with-bongo-playlist-buffer
     (unless (bongo-playing-p)
       (let ((position (bongo-point-at-current-track-line)))
@@ -6929,11 +6930,31 @@ instead, use high-level functions such as `save-buffer'."
 ;;;; Typical user entry points
 
 (defvar bongo-mode-hook nil
-  "Hook run when entering Bongo mode.")
+  "Hook run when entering Bongo mode.
+This is run for both playlist and library buffers.")
+
+(defcustom bongo-xmms-refugee-mode nil
+  "Bind the `z', `x', `c', `v' and `b' keys as XMMS does.
+These keys form a little playback control panel on QWERTY keyboards.
+The bindings are `previous', `start', `pause/resume', `stop', and `next'.
+This causes Bongo to move the usual bindings of the affected keys to their
+uppercase counterparts.  For example, `\\[volume]' becomes bound to `V'."
+  :type 'boolean
+  :set (lambda (variable value)
+         (custom-set-default variable value)
+         (bongo-redefine-keys))
+  ;; Avoid redefining the keys when loading Bongo.
+  :initialize 'custom-initialize-default
+  :group 'bongo)
 
 (defvar bongo-mode-map
   (let ((map (make-sparse-keymap)))
-    (suppress-keymap map)
+    (prog1 map
+      (suppress-keymap map)))
+  "Keymap used in Bongo playlist and library buffers.")
+
+(defun bongo-redefine-keys ()
+  (let ((map bongo-mode-map))
     (define-key map "\C-m" 'bongo-dwim)
     (define-key map [mouse-2] 'bongo-mouse-dwim)
     (define-key map "q" 'bongo-quit)
@@ -6950,7 +6971,9 @@ instead, use high-level functions such as `save-buffer'."
      'forward-paragraph 'bongo-next-header-line map global-map)
     (define-key map "\M-p" 'bongo-previous-header-line)
     (define-key map "\M-n" 'bongo-next-header-line)
-    (define-key map "c" 'bongo-copy-line-as-kill)
+    (if bongo-xmms-refugee-mode
+        (define-key map "C" 'bongo-copy-line-as-kill)
+      (define-key map "c" 'bongo-copy-line-as-kill))
     (define-key map "k" 'bongo-kill-line)
     (substitute-key-definition
      'kill-line 'bongo-kill-line map global-map)
@@ -6987,7 +7010,24 @@ instead, use high-level functions such as `save-buffer'."
     (define-key map "r" 'bongo-rename-line)
     (define-key map "d" 'bongo-dired-line)
     (when (require 'volume nil t)
-      (define-key map "v" 'volume))
+      (if bongo-xmms-refugee-mode
+          (define-key map "V" 'volume)
+        (define-key map "v" 'volume)))
+    (when bongo-xmms-refugee-mode
+      (define-key map "z" 'bongo-play-previous)
+      (define-key map "x" 'bongo-start)
+      (define-key map "c" 'bongo-pause/resume)
+      (define-key map "v" 'bongo-stop)
+      (define-key map "b" 'bongo-play-next))
+    (when (not bongo-xmms-refugee-mode)
+      ;; Delete leftover XMMS bindings, as it may be
+      ;; confusing if only some of them work.
+      (when (eq (lookup-key map "z") 'bongo-play-previous)
+        (define-key map "z" nil))
+      (when (eq (lookup-key map "x") 'bongo-start)
+        (define-key map "x" nil))
+      (when (eq (lookup-key map "b") 'bongo-play-next)
+        (define-key map "b" nil)))
     (let ((menu-map (make-sparse-keymap "Bongo")))
       (define-key menu-map [bongo-quit]
         '("Quit Bongo" . bongo-quit))
@@ -7062,9 +7102,9 @@ instead, use high-level functions such as `save-buffer'."
         '(menu-item "Switch to Playlist" bongo-switch-buffers
                     :visible (bongo-library-buffer-p)))
       (define-key map [menu-bar bongo]
-        (cons "Bongo" menu-map)))
-    map)
-  "Keymap used in Bongo mode buffers.")
+        (cons "Bongo" menu-map)))))
+
+(bongo-redefine-keys)
 
 (defun bongo-mode ()
   "Common parent major mode for Bongo buffers.
@@ -7088,17 +7128,27 @@ Do not use this mode directly.  Instead, use Bongo Playlist mode (see
 
 (define-derived-mode bongo-library-mode bongo-mode "Library"
   "Major mode for Bongo library buffers.
-Contrary to playlist buffers, library buffers cannot directly
-play tracks.  Instead, they are used to insert tracks into
-playlist buffers.
+Library buffers are used to insert tracks into playlist buffers.
+They cannot directly play tracks, and they are not essential to Bongo.
+
+You may create a new Bongo library buffer by simply creating an empty buffer
+and running `\\[bongo-library-mode]'.  If you do not yet have any library
+buffers, `\\[bongo-library]' will create one for you.  If you do not have
+any Bongo buffers at all, `\\[bongo]' will create a library buffer for you
+if `bongo-prefer-library-buffers' is non-nil (the default).
 
 \\{bongo-library-mode-map}"
     :group 'bongo :syntax-table nil :abbrev-table nil)
 
 (define-derived-mode bongo-playlist-mode bongo-mode "Playlist"
   "Major mode for Bongo playlist buffers.
-Playlist buffers are the most important elements of Bongo,
-as they have the ability to play tracks.
+Playlist buffers are essential to Bongo, because you use them to play tracks.
+
+You may create a new Bongo playlist buffer by simply creating an empty buffer
+and running `\\[bongo-playlist-mode]'.  If you do not yet have any playlist
+buffers, `\\[bongo-playlist]' will create one for you.  If you do not have
+any Bongo buffers at all, `\\[bongo]' will create a playlist buffer for you
+if `bongo-prefer-library-buffers' is nil.
 
 \\{bongo-playlist-mode-map}"
   :group 'bongo :syntax-table nil :abbrev-table nil
