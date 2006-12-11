@@ -6933,7 +6933,9 @@ instead, use high-level functions such as `save-buffer'."
   "Hook run when entering Bongo mode.
 This is run for both playlist and library buffers.")
 
-(defcustom bongo-xmms-refugee-mode nil
+(defcustom bongo-xmms-refugee-mode
+  (not (null (or (executable-find "xmms")
+                 (executable-find "beep-media-player"))))
   "Bind the `z', `x', `c', `v' and `b' keys as XMMS does.
 These keys form a little playback control panel on QWERTY keyboards.
 The bindings are `previous', `start', `pause/resume', `stop', and `next'.
