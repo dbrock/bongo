@@ -8,7 +8,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: December 11, 2006
+;; Updated: December 19, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -3122,6 +3122,10 @@ See `bongo-lastfm-submit'."
       (bongo-player-put player 'lastfm-timer
         (run-with-timer 1 1 'bongo-lastfm-tick player)))))
 
+(defun bongo-restart-lastfm-timer (player)
+  (bongo-cancel-lastfm-timer player)
+  (bongo-start-lastfm-timer player))
+
 
 ;;;; Players
 
@@ -3195,7 +3199,7 @@ This function runs `bongo-player-started-functions'."
                       bongo-player-process-priority))
       (when bongo-lastfm-mode
         (bongo-player-put player 'lastfm-timer
-          (run-with-timer 5 nil 'bongo-start-lastfm-timer player)))
+          (run-with-timer 5 nil 'bongo-restart-lastfm-timer player)))
       (run-hook-with-args 'bongo-player-started-functions player))))
 
 (define-obsolete-function-alias 'bongo-start-player
