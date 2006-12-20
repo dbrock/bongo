@@ -8,7 +8,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: December 19, 2006
+;; Updated: December 20, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -5078,16 +5078,9 @@ insert an action track at point."
         (bongo-progressive-playback-mode))
     (if (< (prefix-numeric-value n) 0)
         (bongo-play-previous (- (prefix-numeric-value n)))
-      (with-bongo-playlist-buffer
-        (let ((line-move-ignore-invisible nil))
-          (save-excursion
-            (goto-char (or (bongo-point-at-current-track-line)
-                           (bongo-point-at-first-track-line)
-                           (error "No tracks in playlist")))
-            (dotimes (dummy (prefix-numeric-value n))
-              (goto-char (or (bongo-point-at-next-track-line)
-                             (error "No next track"))))
-            (bongo-play-line)))))))
+      (bongo-stop)
+      (bongo-next n)
+      (bongo-start))))
 
 (defun bongo-play-next-or-stop (&optional n)
   "Maybe start playing the next track in the nearest playlist buffer.
@@ -5106,6 +5099,24 @@ insert an action track at point."
      'bongo-playback-mode-indicator "")
 (put 'bongo-play-next-or-stop
      'bongo-playback-mode-indicator "")
+
+(defun bongo-next (&optional n)
+  "Make the next track current in the nearest playlist buffer.
+If there is no next track, signal an error.
+With prefix argument N, skip that many tracks."
+  (interactive "p")
+  (if (bongo-playing-p)
+      (bongo-play-next n)
+    (with-bongo-playlist-buffer
+      (let ((line-move-ignore-invisible nil))
+        (save-excursion
+          (goto-char (or (bongo-point-at-current-track-line)
+                         (bongo-point-at-first-track-line)
+                         (error "No tracks in playlist")))
+          (dotimes (dummy (prefix-numeric-value n))
+            (goto-char (or (bongo-point-at-next-track-line)
+                           (error "No next track"))))
+          (bongo-set-current-track-position))))))
 
 (defun bongo-regressive-playback-mode (&optional default)
   "Switch to regressive playback mode in the nearest playlist buffer.
@@ -5139,16 +5150,9 @@ insert an action track at point."
         (bongo-regressive-playback-mode))
     (if (< (prefix-numeric-value n) 0)
         (bongo-play-next (- (prefix-numeric-value n)))
-      (with-bongo-playlist-buffer
-        (let ((line-move-ignore-invisible nil))
-          (save-excursion
-            (goto-char (or (bongo-point-at-current-track-line)
-                           (bongo-point-at-last-track-line)
-                           (error "No tracks in playlist")))
-            (dotimes (dummy (prefix-numeric-value n))
-              (goto-char (or (bongo-point-at-previous-track-line)
-                             (error "No previous track"))))
-            (bongo-play-line)))))))
+      (bongo-stop)
+      (bongo-previous n)
+      (bongo-start))))
 
 (defun bongo-play-previous-or-stop (&optional n)
   "Maybe start playing the previous track in the playlist buffer.
@@ -5167,6 +5171,24 @@ insert an action track at point."
      'bongo-playback-mode-indicator "reverse")
 (put 'bongo-play-previous-or-stop
      'bongo-playback-mode-indicator "reverse")
+
+(defun bongo-previous (&optional n)
+  "Make the previous track current in the nearest playlist buffer.
+If there is no previous track, signal an error.
+With prefix argument N, skip that many tracks."
+  (interactive "p")
+  (if (bongo-playing-p)
+      (bongo-play-previous n)
+    (with-bongo-playlist-buffer
+      (let ((line-move-ignore-invisible nil))
+        (save-excursion
+          (goto-char (or (bongo-point-at-current-track-line)
+                         (bongo-point-at-last-track-line)
+                         (error "No tracks in playlist")))
+          (dotimes (dummy (prefix-numeric-value n))
+            (goto-char (or (bongo-point-at-previous-track-line)
+                           (error "No previous track"))))
+          (bongo-set-current-track-position))))))
 
 (defun bongo-random-playback-mode (&optional default)
   "Switch to random playback mode in the nearest playlist buffer.
@@ -7003,6 +7025,8 @@ However, setting it through Custom does this automatically."
     (define-key map "\C-c\C-n" 'bongo-play-next)
     (define-key map "\C-c\C-r" 'bongo-play-random)
     (define-key map "\C-c\C-s" 'bongo-start/stop)
+    (define-key map "P" 'bongo-previous)
+    (define-key map "N" 'bongo-next)
     (define-key map "s" 'bongo-seek)
     (define-key map "ia" 'bongo-insert-action)
     (define-key map "if" 'bongo-insert-file)
@@ -7023,19 +7047,19 @@ However, setting it through Custom does this automatically."
           (define-key map "V" 'volume)
         (define-key map "v" 'volume)))
     (when bongo-xmms-refugee-mode
-      (define-key map "z" 'bongo-play-previous)
+      (define-key map "z" 'bongo-previous)
       (define-key map "x" 'bongo-start)
       (define-key map "c" 'bongo-pause/resume)
       (define-key map "v" 'bongo-stop)
-      (define-key map "b" 'bongo-play-next))
+      (define-key map "b" 'bongo-next))
     (when (not bongo-xmms-refugee-mode)
       ;; Delete leftover XMMS bindings, as it may be
       ;; confusing if only some of them work.
-      (when (eq (lookup-key map "z") 'bongo-play-previous)
+      (when (eq (lookup-key map "z") 'bongo-previous)
         (define-key map "z" nil))
       (when (eq (lookup-key map "x") 'bongo-start)
         (define-key map "x" nil))
-      (when (eq (lookup-key map "b") 'bongo-play-next)
+      (when (eq (lookup-key map "b") 'bongo-next)
         (define-key map "b" nil)))
     (let ((menu-map (make-sparse-keymap "Bongo")))
       (define-key menu-map [bongo-quit]
