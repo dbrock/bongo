@@ -8,7 +8,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: December 20, 2006
+;; Updated: December 27, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -4253,19 +4253,25 @@ These will come at the end or right before the file name, if any."
                             (rx line-start
                                 "status change:"
                                 (zero-or-more (or whitespace "("))
-                                (or "play" "stop") " state:"
+                                "play state:"
                                 (zero-or-more whitespace)
                                 (submatch (one-or-more digit))
                                 (zero-or-more (or whitespace ")"))
                                 line-end)))
               (case (string-to-number (match-string 1))
-                (0 (process-send-string process "quit\n"))
                 (1 (bongo-player-put player 'paused nil)
                    (bongo-player-paused/resumed player)
                    (when (null (bongo-player-get player 'timer))
                      (bongo-vlc-player-start-timer player)))
                 (2 (bongo-player-put player 'paused t)
                    (bongo-player-paused/resumed player))))
+             ((looking-at (eval-when-compile
+                            (rx line-start
+                                (optional "[" (zero-or-more digit) "]")
+                                (zero-or-more whitespace)
+                                "main playlist: nothing to play"
+                                line-end)))
+              (process-send-string process "quit\n"))
              ((looking-at (eval-when-compile
                             (rx line-start
                                 (submatch (one-or-more digit))
