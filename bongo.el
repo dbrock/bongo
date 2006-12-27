@@ -7116,6 +7116,7 @@ However, setting it through Custom does this automatically."
     (define-key map "P" 'bongo-previous)
     (define-key map "N" 'bongo-next)
     (define-key map "s" 'bongo-seek)
+    (define-key map "i" nil)            ; For Emacs 21.
     (define-key map "ia" 'bongo-insert-action)
     (define-key map "if" 'bongo-insert-file)
     (define-key map "id" 'bongo-insert-directory)
