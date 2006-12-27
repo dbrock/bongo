@@ -1693,13 +1693,13 @@ This is used by `bongo-default-file-name-from-infoset'."
 (defun bongo-uri-scheme (file-name)
   "Return the URI scheme of FILE-NAME, or nil if it has none."
   (when (string-match (eval-when-compile
-                        (rx string-start
-                            (submatch
-                             (any "a-zA-Z")
-                             (zero-or-more
-                              (or (any "a-zA-Z0-9$_@.&!*\"'(),")
-                                  (and "%" (repeat 2 hex-digit)))))
-                            ":"))
+                        (rx (and string-start
+                                 (submatch
+                                  (any "a-zA-Z")
+                                  (zero-or-more
+                                   (or (any "a-zA-Z0-9$_@.&!*\"'(),")
+                                       (and "%" (repeat 2 hex-digit)))))
+                                 ":")))
                       file-name)
     (match-string 1 file-name)))
 
@@ -4030,12 +4030,12 @@ These will come at the end or right before the file name, if any."
                                 " output drivers:\n"))
         (while (looking-at
                 (eval-when-compile
-                  (rx line-start
-                      (one-or-more space)
-                      (submatch (one-or-more word))
-                      (one-or-more space)
-                      (submatch (zero-or-more not-newline))
-                      line-end)))
+                  (rx (and line-start
+                           (one-or-more space)
+                           (submatch (one-or-more word))
+                           (one-or-more space)
+                           (submatch (zero-or-more not-newline))
+                           line-end))))
           (setq result (cons (cons (match-string 1)
                                    (match-string 2))
                              result))
@@ -4301,14 +4301,14 @@ These will come at the end or right before the file name, if any."
           (while (not (eobp))
             (cond
              ((looking-at (eval-when-compile
-                            (rx line-start
-                                "status change:"
-                                (zero-or-more (or whitespace "("))
-                                "play state:"
-                                (zero-or-more whitespace)
-                                (submatch (one-or-more digit))
-                                (zero-or-more (or whitespace ")"))
-                                line-end)))
+                            (rx (and line-start
+                                     "status change:"
+                                     (zero-or-more (or whitespace "("))
+                                     "play state:"
+                                     (zero-or-more whitespace)
+                                     (submatch (one-or-more digit))
+                                     (zero-or-more (or whitespace ")"))
+                                     line-end))))
               (case (string-to-number (match-string 1))
                 (1 (bongo-player-put player 'paused nil)
                    (bongo-player-paused/resumed player)
@@ -4317,17 +4317,18 @@ These will come at the end or right before the file name, if any."
                 (2 (bongo-player-put player 'paused t)
                    (bongo-player-paused/resumed player))))
              ((looking-at (eval-when-compile
-                            (rx line-start
-                                (optional "[" (zero-or-more digit) "]")
-                                (zero-or-more whitespace)
-                                "main playlist: nothing to play"
-                                line-end)))
+                            (rx (and line-start
+                                     (optional
+                                      (and "[" (zero-or-more digit) "]"))
+                                     (zero-or-more whitespace)
+                                     "main playlist: nothing to play"
+                                     line-end))))
               (process-send-string process "quit\n"))
              ((looking-at (eval-when-compile
-                            (rx line-start
-                                (submatch (one-or-more digit))
-                                (zero-or-more whitespace)
-                                line-end)))
+                            (rx (and line-start
+                                     (submatch (one-or-more digit))
+                                     (zero-or-more whitespace)
+                                     line-end))))
               (when (bongo-player-get player 'pending-queries)
                 (let ((value (string-to-number (match-string 1))))
                   (ecase (bongo-player-shift player 'pending-queries)
@@ -4351,11 +4352,11 @@ These will come at the end or right before the file name, if any."
     ;; which we use instead as a workaroud.  See Bug#404645
     ;; reported against VLC in Debian.
     (when (string-match (eval-when-compile
-                          (rx string-start "cdda://"
-                              (submatch (zero-or-more anything))
-                              "@" (submatch (one-or-more digit))
-                              (submatch (zero-or-more anything))
-                              string-end))
+                          (rx (and string-start "cdda://"
+                                   (submatch (zero-or-more anything))
+                                   "@" (submatch (one-or-more digit))
+                                   (submatch (zero-or-more anything))
+                                   string-end)))
                         file-name)
       (setq modified-file-name
             (concat "cdda://" (match-string 1 file-name)
@@ -4411,13 +4412,13 @@ These will come at the end or right before the file name, if any."
   :extra-program-arguments '("-q" "-P" "1" "-X")
   :matcher `(local-file
              . ,(eval-when-compile
-                  (rx "." (or "669" "amf" "dsm" "far" "gdm" "imf"
-                              "it" "med" "mod" "mtm" "okt" "s3m"
-                              "stm" "stx" "ult" "uni" "apun" "xm")
-                      (optional
-                       "." (or "zip" "lha" "lhz" "zoo" "gz" "bz2"
-                               "tar" "tar.gz" "tar.bz2" "rar"))
-                      string-end))))
+                  (rx (and "." (or "669" "amf" "dsm" "far" "gdm" "imf"
+                                   "it" "med" "mod" "mtm" "okt" "s3m"
+                                   "stm" "stx" "ult" "uni" "apun" "xm")
+                           (optional
+                            (and "." (or "zip" "lha" "lhz" "zoo" "gz" "bz2"
+                                         "tar" "tar.gz" "tar.bz2" "rar")))
+                           string-end)))))
 
 
 ;;;; Audio CD and CDDB support
@@ -6372,16 +6373,17 @@ If no track is currently playing, just call `recenter'."
 
 (defvar bongo-time-regexp
   (eval-when-compile
-    (rx string-start
-        (optional (optional
-                   ;; Hours.
-                   (submatch (one-or-more digit)) ":")
-                  ;; Minutes.
-                  (submatch (one-or-more digit)) ":")
-        ;; Seconds.
-        (submatch (one-or-more digit)
-                  (optional "." (one-or-more digit)))
-        string-end))
+    (rx (and string-start
+             (optional
+              (and (optional
+                    ;; Hours.
+                    (and (submatch (one-or-more digit)) ":"))
+                   ;; Minutes.
+                   (and (submatch (one-or-more digit))) ":"))
+             ;; Seconds.
+             (submatch (one-or-more digit)
+                       (optional (and "." (one-or-more digit))))
+             string-end)))
   "Regular expression matching a [[H:]M:]S[.F] time string.
 There are three submatches: hours, minutes, and seconds.")
 
