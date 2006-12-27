@@ -1939,7 +1939,7 @@ If no matching line is found, return nil."
       (let (match)
         (while (and (not (bobp)) (not match))
           (let ((goal-column 0))
-            (previous-line))
+            (previous-line 1))
           (when (funcall predicate)
             (setq match t)))
         (when match
@@ -1959,7 +1959,7 @@ If no matching line is found, return nil."
       (let (match)
         (while (and (not (eobp)) (not match))
           (let ((goal-column 0))
-            (next-line))
+            (next-line 1))
           (when (funcall predicate)
             (setq match t)))
         (when match
