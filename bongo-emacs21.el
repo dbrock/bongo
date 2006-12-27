@@ -31,9 +31,36 @@
 
 ;;; Code:
 
+;;; The following macros were copied from `byte-run.el'.
+
+(defmacro bongo-define-obsolete-function-alias
+  (obsolete-name current-name &optional when docstring)
+  "Make OBSOLETE-NAME an obsolete function alias for CURRENT-NAME.
+This just calls `defalias' and `make-obsolete'."
+  (declare (doc-string 4))
+  `(progn
+     (defalias ,obsolete-name ,current-name ,docstring)
+     (make-obsolete ,obsolete-name ,current-name ,when)))
+
+(defmacro bongo-define-obsolete-variable-alias
+  (obsolete-name current-name &optional when docstring)
+  "Make OBSOLETE-NAME an obsolete variable.
+This just calls `make-obsolete-variable'.  It doesn't actually create a
+variable alias, because there is no such thing in Emacs 21."
+  (declare (doc-string 4))
+  `(progn
+
+;;; Not available in Emacs 21.
+;;;      (defvaralias ,obsolete-name ,current-name ,docstring)
+
+     (make-obsolete-variable ,obsolete-name ,current-name ,when)))
+
+
+;;;; Custom
+
 (require 'custom)
 
-;;; The following definitions were copied from `custom.el'
+;;; The following functions were copied from `custom.el'
 ;;; and modified to work with Emacs 21.
 
 (defun bongo-customize-mark-as-set (symbol)
