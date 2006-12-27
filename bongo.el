@@ -116,6 +116,9 @@
 ;; whether to enable Bongo Last.fm mode by default.
 (require 'lastfm-submit nil 'no-error)
 
+;; This fails to autoload on Emacs 21.
+(require 'time-date)
+
 (defgroup bongo nil
   "Buffer-oriented media player."
   :prefix "bongo-"
@@ -3633,7 +3636,7 @@ where N is the value of PLAYER's `time-update-delay-after-seek' property."
               (let ((time (bongo-player-get player 'last-seek-time)))
                 (or (null time)
                     (time-less-p (seconds-to-time delay)
-                                 (time-subtract (current-time) time)))))
+                                 (subtract-time (current-time) time)))))
       (bongo-player-put player 'elapsed-time elapsed-time))))
 
 (defun bongo-player-update-total-time (player total-time)
