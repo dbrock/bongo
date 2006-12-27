@@ -415,8 +415,10 @@ You can rename a file from Bongo using `bongo-rename-line'."
   "Display of Bongo playlist and library buffers."
   :group 'bongo)
 
-(defcustom bongo-field-separator (if (char-displayable-p ?—)
-                                     " —— " " -- ")
+(defcustom bongo-field-separator
+  (if (and (fboundp 'char-displayable-p)
+           (char-displayable-p ?—))
+      " —— " " -- ")
   "String used to separate field values in track descriptions.
 This is used by the function `bongo-default-format-field'."
   :type '(choice (const :tag " —— (Unicode dashes)" " —— ")
