@@ -81,6 +81,13 @@
 ;; whether to enable Bongo Last.fm mode by default.
 (require 'lastfm-submit nil 'no-error)
 
+(if (<= emacs-major-version 21)
+    (require 'bongo-emacs21)
+  (defalias 'bongo-customize-mark-as-set
+    'customize-mark-as-set)
+  (defalias 'bongo-custom-reevaluate-setting
+    'custom-reevaluate-setting))
+
 (eval-when-compile
   (require 'cl)
   (require 'rx))
@@ -215,7 +222,7 @@ See `bongo-backends' for a list of available backends."
                  (with-current-buffer buffer
                    (bongo-update-enabled-backends-list))))))
     :group 'bongo)
-  (custom-reevaluate-setting 'bongo-enabled-backends)
+  (bongo-custom-reevaluate-setting 'bongo-enabled-backends)
 
   (custom-declare-variable 'bongo-custom-backend-matchers nil
     "List of custom Bongo player backend matchers.
@@ -683,7 +690,7 @@ With any other ARGUMENT, turn the mode on."
             (not bongo-header-line-mode)
           (> (prefix-numeric-value argument) 0)))
   (when (called-interactively-p)
-    (customize-mark-as-set 'bongo-header-line-mode))
+    (bongo-customize-mark-as-set 'bongo-header-line-mode))
   (if bongo-header-line-mode
       (progn
         (add-hook 'bongo-player-started-functions
@@ -1297,7 +1304,7 @@ With any other ARGUMENT, turn the mode on."
             (not bongo-mode-line-indicator-mode)
           (> (prefix-numeric-value argument) 0)))
   (when (called-interactively-p)
-    (customize-mark-as-set 'bongo-mode-line-indicator-mode))
+    (bongo-customize-mark-as-set 'bongo-mode-line-indicator-mode))
   (when bongo-mode-line-indicator-parent
     (if (not bongo-mode-line-indicator-mode)
         (set bongo-mode-line-indicator-parent
@@ -7523,9 +7530,9 @@ See the function `bongo-buffer'."
   (unless (bongo-buffer-p)
     (switch-to-buffer (bongo-buffer))))
 
-(custom-reevaluate-setting 'bongo-header-line-mode)
-(custom-reevaluate-setting 'bongo-mode-line-indicator-mode)
-(custom-reevaluate-setting 'bongo-global-lastfm-mode)
+(bongo-custom-reevaluate-setting 'bongo-header-line-mode)
+(bongo-custom-reevaluate-setting 'bongo-mode-line-indicator-mode)
+(bongo-custom-reevaluate-setting 'bongo-global-lastfm-mode)
 
 ;; For backwards compatibility.
 (provide 'bongo-lastfm)
