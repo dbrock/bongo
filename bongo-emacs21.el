@@ -31,6 +31,9 @@
 
 ;;; Code:
 
+(eval-when-compile
+  (require 'cl))
+
 (defun bongo-face-foreground (face &optional frame inherit)
   "Call `face-foreground' with FACE and FRAME.
 INHERIT is ignored, since it is not supported by Emacs 21."
@@ -40,6 +43,15 @@ INHERIT is ignored, since it is not supported by Emacs 21."
   "Call `face-background' with FACE and FRAME.
 INHERIT is ignored, since it is not supported by Emacs 21."
   (face-background face frame))
+
+;;; The following function was copied from `subr.el'
+;;; and modified to work with Emacs 21.
+
+(defun bongo-run-mode-hooks (&rest hooks)
+  "Run HOOKS and then `after-change-major-mode-hook'.
+Major mode functions should use this."
+  (apply 'run-hooks hooks)
+  (run-hooks 'after-change-major-mode-hook))
 
 ;;; The following macros were copied from `byte-run.el'.
 

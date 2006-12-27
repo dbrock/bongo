@@ -87,6 +87,8 @@
     'face-foreground)
   (defalias 'bongo-face-background
     'face-background)
+  (defalias 'bongo-run-mode-hooks
+    'run-mode-hooks)
   (eval-and-compile
     (defalias 'bongo-define-obsolete-function-alias
       'define-obsolete-function-alias)
@@ -5577,7 +5579,7 @@ That is, when `bongo-seek-electric-mode' is non-nil.")
   (setq mode-name "Bongo Seek")
   (use-local-map bongo-seek-mode-map)
   (setq buffer-undo-list t)
-  (run-mode-hooks 'bongo-seek-mode-hook))
+  (bongo-run-mode-hooks 'bongo-seek-mode-hook))
 
 (defvar bongo-seek-mode-map
   (let ((map (make-sparse-keymap))
@@ -7253,7 +7255,7 @@ Do not use this mode directly.  Instead, use Bongo Playlist mode (see
     (setq default-directory bongo-default-directory))
   (when bongo-dnd-support
     (bongo-enable-dnd-support))
-  (run-mode-hooks 'bongo-mode-hook))
+  (bongo-run-mode-hooks 'bongo-mode-hook))
 
 (define-derived-mode bongo-library-mode bongo-mode "Library"
   "Major mode for Bongo library buffers.
