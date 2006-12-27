@@ -44,6 +44,9 @@ INHERIT is ignored, since it is not supported by Emacs 21."
 INHERIT is ignored, since it is not supported by Emacs 21."
   (face-background face frame))
 
+(defalias 'bongo-read-directory-name
+  'read-file-name)
+
 ;;; The following function was copied from `subr.el'
 ;;; and modified to work with Emacs 21.
 

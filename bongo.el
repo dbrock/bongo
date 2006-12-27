@@ -87,6 +87,8 @@
     'face-foreground)
   (defalias 'bongo-face-background
     'face-background)
+  (defalias 'bongo-read-directory-name
+    'read-directory-name)
   (defalias 'bongo-run-mode-hooks
     'run-mode-hooks)
   (eval-and-compile
@@ -5876,7 +5878,7 @@ insert the image in that file before the directory contents.
 
 Do not examine subdirectories of DIRECTORY-NAME."
   (interactive (list (expand-file-name
-                      (read-directory-name
+                      (bongo-read-directory-name
                        "Insert directory: " default-directory nil t
                        (when (eq major-mode 'dired-mode)
                          (when (file-directory-p (dired-get-filename))
@@ -5938,7 +5940,7 @@ insert the image in that file before the directory contents.
 
 This function descends each subdirectory of DIRECTORY-NAME recursively."
   (interactive (list (expand-file-name
-                      (read-directory-name
+                      (bongo-read-directory-name
                        "Insert directory tree: "
                        default-directory nil t
                        (when (eq major-mode 'dired-mode)
