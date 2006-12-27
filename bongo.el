@@ -3530,10 +3530,9 @@ If PLAYER does not support seeking, signal an error."
 (defun bongo-player-elapsed-time (player)
   "Return the number of seconds PLAYER has played so far.
 If the player backend cannot report this, return nil."
-  (let ((value (bongo-player-call-with-default
-                player 'get-elapsed-time
-                'bongo-default-player-get-elapsed-time)))
-    (and value (> value 0) value)))
+  (bongo-player-call-with-default
+   player 'get-elapsed-time
+   'bongo-default-player-get-elapsed-time))
 
 (defun bongo-player-total-time (player)
   "Return the total number of seconds PLAYER has and will use.
