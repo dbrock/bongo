@@ -697,7 +697,7 @@ Accept DUMMY arguments to ease hook usage."
                    (null bongo-header-line-string)))
       (setq header-line-format nil))))
 
-(defun bongo-header-line-mode (argument)
+(defun bongo-header-line-mode (argument &optional called-interactively-p)
   "Toggle display of Bongo mode line indicator on or off.
 With ARGUMENT equal to `toggle', or interactively
   with no prefix argument, toggle the mode.
@@ -705,12 +705,13 @@ With zero or negative ARGUMENT, turn the mode off.
 With any other ARGUMENT, turn the mode on."
   ;; Use `toggle' rather than (if mode 0 1) so that using
   ;; `repeat-command' still does the toggling correctly.
-  (interactive (list (or current-prefix-arg 'toggle)))
+  (interactive (list (or current-prefix-arg 'toggle)
+                     'called-interactively-p))
   (setq bongo-header-line-mode
         (if (eq argument 'toggle)
             (not bongo-header-line-mode)
           (> (prefix-numeric-value argument) 0)))
-  (when (called-interactively-p)
+  (when called-interactively-p
     (bongo-customize-mark-as-set 'bongo-header-line-mode))
   (if bongo-header-line-mode
       (progn
@@ -1311,7 +1312,8 @@ Accept DUMMY arguments to ease hook usage."
           (apply 'concat
                  (mapcar 'eval bongo-mode-line-indicator-format)))))
 
-(defun bongo-mode-line-indicator-mode (argument)
+(defun bongo-mode-line-indicator-mode
+  (argument &optional called-interactively-p)
   "Toggle display of Bongo mode line indicator on or off.
 With ARGUMENT equal to `toggle', or interactively
   with no prefix argument, toggle the mode.
@@ -1319,12 +1321,13 @@ With zero or negative ARGUMENT, turn the mode off.
 With any other ARGUMENT, turn the mode on."
   ;; Use `toggle' rather than (if mode 0 1) so that using
   ;; `repeat-command' still does the toggling correctly.
-  (interactive (list (or current-prefix-arg 'toggle)))
+  (interactive (list (or current-prefix-arg 'toggle)
+                     'called-interactively-p))
   (setq bongo-mode-line-indicator-mode
         (if (eq argument 'toggle)
             (not bongo-mode-line-indicator-mode)
           (> (prefix-numeric-value argument) 0)))
-  (when (called-interactively-p)
+  (when called-interactively-p
     (bongo-customize-mark-as-set 'bongo-mode-line-indicator-mode))
   (when bongo-mode-line-indicator-parent
     (if (not bongo-mode-line-indicator-mode)
@@ -6710,19 +6713,21 @@ Return the playlist position of the newly-inserted text."
         (goto-char beg))
       (bongo-enqueue-region mode (min beg end) (max beg end)))))
 
-(defun bongo-insert-enqueue-line (&optional n)
+(defun bongo-insert-enqueue-line (&optional n called-interactively-p)
   "Insert the next N tracks or sections just below the current track.
 When called interactively, leave point after the enqueued tracks or sections.
 Return the playlist position of the newly-inserted text."
-  (interactive "p")
-  (bongo-enqueue-line 'insert n (called-interactively-p)))
+  (interactive (list (prefix-numeric-value current-prefix-arg)
+                     'called-interactively-p))
+  (bongo-enqueue-line 'insert n called-interactively-p))
 
-(defun bongo-append-enqueue-line (&optional n)
+(defun bongo-append-enqueue-line (&optional n called-interactively-p)
   "Append the next N tracks or sections to the Bongo playlist buffer.
 When called interactively, leave point after the enqueued tracks or sections.
 Return the playlist position of the newly-inserted text. "
-  (interactive "p")
-  (bongo-enqueue-line 'append n (called-interactively-p)))
+  (interactive (list (prefix-numeric-value current-prefix-arg)
+                     'called-interactively-p))
+  (bongo-enqueue-line 'append n called-interactively-p))
 
 ;;; The following functions are contingent on whether or not
 ;;; the region is active.  That is, whether Transient Mark
