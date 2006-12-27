@@ -31,6 +31,16 @@
 
 ;;; Code:
 
+(defun bongo-face-foreground (face &optional frame inherit)
+  "Call `face-foreground' with FACE and FRAME.
+INHERIT is ignored, since it is not supported by Emacs 21."
+  (face-foreground face frame))
+
+(defun bongo-face-background (face &optional frame inherit)
+  "Call `face-background' with FACE and FRAME.
+INHERIT is ignored, since it is not supported by Emacs 21."
+  (face-background face frame))
+
 ;;; The following macros were copied from `byte-run.el'.
 
 (defmacro bongo-define-obsolete-function-alias

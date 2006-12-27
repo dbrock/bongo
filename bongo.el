@@ -83,6 +83,10 @@
 
 (if (<= emacs-major-version 21)
     (require 'bongo-emacs21)
+  (defalias 'bongo-face-foreground
+    'face-foreground)
+  (defalias 'bongo-face-background
+    'face-background)
   (eval-and-compile
     (defalias 'bongo-define-obsolete-function-alias
       'define-obsolete-function-alias)
@@ -847,7 +851,7 @@ If nil, `bongo-mode-line-indicator-string' is not put anywhere."
   :group 'bongo-mode-line)
 
 (defcustom bongo-mode-line-icon-color
-  (face-foreground 'mode-line nil 'default)
+  (bongo-face-foreground 'mode-line nil 'default)
   "Color of Bongo mode line icons."
   :type 'string
   :group 'bongo-mode-line)
@@ -7347,8 +7351,8 @@ If BUFFER is neither nil nor a buffer, return nil."
 (defvar bongo-logo
   (find-image
    (list (list :type 'pbm :file "bongo-logo.pbm"
-               :foreground (face-foreground 'bongo-comment nil t)
-               :background (face-background 'bongo-comment nil t)))))
+               :foreground (bongo-face-foreground 'bongo-comment nil t)
+               :background (bongo-face-background 'bongo-comment nil t)))))
 
 (defun bongo-insert-comment-text (text)
   (let ((inhibit-read-only t))
