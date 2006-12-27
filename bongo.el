@@ -7340,14 +7340,15 @@ if `bongo-prefer-library-buffers' is nil.
           (* 2 (aref (font-info (face-font 'fringe)) 2))))
   (setq bongo-queued-track-marker (make-marker))
   (setq bongo-queued-track-arrow-marker (make-marker))
-  (add-to-list 'overlay-arrow-variable-list
-    'bongo-stopped-track-marker)
-  (add-to-list 'overlay-arrow-variable-list
-    'bongo-playing-track-marker)
-  (add-to-list 'overlay-arrow-variable-list
-    'bongo-paused-track-marker)
-  (add-to-list 'overlay-arrow-variable-list
-    'bongo-queued-track-arrow-marker))
+  (when (boundp 'overlay-arrow-variable-list)
+    (add-to-list 'overlay-arrow-variable-list
+      'bongo-stopped-track-marker)
+    (add-to-list 'overlay-arrow-variable-list
+      'bongo-playing-track-marker)
+    (add-to-list 'overlay-arrow-variable-list
+      'bongo-paused-track-marker)
+    (add-to-list 'overlay-arrow-variable-list
+      'bongo-queued-track-arrow-marker)))
 
 (defvar bongo-library-buffer nil
   "The default Bongo library buffer, or nil.
