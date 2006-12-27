@@ -1808,31 +1808,63 @@ This is used by `bongo-default-file-name-from-infoset'."
 POINT may be a number, a marker or nil."
   (when point (goto-char point)))
 
+(defun bongo-before-invisible-text-p (&optional point)
+  "Return non-nil if the character after POINT is invisible.
+Return nil if POINT is at the last buffer position.
+See `buffer-invisibility-spec'."
+  (save-excursion
+    (bongo-goto-point point)
+    (and (not (eobp))
+         (let ((property (get-char-property (point) 'invisible)))
+           (if (eq buffer-invisibility-spec t)
+               property
+             (or (memq property buffer-invisibility-spec)
+                 (assq property buffer-invisibility-spec)))))))
+
+(defun bongo-after-invisible-text-p (&optional point)
+  "Return non-nil if the character before POINT is invisible.
+Return nil if POINT is at the first buffer position.
+See `buffer-invisibility-spec'."
+  (save-excursion
+    (bongo-goto-point point)
+    (and (not (bobp))
+         (bongo-before-invisible-text-p (1+ (point))))))
+
 (defun bongo-skip-invisible ()
   "Move point to the next visible character.
 If point is already on a visible character, do nothing."
-  (while (and (not (eobp)) (line-move-invisible-p (point)))
-    (goto-char (next-char-property-change (point)))))
+  (while (bongo-before-invisible-text-p)
+    (goto-char (next-single-char-property-change (point) 'invisible))))
 
 (defun bongo-point-at-bol (&optional point)
   "Return the first character position of the line at POINT.
-If `line-move-ignore-invisible' is non-nil, ignore invisible text."
+If `line-move-ignore-invisible' is non-nil, ignore invisible text.
+For lines that start with invisible text, return the position of
+the first visible character on the line."
   (save-excursion
     (bongo-goto-point point)
     (if (not line-move-ignore-invisible)
         (point-at-bol)
-      (move-beginning-of-line nil)
+      (while (progn (skip-chars-backward "^\n")
+                    (bongo-after-invisible-text-p))
+        (goto-char (previous-single-char-property-change
+                    (point) 'invisible)))
       (bongo-skip-invisible)
       (point))))
 
 (defun bongo-point-at-eol (&optional point)
   "Return the last character position of the line at POINT.
-If `line-move-ignore-invisible' is non-nil, ignore invisible text."
+If `line-move-ignore-invisible' is non-nil, ignore invisible text.
+Always return the position of the newline character, even for lines
+that contain invisible text immediately before the newline."
   (save-excursion
     (bongo-goto-point point)
     (if (not line-move-ignore-invisible)
         (point-at-eol)
-      (move-end-of-line nil)
+      (while (progn (skip-chars-forward "^\n")
+                    (bongo-before-invisible-text-p))
+        (goto-char (next-single-char-property-change
+                    (point) 'invisible)))
       (point))))
 
 (defun bongo-first-line-p (&optional point)
@@ -5771,8 +5803,10 @@ That is, when `bongo-seek-electric-mode' is non-nil.")
   "Insert a new line with PROPERTIES before the current line.
 Externalize as many fields of the new line as possible and redisplay it.
 Point is left immediately after the new line."
+  ;; XXX: Should we really bind this here?
+  (let ((line-move-ignore-invisible t))
+    (goto-char (bongo-point-at-bol)))
   (let ((inhibit-read-only t))
-    (move-beginning-of-line nil)
     (insert-before-markers (apply 'propertize "\n" properties)))
   (forward-line -1)
   (bongo-externalize-fields)
