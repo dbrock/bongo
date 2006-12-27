@@ -4292,34 +4292,54 @@ These will come at the end or right before the file name, if any."
            (signal (car condition) (cdr condition)))))
 
 (defun bongo-start-vlc-player (file-name)
-  (let* ((process-connection-type nil)
-         (arguments (append
-                     (when bongo-vlc-interactive
-                       (list "-I" "rc" "--rc-fake-tty"))
-                     (bongo-evaluate-program-arguments
-                      bongo-vlc-extra-arguments)
-                     (list file-name)))
-         (process (apply 'start-process "bongo-vlc" nil
-                         bongo-vlc-program-name arguments))
-         (player
-          (list 'vlc
-                (cons 'process process)
-                (cons 'file-name file-name)
-                (cons 'buffer (current-buffer))
-                (cons 'interactive bongo-vlc-interactive)
-                (cons 'pausing-supported bongo-vlc-interactive)
-                (cons 'seeking-supported bongo-vlc-interactive)
-                (cons 'time-update-delay-after-seek
-                      bongo-vlc-time-update-delay-after-seek)
-                (cons 'paused nil)
-                (cons 'pause/resume 'bongo-vlc-player-pause/resume)
-                (cons 'seek-to 'bongo-vlc-player-seek-to)
-                (cons 'seek-unit 'seconds))))
-    (prog1 player
-      (set-process-sentinel process 'bongo-default-player-process-sentinel)
-      (bongo-process-put process 'bongo-player player)
-      (when bongo-vlc-interactive
-        (set-process-filter process 'bongo-vlc-process-filter)))))
+  (let ((modified-file-name file-name)
+        (cdda-track nil))
+    ;; VLC fails to report time information for CD tracks
+    ;; played using the `vlc cdda://@1' syntax.  The bug
+    ;; does not manifest for `vlc cdda:// --cdda-track 1',
+    ;; which we use instead as a workaroud.  See Bug#404645
+    ;; reported against VLC in Debian.
+    (when (string-match (eval-when-compile
+                          (rx string-start "cdda://"
+                              (submatch (zero-or-more anything))
+                              "@" (submatch (one-or-more digit))
+                              (submatch (zero-or-more anything))
+                              string-end))
+                        file-name)
+      (setq modified-file-name
+            (concat "cdda://" (match-string 1 file-name)
+                    (match-string 3 file-name)))
+      (setq cdda-track (match-string 2 file-name)))
+   (let* ((process-connection-type nil)
+          (arguments (append
+                      (when bongo-vlc-interactive
+                        (list "-I" "rc" "--rc-fake-tty"))
+                      (when cdda-track
+                        (list "--cdda-track" cdda-track))
+                      (bongo-evaluate-program-arguments
+                       bongo-vlc-extra-arguments)
+                      (list modified-file-name)))
+          (process (apply 'start-process "bongo-vlc" nil
+                          bongo-vlc-program-name arguments))
+          (player
+           (list 'vlc
+                 (cons 'process process)
+                 (cons 'file-name file-name)
+                 (cons 'buffer (current-buffer))
+                 (cons 'interactive bongo-vlc-interactive)
+                 (cons 'pausing-supported bongo-vlc-interactive)
+                 (cons 'seeking-supported bongo-vlc-interactive)
+                 (cons 'time-update-delay-after-seek
+                       bongo-vlc-time-update-delay-after-seek)
+                 (cons 'paused nil)
+                 (cons 'pause/resume 'bongo-vlc-player-pause/resume)
+                 (cons 'seek-to 'bongo-vlc-player-seek-to)
+                 (cons 'seek-unit 'seconds))))
+     (prog1 player
+       (set-process-sentinel process 'bongo-default-player-process-sentinel)
+       (bongo-process-put process 'bongo-player player)
+       (when bongo-vlc-interactive
+         (set-process-filter process 'bongo-vlc-process-filter))))))
 
 
 ;;;; Simple backends
