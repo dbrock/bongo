@@ -1840,8 +1840,8 @@ See also `bongo-point-at-previous-object-line'."
 See also `bongo-point-at-next-object-line'."
   (null (bongo-point-at-next-object-line point)))
 
-(defalias 'bongo-point-before-line 'bongo-point-at-bol
-  "Return the first character position of the line at POINT.")
+(defalias 'bongo-point-before-line
+  'bongo-point-at-bol)
 
 (defun bongo-point-after-line (&optional point)
   "Return the first character position after the line at POINT.

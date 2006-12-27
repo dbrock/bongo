@@ -46,10 +46,12 @@ INHERIT is ignored, since it is not supported by Emacs 21."
 (defmacro bongo-define-obsolete-function-alias
   (obsolete-name current-name &optional when docstring)
   "Make OBSOLETE-NAME an obsolete function alias for CURRENT-NAME.
-This just calls `defalias' and `make-obsolete'."
+This just calls `defalias' and `make-obsolete'.
+DOCSTRING is ignored, because `defalias' does not accept the
+corresponding argument in Emacs 21."
   (declare (doc-string 4))
   `(progn
-     (defalias ,obsolete-name ,current-name ,docstring)
+     (defalias ,obsolete-name ,current-name)
      (make-obsolete ,obsolete-name ,current-name ,when)))
 
 (defmacro bongo-define-obsolete-variable-alias
