@@ -117,6 +117,120 @@ that are defined before their standard value can really be computed."
            (eval (car (or (get symbol 'saved-value)
                           (get symbol 'standard-value))))))
 
+
+;;;; Define global minor mode
+
+;;; The following function was copied from `easy-mmode.el'.
+
+(defmacro bongo-define-global-minor-mode
+  (global-mode mode turn-on &rest keys)
+  "Make GLOBAL-MODE out of the buffer-local minor MODE.
+TURN-ON is a function that will be called with no args in every buffer
+  and that should try to turn MODE on if applicable for that buffer.
+KEYS is a list of CL-style keyword arguments.  As the minor mode
+  defined by this function is always global, any :global keyword is
+  ignored.  Other keywords have the same meaning as in `define-minor-mode',
+  which see.  In particular, :group specifies the custom group.
+  The most useful keywords are those that are passed on to the
+  `defcustom'.  It normally makes no sense to pass the :lighter
+  or :keymap keywords to `define-global-minor-mode', since these
+  are usually passed to the buffer-local version of the minor mode.
+
+If MODE's set-up depends on the major mode in effect when it was
+enabled, then disabling and reenabling MODE should make MODE work
+correctly with the current major mode.  This is important to
+prevent problems with derived modes, that is, major modes that
+call another major mode in their body."
+
+  (let* ((global-mode-name (symbol-name global-mode))
+	 (pretty-name (easy-mmode-pretty-mode-name mode))
+	 (pretty-global-name (easy-mmode-pretty-mode-name global-mode))
+	 (group nil)
+	 (extra-keywords nil)
+	 (MODE-buffers (intern (concat global-mode-name "-buffers")))
+	 (MODE-enable-in-buffers
+	  (intern (concat global-mode-name "-enable-in-buffers")))
+	 (MODE-check-buffers
+	  (intern (concat global-mode-name "-check-buffers")))
+	 (MODE-cmhh (intern (concat global-mode-name "-cmhh")))
+	 (MODE-major-mode (intern (concat (symbol-name mode) "-major-mode")))
+	 keyw)
+
+    ;; Check keys.
+    (while (keywordp (setq keyw (car keys)))
+      (setq keys (cdr keys))
+      (case keyw
+	(:group (setq group (nconc group (list :group (pop keys)))))
+	(:global (setq keys (cdr keys)))
+	(t (push keyw extra-keywords) (push (pop keys) extra-keywords))))
+
+    (unless group
+      ;; We might as well provide a best-guess default group.
+      (setq group
+	    `(:group ',(intern (replace-regexp-in-string
+				"-mode\\'" "" (symbol-name mode))))))
+
+    `(progn
+       (defvar ,MODE-major-mode nil)
+       (make-variable-buffer-local ',MODE-major-mode)
+       ;; The actual global minor-mode
+       (define-minor-mode ,global-mode
+	 ,(format "Toggle %s in every buffer.
+With prefix ARG, turn %s on if and only if ARG is positive.
+%s is actually not turned on in every buffer but only in those
+in which `%s' turns it on."
+		  pretty-name pretty-global-name pretty-name turn-on)
+	 :global t ,@group ,@(nreverse extra-keywords)
+
+	 ;; Setup hook to handle future mode changes and new buffers.
+	 (if ,global-mode
+	     (progn
+	       (add-hook 'after-change-major-mode-hook
+			 ',MODE-enable-in-buffers)
+	       (add-hook 'find-file-hook ',MODE-check-buffers)
+	       (add-hook 'change-major-mode-hook ',MODE-cmhh))
+	   (remove-hook 'after-change-major-mode-hook ',MODE-enable-in-buffers)
+	   (remove-hook 'find-file-hook ',MODE-check-buffers)
+	   (remove-hook 'change-major-mode-hook ',MODE-cmhh))
+
+	 ;; Go through existing buffers.
+	 (dolist (buf (buffer-list))
+	   (with-current-buffer buf
+	     (if ,global-mode (,turn-on) (when ,mode (,mode -1))))))
+
+       ;; Autoloading define-global-minor-mode autoloads everything
+       ;; up-to-here.
+       :autoload-end
+
+       ;; List of buffers left to process.
+       (defvar ,MODE-buffers nil)
+
+       ;; The function that calls TURN-ON in each buffer.
+       (defun ,MODE-enable-in-buffers ()
+	 (dolist (buf ,MODE-buffers)
+	   (when (buffer-live-p buf)
+	     (with-current-buffer buf
+	       (if ,mode
+		   (unless (eq ,MODE-major-mode major-mode)
+		     (,mode -1)
+		     (,turn-on)
+		     (setq ,MODE-major-mode major-mode))
+		 (,turn-on)
+		 (setq ,MODE-major-mode major-mode))))))
+       (put ',MODE-enable-in-buffers 'definition-name ',global-mode)
+
+       (defun ,MODE-check-buffers ()
+	 (,MODE-enable-in-buffers)
+	 (setq ,MODE-buffers nil)
+	 (remove-hook 'post-command-hook ',MODE-check-buffers))
+       (put ',MODE-check-buffers 'definition-name ',global-mode)
+
+       ;; The function that catches kill-all-local-variables.
+       (defun ,MODE-cmhh ()
+	 (add-to-list ',MODE-buffers (current-buffer))
+	 (add-hook 'post-command-hook ',MODE-check-buffers))
+       (put ',MODE-cmhh 'definition-name ',global-mode))))
+
 ;;; Local Variables:
 ;;; coding: utf-8
 ;;; time-stamp-format: "%:b %:d, %:y"

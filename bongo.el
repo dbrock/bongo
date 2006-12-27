@@ -99,7 +99,12 @@
   (defalias 'bongo-customize-mark-as-set
     'customize-mark-as-set)
   (defalias 'bongo-custom-reevaluate-setting
-    'custom-reevaluate-setting))
+    'custom-reevaluate-setting)
+  (eval-and-compile
+    (defalias 'bongo-define-global-minor-mode
+      'define-global-minor-mode)
+    (put 'bongo-define-global-minor-mode
+         'lisp-indent-function 'defun)))
 
 ;; We try to load this library so that we can later decide
 ;; whether to enable Bongo Last.fm mode by default.
@@ -3082,7 +3087,7 @@ to automatically enable Bongo Last.fm mode in Bongo playlist buffers."
   (when (bongo-playlist-buffer-p)
     (bongo-lastfm-mode 1)))
 
-(define-global-minor-mode bongo-global-lastfm-mode
+(bongo-define-global-minor-mode bongo-global-lastfm-mode
   bongo-lastfm-mode bongo-turn-on-lastfm-mode-if-applicable
   :initialize 'custom-initialize-default
   :init-value (and (boundp 'lastfmsubmit-program-name)
