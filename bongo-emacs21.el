@@ -75,6 +75,16 @@ variable alias, because there is no such thing in Emacs 21."
 ;;; The following functions were copied from `custom.el'
 ;;; and modified to work with Emacs 21.
 
+(defun bongo-custom-set-minor-mode (variable value)
+  ":set function for minor mode variables.
+Normally, this sets the default value of VARIABLE to nil if VALUE
+is nil and to t otherwise, but if `custom-local-buffer' is non-nil,
+this sets the local binding in that buffer instead."
+  (if custom-local-buffer
+      (with-current-buffer custom-local-buffer
+	(funcall variable (if value 1 0)))
+    (funcall variable (if value 1 0))))
+
 (defun bongo-customize-mark-as-set (symbol)
   "Mark current value of SYMBOL as being set from customize.
 

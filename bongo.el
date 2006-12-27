@@ -96,6 +96,8 @@
          'lisp-indent-function 'defun)
     (put 'bongo-define-obsolete-variable-alias
          'lisp-indent-function 'defun))
+  (defalias 'bongo-custom-set-minor-mode
+    'custom-set-minor-mode)
   (defalias 'bongo-customize-mark-as-set
     'customize-mark-as-set)
   (defalias 'bongo-custom-reevaluate-setting
@@ -629,7 +631,7 @@ When the expressions are evaluated,
   "Display header lines in Bongo playlist buffers."
   :type 'boolean
   :initialize 'custom-initialize-default
-  :set 'custom-set-minor-mode
+  :set 'bongo-custom-set-minor-mode
   :group 'bongo-header-line)
 
 (defcustom bongo-header-line-playing-string "Playing:"
@@ -753,7 +755,7 @@ To change playback mode, try (for example) `\\[bongo-random-playback-mode]'."
 See `bongo-mode-line-indicator-format'."
   :type 'boolean
   :initialize 'custom-initialize-default
-  :set 'custom-set-minor-mode
+  :set 'bongo-custom-set-minor-mode
   :group 'bongo-mode-line)
 
 (defun bongo-hyphen-padded-mode-line-p ()
