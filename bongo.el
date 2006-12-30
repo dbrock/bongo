@@ -8,7 +8,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: December 27, 2006
+;; Updated: December 30, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -74,6 +74,8 @@
 ;; Provide a way to specify that intermediate headers
 ;; (cf. `bongo-insert-intermediate-headers') should be
 ;; inserted even for singleton albums.
+
+;; Implement support for crossfading.
 
 ;;; Code:
 
