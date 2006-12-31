@@ -1186,13 +1186,25 @@ static char *next_11[] = {
           (interactive "e")
           (bongo-play-next))))))
 
+(defun bongo-face-height (face-name)
+  "Return the height of the font used for FACE-NAME, or nil.
+If running without a window system, signal an error."
+  (catch 'return
+    (aref (or (font-info (or (face-font face-name)
+                             (throw 'return nil)))
+              (throw 'return nil)) 3)))
+
+(defun bongo-face-width (face-name)
+  "Return the width of the font used for FACE-NAME, or nil.
+If running without a window system, signal an error."
+  (catch 'return
+    (aref (or (font-info (or (face-font face-name)
+                             (throw 'return nil)))
+              (throw 'return nil)) 2)))
+
 (defun bongo-mode-line-icon-size ()
   "Return the size to use for mode line icons."
-  (let ((font-size (catch 'abort
-                     (aref (or (font-info (or (face-font 'mode-line)
-                                              (throw 'abort 0)))
-                               (throw 'abort 0)) 3))))
-    (if (>= font-size 18) 18 11)))
+  (if (>= (or (bongo-face-height 'mode-line) 0) 18) 18 11))
 
 (defun bongo-mode-line-start-button ()
   "Return the string to use as [Start] button in the mode line."
@@ -3242,8 +3254,7 @@ This hook is only run for players started in Bongo buffers."
       ;; On Multi-TTY Emacs, `window-system' is a frame-local
       ;; variable, so default to the smallest size.
       11
-    (let ((font-size (aref (font-info (face-font 'fringe)) 3)))
-      (if (>= font-size 18) 18 11))))
+    (if (>= (or (bongo-face-height 'fringe) 0) 18) 18 11)))
 
 (defvar bongo-playing-track-marker nil
   "Marker pointing at the currently playing track, if any.
@@ -7346,8 +7357,10 @@ if `bongo-prefer-library-buffers' is nil.
   (setq bongo-paused-track-marker (make-marker))
   (setq bongo-current-track-marker bongo-stopped-track-marker)
   (when window-system
-    (setq left-fringe-width
-          (* 2 (aref (font-info (face-font 'fringe)) 2))))
+    (catch 'abort
+      (setq left-fringe-width
+            (* 2 (or (bongo-face-width 'fringe)
+                     (throw 'abort nil))))))
   (setq bongo-queued-track-marker (make-marker))
   (setq bongo-queued-track-arrow-marker (make-marker))
   (when (boundp 'overlay-arrow-variable-list)
