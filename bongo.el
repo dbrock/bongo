@@ -1211,7 +1211,8 @@ If running without a window system, signal an error."
   (when (and window-system (not (bongo-playing-p)))
     (let ((icon-size (bongo-mode-line-icon-size)))
       (concat
-       (propertize " " 'display '(space :width (1)))
+       (when (>= emacs-major-version 22)
+         (propertize " " 'display '(space :width (1))))
        (propertize "[Start]"
                    'display (cond ((= icon-size 18)
                                    (eval bongo-mode-line-resume-icon-18))
@@ -1220,14 +1221,16 @@ If running without a window system, signal an error."
                    'help-echo (concat "mouse-1: start playback")
                    'local-map bongo-mode-line-start-map
                    'mouse-face 'highlight)
-       (propertize " " 'display '(space :width (1)))))))
+       (when (>= emacs-major-version 22)
+         (propertize " " 'display '(space :width (1))))))))
 
 (defun bongo-mode-line-stop-button ()
   "Return the string to use as [Stop] button in the mode line."
   (when (and window-system (bongo-playing-p))
     (let ((icon-size (bongo-mode-line-icon-size)))
       (concat
-       (propertize " " 'display '(space :width (1)))
+       (when (>= emacs-major-version 22)
+         (propertize " " 'display '(space :width (1))))
        (propertize "[Stop]"
                    'display (cond ((= icon-size 18)
                                    (eval bongo-mode-line-stop-icon-18))
@@ -1236,7 +1239,8 @@ If running without a window system, signal an error."
                    'help-echo (concat "mouse-1: stop playback")
                    'local-map bongo-mode-line-stop-map
                    'mouse-face 'highlight)
-       (propertize " " 'display '(space :width (1)))))))
+       (when (>= emacs-major-version 22)
+         (propertize " " 'display '(space :width (1))))))))
 
 (defun bongo-mode-line-start/stop-button ()
   "Return the string to use as [Start] or [Stop] button."
@@ -1249,7 +1253,8 @@ If running without a window system, signal an error."
     (if window-system
         (let ((icon-size (bongo-mode-line-icon-size)))
           (concat
-           (propertize " " 'display '(space :width (1)))
+           (when (>= emacs-major-version 22)
+             (propertize " " 'display '(space :width (1))))
            (propertize
             " "
             'display (if (bongo-paused-p)
@@ -1268,7 +1273,8 @@ If running without a window system, signal an error."
                                 (bongo-player-infoset bongo-player)))
             'local-map bongo-mode-line-pause/resume-map
             'mouse-face 'highlight)
-           (propertize " " 'display '(space :width (1)))))
+           (when (>= emacs-major-version 22)
+             (propertize " " 'display '(space :width (1))))))
       (if (bongo-paused-p)
           bongo-mode-line-paused-string
         bongo-mode-line-playing-string))))
@@ -1278,7 +1284,8 @@ If running without a window system, signal an error."
   (when (and window-system (bongo-point-at-current-track-line))
     (let ((icon-size (bongo-mode-line-icon-size)))
       (concat
-       (propertize " " 'display '(space :width (1)))
+       (when (>= emacs-major-version 22)
+         (propertize " " 'display '(space :width (1))))
        (propertize "[Previous]"
                    'display (cond ((= icon-size 18)
                                    (eval bongo-mode-line-previous-icon-18))
@@ -1294,14 +1301,16 @@ If running without a window system, signal an error."
                        "No previous track"))
                    'local-map bongo-mode-line-previous-map
                    'mouse-face 'highlight)
-       (propertize " " 'display '(space :width (1)))))))
+       (when (>= emacs-major-version 22)
+         (propertize " " 'display '(space :width (1))))))))
 
 (defun bongo-mode-line-next-button ()
   "Return the string to use as [Next] button in the mode line."
   (when (and window-system (bongo-point-at-current-track-line))
     (let ((icon-size (bongo-mode-line-icon-size)))
       (concat
-       (propertize " " 'display '(space :width (1)))
+       (when (>= emacs-major-version 22)
+         (propertize " " 'display '(space :width (1))))
        (propertize "[Next]"
                    'display (cond ((= icon-size 18)
                                    (eval bongo-mode-line-next-icon-18))
@@ -1317,7 +1326,8 @@ If running without a window system, signal an error."
                        "No next track"))
                    'local-map bongo-mode-line-next-map
                    'mouse-face 'highlight)
-       (propertize " " 'display '(space :width (1)))))))
+       (when (>= emacs-major-version 22)
+         (propertize " " 'display '(space :width (1))))))))
 
 (defvar bongo-mode-line-indicator-string nil
   "Bongo mode line indicator string.
