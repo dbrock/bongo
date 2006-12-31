@@ -8,7 +8,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: December 30, 2006
+;; Updated: December 31, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -1705,12 +1705,14 @@ This is used by `bongo-default-file-name-from-infoset'."
   (funcall bongo-infoset-from-file-name-function file-name))
 
 (defun bongo-uri-scheme (file-name)
-  "Return the URI scheme of FILE-NAME, or nil if it has none."
+  "Return the URI scheme of FILE-NAME, or nil if it has none.
+To avoid treating Microsoft Windows and DOS drive letters as URI schemes,
+we require that URI schemes be at least two characters long."
   (when (string-match (eval-when-compile
                         (rx (and string-start
                                  (submatch
                                   (any "a-zA-Z")
-                                  (zero-or-more
+                                  (one-or-more
                                    (or (any "a-zA-Z0-9$_@.&!*\"'(),")
                                        (and "%" (repeat 2 hex-digit)))))
                                  ":")))
