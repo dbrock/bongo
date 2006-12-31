@@ -7600,19 +7600,18 @@ See the function `bongo-library-buffer'."
   "This is used by `bongo' and `bongo-quit'.")
 
 (defun bongo-quit ()
-  "Quit Bongo by selecting another buffer.
-In addition, delete all windows except one.
+  "Quit Bongo by deleting all windows and selecting a non-Bongo buffer.
 
-This function stores the current window configuration in
-`bongo-stored-window-configuration', which is used by \\[bongo]."
+This function stores the current window configuration in the variable
+`bongo-stored-window-configuration', which is consulted by `\\[bongo]'."
   (interactive)
   (setq bongo-stored-window-configuration
         (current-window-configuration))
   (delete-other-windows)
-  (let ((buffer (current-buffer)) (count 0))
-    (while (and (bongo-buffer-p buffer) (< count 10))
-      (setq buffer (other-buffer buffer) count (+ count 1)))
-    (switch-to-buffer buffer)))
+  (let ((first-buffer (current-buffer)))
+    (while (and (bongo-buffer-p)
+                (progn (bury-buffer)
+                       (not (eq first-buffer (current-buffer))))))))
 
 (defun bongo-switch-buffers (&optional other-window)
   "Switch from a Bongo playlist to a Bongo library, or vice versa.
