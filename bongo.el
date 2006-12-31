@@ -1188,7 +1188,10 @@ static char *next_11[] = {
 
 (defun bongo-mode-line-icon-size ()
   "Return the size to use for mode line icons."
-  (let ((font-size (aref (font-info (face-font 'mode-line)) 3)))
+  (let ((font-size (catch 'abort
+                     (aref (or (font-info (or (face-font 'mode-line)
+                                              (throw 'abort 0)))
+                               (throw 'abort 0)) 3))))
     (if (>= font-size 18) 18 11)))
 
 (defun bongo-mode-line-start-button ()
