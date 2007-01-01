@@ -2755,11 +2755,13 @@ Actually only look at the terminating newline."
   (get-text-property (bongo-point-at-eol point) name))
 
 (defvar bongo-line-semantic-properties
+  ;; When changing this, consider also changing
+  ;; `bongo-line-serializable-properties'.
   (list 'bongo-file-name 'bongo-action 'bongo-infoset
-        'bongo-header 'bongo-collapsed
         'bongo-fields 'bongo-external-fields
+        'bongo-header 'bongo-collapsed
         'bongo-player 'bongo-played)
-  "The list of semantic text properties used in Bongo buffers.
+  "List of semantic text properties used in Bongo buffers.
 When redisplaying lines, semantic text properties are preserved,
 whereas all other text properties (e.g., `face') are discarded.")
 
@@ -3109,6 +3111,7 @@ Otherwise, signal an error."
        (t (error "Bad file name matcher: %s" value-matcher))))))
 
 (defun bongo-backend-matchers ()
+  "Return a list of all backend matchers in order of priority."
   (append bongo-custom-backend-matchers
           (apply 'nconc
                  (mapcar (lambda (matcher)
@@ -7087,7 +7090,10 @@ instead, use high-level functions such as `find-file'."
       (point-max))))
 
 (defvar bongo-line-serializable-properties
-  (list 'bongo-file-name 'bongo-fields 'bongo-external-fields
+  ;; When changing this, consider also changing
+  ;; `bongo-line-semantic-properties'.
+  (list 'bongo-file-name 'bongo-action 'bongo-infoset
+        'bongo-fields 'bongo-external-fields
         'bongo-header 'bongo-collapsed)
   "List of serializable text properties used in Bongo buffers.
 When a bongo Buffer is written to a file, only serializable text
