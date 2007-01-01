@@ -2644,6 +2644,15 @@ If ALIST is a symbol, operate on the vaule of that symbol instead."
       (if entry (prog1 alist (setcdr entry value))
         (cons (cons key value) alist)))))
 
+(defun bongo-plist-get-all (plist property)
+  "Return a list of all values in PLIST corresponding to PROPERTY."
+  (let ((result nil))
+    (while plist
+      (when (eq (car plist) property)
+        (push (cadr plist) result))
+      (setq plist (cddr plist)))
+    (nreverse result)))
+
 (defun bongo-filter-alist (keys alist)
   "Return a new list of each pair in ALIST whose car is in KEYS.
 Key comparisons are done with `eq'.  Order is preserved."
@@ -3072,6 +3081,28 @@ If BACKEND-NAME is not a symbol, just return it."
   "Return BACKEND's program argument list."
   (bongo-backend-get backend 'program-arguments))
 
+(defun bongo-backend-file-name-transformers (backend)
+  "Return BACKEND's file name transformers."
+  (bongo-backend-get backend 'file-name-transformers))
+
+(defun bongo-transform-file-name (file-name transformer)
+  "Transform FILE-NAME according to TRANSFORMER.
+If TRANSFORMER is a function, simply apply it to FILE-NAME.
+If TRANSFORMER is a pair (REGEXP . REPLACEMENT), replace any matches
+  of REGEXP in FILE-NAME by REPLACEMENT.
+If TRANSFORMER is a pair ((REGEXP . N) . REPLACEMENT), do the same,
+  except replace the Nth sumbatch of REGEXP for each match."
+  (cond ((functionp transformer)
+         (funcall transformer file-name))
+        ((consp transformer)
+         (if (stringp (car transformer))
+             (replace-regexp-in-string (car transformer) (cdr transformer)
+                                       file-name 'fixed-case)
+           (replace-regexp-in-string (caar transformer) (cdr transformer)
+                                     file-name 'fixed-case
+                                     nil (cdar transformer))))
+        (t (error "Malformed file name transformer: %S" transformer))))
+
 (defun bongo-file-name-matches-p (file-name matcher)
   "Return non-nil if FILE-NAME matches MATCHER.
 MATCHER is of the form (TYPE-MATCHER . VALUE-MATCHER),
@@ -3108,7 +3139,7 @@ Otherwise, signal an error."
             (dolist (extension value-matcher nil)
               (when (string-equal extension actual-extension)
                 (throw 'match t))))))
-       (t (error "Bad file name matcher: %s" value-matcher))))))
+       (t (error "Malformed file name matcher: %S" value-matcher))))))
 
 (defun bongo-backend-matchers ()
   "Return a list of all backend matchers in order of priority."
@@ -3301,22 +3332,28 @@ point to nowhere.")
 If BACKEND is omitted or nil, Bongo will try to find the best player
   backend for FILE-NAME (using `bongo-backend-for-file').
 This function runs `bongo-player-started-functions'."
-  (let* ((constructor
-          (bongo-backend-constructor
-           (or (and backend (bongo-backend backend))
-               (bongo-backend-for-file file-name)
-               (error "Don't know how to play `%s'" file-name))))
-         (player (funcall constructor file-name))
-         (process (bongo-player-process player)))
-    (prog1 player
-      (when (and bongo-player-process-priority
-                 process (eq 'run (process-status process)))
-        (bongo-renice (process-id process)
-                      bongo-player-process-priority))
-      (when bongo-lastfm-mode
-        (bongo-player-put player 'lastfm-timer
-          (run-with-timer 5 nil 'bongo-restart-lastfm-timer player)))
-      (run-hook-with-args 'bongo-player-started-functions player))))
+  (let* ((backend (or (and backend (bongo-backend backend))
+                      (bongo-backend-for-file file-name)
+                      (error "Don't know how to play `%s'" file-name)))
+         (constructor (bongo-backend-constructor backend))
+         (transformers (bongo-backend-get backend 'file-name-transformers))
+         (extra-arguments nil))
+    (dolist (transformer transformers)
+      (setq file-name (bongo-transform-file-name file-name transformer))
+      (when (consp file-name)
+        (setq extra-arguments (nconc (cdr file-name) extra-arguments))
+        (setq file-name (car file-name))))
+    (let* ((player (funcall constructor file-name extra-arguments))
+           (process (bongo-player-process player)))
+      (prog1 player
+        (when (and bongo-player-process-priority
+                   process (eq 'run (process-status process)))
+          (bongo-renice (process-id process)
+                        bongo-player-process-priority))
+        (when bongo-lastfm-mode
+          (bongo-player-put player 'lastfm-timer
+            (run-with-timer 5 nil 'bongo-restart-lastfm-timer player)))
+        (run-hook-with-args 'bongo-player-started-functions player)))))
 
 (bongo-define-obsolete-function-alias 'bongo-start-player
   'bongo-play-file)
@@ -3762,13 +3799,15 @@ Then call `bongo-player-explicitly-stopped'."
 (defun bongo-evaluate-program-arguments (arguments)
   (apply 'nconc (mapcar 'bongo-evaluate-program-argument arguments)))
 
-(defun bongo-start-simple-player (backend file-name)
-  ;; Do not change the name of the `file-name' parameter.
-  ;; The simple constructor argument list relies on that
-  ;; symbol being dynamically bound to the file name.
+(defun bongo-start-simple-player
+  (backend file-name &optional extra-arguments)
   (let* ((process-connection-type nil)
          (backend (bongo-backend backend))
          (backend-name (bongo-backend-name backend))
+         ;; These dynamically-bound variables are used in
+         ;; the simple constructor argument list.
+         (bongo-file-name file-name)
+         (bongo-extra-arguments extra-arguments)
          (process (apply 'start-process
                          (format "bongo-%s" backend-name) nil
                          (bongo-backend-program-name backend)
@@ -3807,6 +3846,21 @@ Then call `bongo-player-explicitly-stopped'."
       (run-with-timer 0 nil 'bongo-action-player-run player))))
 
 (defmacro define-bongo-backend (name &rest options)
+  (let ((options options))
+    (while options
+      (unless (memq (car options)
+                    (list :program-name-variable
+                          :extra-program-arguments-variable
+                          :pretty-name
+                          :constructor
+                          :program-name
+                          :program-arguments
+                          :extra-program-arguments
+                          :matcher
+                          :file-name-transformer))
+        (error "Unsupported keyword `%S' for `define-bongo-backend'"
+               (car options)))
+      (setq options (cddr options))))
   (let* ((group-name
           (intern (format "bongo-%s" name)))
          (program-name-variable
@@ -3826,17 +3880,22 @@ Then call `bongo-player-explicitly-stopped'."
               (symbol-name name)))
          (program-arguments
           (or (eval (plist-get options :program-arguments))
-              (list extra-program-arguments-variable 'file-name)))
+              (list extra-program-arguments-variable
+                    'bongo-extra-arguments 'bongo-file-name)))
          (extra-program-arguments
           (eval (plist-get options :extra-program-arguments)))
-         (matchers
-          (let ((options options)
-                (result nil))
-            (while options
-              (when (eq (car options) :matcher)
-                (setq result (cons (cadr options) result)))
-              (setq options (cddr options)))
-            (reverse result))))
+         (matcher-expressions
+          (bongo-plist-get-all options :matcher))
+         (file-name-transformers
+          (mapcar 'eval (bongo-plist-get-all
+                         options :file-name-transformer))))
+    ;; The special element used to be called `file-name'.
+    (when (memq 'file-name program-arguments)
+      (error (concat "Use `bongo-file-name' rather than "
+                     "`file-name' in program argument list")))
+    (when (memq 'extra-arguments program-arguments)
+      (error (concat "Use `bongo-extra-arguments' rather than "
+                     "`extra-arguments' in program argument list")))
     `(progn
        (defgroup ,group-name nil
          ,(format "The %s backend to Bongo." pretty-name)
@@ -3863,17 +3922,20 @@ Then call `bongo-player-explicitly-stopped'."
            `((defun ,constructor (file-name)
                (bongo-start-simple-player ',name file-name))))
 
-       ,@(mapcar (lambda (matcher)
+       ,@(mapcar (lambda (matcher-expression)
                    `(add-to-list 'bongo-backend-matchers
-                      (cons ',name ,matcher) t))
-                 matchers)
+                      (cons ',name ,matcher-expression) t))
+                 matcher-expressions)
 
        (put ',name 'bongo-backend
-            '(,name (constructor . ,constructor)
-                    (program-name . ,(or program-name-variable
-                                         program-name))
-                    (program-arguments . ,program-arguments)
-                    (pretty-name . ,pretty-name)))
+            (list ',name
+                  (cons 'constructor ',constructor)
+                  (cons 'program-name ',(or program-name-variable
+                                            program-name))
+                  (cons 'program-arguments ',program-arguments)
+                  (cons 'pretty-name ',pretty-name)
+                  (cons 'file-name-transformers
+                        ',file-name-transformers)))
        (add-to-list 'bongo-backends ',name t)
        (bongo-evaluate-backend-defcustoms))))
 
@@ -4023,7 +4085,7 @@ These will come at the end or right before the file name, if any."
     (error (bongo-stop)
            (signal (car condition) (cdr condition)))))
 
-(defun bongo-start-mpg123-player (file-name)
+(defun bongo-start-mpg123-player (file-name &optional extra-arguments)
   (let* ((process-connection-type nil)
          (arguments (append
                      (when bongo-mpg123-audio-driver
@@ -4036,8 +4098,10 @@ These will come at the end or right before the file name, if any."
                               bongo-mpg123-update-granularity)))
                      (bongo-evaluate-program-arguments
                       bongo-mpg123-extra-arguments)
+                     extra-arguments
                      (if bongo-mpg123-interactive
-                         '("-R" "dummy") (list file-name))))
+                         '("-R" "dummy")
+                       (list file-name))))
          (process (apply 'start-process "bongo-mpg123" nil
                          bongo-mpg123-program-name arguments))
          (player
@@ -4067,25 +4131,43 @@ These will come at the end or right before the file name, if any."
 
 (define-bongo-backend mplayer
   :constructor 'bongo-start-mplayer-player
+
   ;; We define this variable manually so that we can get
   ;; some other customization variables to appear before it.
   :extra-program-arguments-variable nil
+
   ;; Play generic URLs and files if the file extension
   ;; matches that of some potentially supported format.
   :matcher '((local-file "file:" "http:" "ftp:")
              "ogg" "flac" "mp3" "mka" "wav" "wma"
              "mpg" "mpeg" "vob" "avi" "ogm" "mp4" "mkv"
              "mov" "asf" "wmv" "rm" "rmvb" "ts")
+
   ;; Play special media URIs regardless of the file name.
   :matcher '(("mms:" "mmst:" "rtp:" "rtsp:" "udp:" "unsv:"
               "dvd:" "vcd:" "tv:" "dvb:" "mf:" "cdda:" "cddb:"
               "cue:" "sdp:" "mpst:" "tivo:") . t)
+
   ;; Play all HTTP URLs (necessary for many streams).
   ;; XXX: This is not a good long-term solution.  (But it
   ;;      would be good to keep this matcher as a fallback
   ;;      if we could somehow declare that more specific
   ;;      matchers should be tried first.)
-  :matcher '(("http:") . t))
+  :matcher '(("http:") . t)
+
+  ;; Transform CDDA URIs into the right syntax for mplayer.
+  :file-name-transformer
+  (cons (eval-when-compile
+          (rx (and string-start
+                   (submatch (and (or "cdda" "cddb") "://"))
+                   ;; Device file name.
+                   (optional (submatch
+                              (one-or-more (not (any "@")))))
+                   ;; Track number.
+                   (optional (and "@" (submatch
+                                       (zero-or-more anything))))
+                   string-end)))
+        "\\1\\3/\\2"))
 
 (defun bongo-mplayer-available-drivers (type)
   (unless (memq type '(audio video))
@@ -4238,7 +4320,7 @@ These will come at the end or right before the file name, if any."
     (error (bongo-stop)
            (signal (car condition) (cdr condition)))))
 
-(defun bongo-start-mplayer-player (file-name)
+(defun bongo-start-mplayer-player (file-name &optional extra-arguments)
   (let* ((process-connection-type nil)
          (arguments (append
                      (when bongo-mplayer-audio-driver
@@ -4249,6 +4331,7 @@ These will come at the end or right before the file name, if any."
                        (list "-quiet" "-slave"))
                      (bongo-evaluate-program-arguments
                       bongo-mplayer-extra-arguments)
+                     extra-arguments
                      (list file-name)))
          (process (apply 'start-process "bongo-mplayer" nil
                          bongo-mplayer-program-name arguments))
@@ -4279,23 +4362,45 @@ These will come at the end or right before the file name, if any."
 (define-bongo-backend vlc
   :pretty-name "VLC"
   :constructor 'bongo-start-vlc-player
+
   ;; We define this variable manually so that we can get
   ;; some other customization variables to appear before it.
   :extra-program-arguments-variable nil
+
   ;; Play generic URLs and files if the file extension
   ;; matches that of some potentially supported format.
   :matcher '((local-file "file:" "http:" "ftp:")
              "ogg" "flac" "mp3" "mka" "wav" "wma"
              "mpg" "mpeg" "vob" "avi" "ogm" "mp4" "mkv"
              "mov" "asf" "wmv" "rm" "rmvb" "ts")
+
   ;; Play special media URIs regardless of the file name.
   :matcher '(("mms:" "udp:" "dvd:" "vcd:" "cdda:") . t)
+
   ;; Play all HTTP URLs (necessary for many streams).
   ;; XXX: This is not a good long-term solution.  (But it
   ;;      would be good to keep this matcher as a fallback
   ;;      if we could somehow declare that more specific
   ;;      matchers should be tried first.)
-  :matcher '(("http:") . t))
+  :matcher '(("http:") . t)
+
+  ;; VLC fails to report time information for CD tracks
+  ;; played using the `vlc cdda://@1' syntax.  The bug
+  ;; does not manifest for `vlc cdda:// --cdda-track 1',
+  ;; which we use instead as a workaroud.  See Bug#404645
+  ;; reported against VLC in Debian.
+  :file-name-transformer
+  (lambda (file-name)
+    (when (string-match (eval-when-compile
+                          (rx (and string-start "cdda://"
+                                   (submatch (zero-or-more anything))
+                                   "@" (submatch (one-or-more digit))
+                                   (submatch (zero-or-more anything))
+                                   string-end)))
+                        file-name)
+      (list (concat "cdda://" (match-string 1 file-name)
+                    (match-string 3 file-name))
+            "--cdda-track" (match-string 2 file-name)))))
 
 (defcustom bongo-vlc-interactive t
   "If non-nil, use the remote control interface of VLC.
@@ -4418,55 +4523,36 @@ These will come at the end or right before the file name, if any."
     (error (bongo-stop)
            (signal (car condition) (cdr condition)))))
 
-(defun bongo-start-vlc-player (file-name)
-  (let ((modified-file-name file-name)
-        (cdda-track nil))
-    ;; VLC fails to report time information for CD tracks
-    ;; played using the `vlc cdda://@1' syntax.  The bug
-    ;; does not manifest for `vlc cdda:// --cdda-track 1',
-    ;; which we use instead as a workaroud.  See Bug#404645
-    ;; reported against VLC in Debian.
-    (when (string-match (eval-when-compile
-                          (rx (and string-start "cdda://"
-                                   (submatch (zero-or-more anything))
-                                   "@" (submatch (one-or-more digit))
-                                   (submatch (zero-or-more anything))
-                                   string-end)))
-                        file-name)
-      (setq modified-file-name
-            (concat "cdda://" (match-string 1 file-name)
-                    (match-string 3 file-name)))
-      (setq cdda-track (match-string 2 file-name)))
-   (let* ((process-connection-type nil)
-          (arguments (append
-                      (when bongo-vlc-interactive
-                        (list "-I" "rc" "--rc-fake-tty"))
-                      (when cdda-track
-                        (list "--cdda-track" cdda-track))
-                      (bongo-evaluate-program-arguments
-                       bongo-vlc-extra-arguments)
-                      (list modified-file-name)))
-          (process (apply 'start-process "bongo-vlc" nil
-                          bongo-vlc-program-name arguments))
-          (player
-           (list 'vlc
-                 (cons 'process process)
-                 (cons 'file-name file-name)
-                 (cons 'buffer (current-buffer))
-                 (cons 'interactive bongo-vlc-interactive)
-                 (cons 'pausing-supported bongo-vlc-interactive)
-                 (cons 'seeking-supported bongo-vlc-interactive)
-                 (cons 'time-update-delay-after-seek
-                       bongo-vlc-time-update-delay-after-seek)
-                 (cons 'paused nil)
-                 (cons 'pause/resume 'bongo-vlc-player-pause/resume)
-                 (cons 'seek-to 'bongo-vlc-player-seek-to)
-                 (cons 'seek-unit 'seconds))))
-     (prog1 player
-       (set-process-sentinel process 'bongo-default-player-process-sentinel)
-       (bongo-process-put process 'bongo-player player)
-       (when bongo-vlc-interactive
-         (set-process-filter process 'bongo-vlc-process-filter))))))
+(defun bongo-start-vlc-player (file-name &optional extra-arguments)
+  (let* ((process-connection-type nil)
+         (arguments (append
+                     (when bongo-vlc-interactive
+                       (list "-I" "rc" "--rc-fake-tty"))
+                     (bongo-evaluate-program-arguments
+                      bongo-vlc-extra-arguments)
+                     extra-arguments
+                     (list file-name)))
+         (process (apply 'start-process "bongo-vlc" nil
+                         bongo-vlc-program-name arguments))
+         (player
+          (list 'vlc
+                (cons 'process process)
+                (cons 'file-name file-name)
+                (cons 'buffer (current-buffer))
+                (cons 'interactive bongo-vlc-interactive)
+                (cons 'pausing-supported bongo-vlc-interactive)
+                (cons 'seeking-supported bongo-vlc-interactive)
+                (cons 'time-update-delay-after-seek
+                      bongo-vlc-time-update-delay-after-seek)
+                (cons 'paused nil)
+                (cons 'pause/resume 'bongo-vlc-player-pause/resume)
+                (cons 'seek-to 'bongo-vlc-player-seek-to)
+                (cons 'seek-unit 'seconds))))
+    (prog1 player
+      (set-process-sentinel process 'bongo-default-player-process-sentinel)
+      (bongo-process-put process 'bongo-player player)
+      (when bongo-vlc-interactive
+        (set-process-filter process 'bongo-vlc-process-filter)))))
 
 
 ;;;; Simple backends
