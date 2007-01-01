@@ -4378,11 +4378,11 @@ These will come at the end or right before the file name, if any."
              ((looking-at (eval-when-compile
                             (rx (and line-start
                                      "status change:"
-                                     (zero-or-more (or whitespace "("))
+                                     (zero-or-more (or space "("))
                                      "play state:"
-                                     (zero-or-more whitespace)
+                                     (zero-or-more space)
                                      (submatch (one-or-more digit))
-                                     (zero-or-more (or whitespace ")"))
+                                     (zero-or-more (or space ")"))
                                      line-end))))
               (case (string-to-number (match-string 1))
                 (1 (bongo-player-put player 'paused nil)
@@ -4395,14 +4395,14 @@ These will come at the end or right before the file name, if any."
                             (rx (and line-start
                                      (optional
                                       (and "[" (zero-or-more digit) "]"))
-                                     (zero-or-more whitespace)
+                                     (zero-or-more space)
                                      "main playlist: nothing to play"
                                      line-end))))
               (process-send-string process "quit\n"))
              ((looking-at (eval-when-compile
                             (rx (and line-start
                                      (submatch (one-or-more digit))
-                                     (zero-or-more whitespace)
+                                     (zero-or-more space)
                                      line-end))))
               (when (bongo-player-get player 'pending-queries)
                 (let ((value (string-to-number (match-string 1))))
