@@ -8,7 +8,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: January 1, 2007
+;; Updated: January 2, 2007
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -83,8 +83,23 @@
   (require 'cl)
   (require 'rx))
 
-(if (<= emacs-major-version 21)
-    (require 'bongo-emacs21)
+(eval-and-compile
+  (if (<= emacs-major-version 21)
+      (require 'bongo-emacs21)
+    (defalias 'bongo-define-obsolete-function-alias
+      'define-obsolete-function-alias)
+    (defalias 'bongo-define-obsolete-variable-alias
+      'define-obsolete-variable-alias)
+    (defalias 'bongo-define-global-minor-mode
+      'define-global-minor-mode)
+    (put 'bongo-define-obsolete-function-alias
+         'lisp-indent-function 'defun)
+    (put 'bongo-define-obsolete-variable-alias
+         'lisp-indent-function 'defun)
+    (put 'bongo-define-global-minor-mode
+         'lisp-indent-function 'defun)))
+
+(when (>= emacs-major-version 22)
   (defalias 'bongo-face-foreground
     'face-foreground)
   (defalias 'bongo-face-background
@@ -93,26 +108,12 @@
     'read-directory-name)
   (defalias 'bongo-run-mode-hooks
     'run-mode-hooks)
-  (eval-and-compile
-    (defalias 'bongo-define-obsolete-function-alias
-      'define-obsolete-function-alias)
-    (defalias 'bongo-define-obsolete-variable-alias
-      'define-obsolete-variable-alias)
-    (put 'bongo-define-obsolete-function-alias
-         'lisp-indent-function 'defun)
-    (put 'bongo-define-obsolete-variable-alias
-         'lisp-indent-function 'defun))
   (defalias 'bongo-custom-set-minor-mode
     'custom-set-minor-mode)
   (defalias 'bongo-customize-mark-as-set
     'customize-mark-as-set)
   (defalias 'bongo-custom-reevaluate-setting
-    'custom-reevaluate-setting)
-  (eval-and-compile
-    (defalias 'bongo-define-global-minor-mode
-      'define-global-minor-mode)
-    (put 'bongo-define-global-minor-mode
-         'lisp-indent-function 'defun)))
+    'custom-reevaluate-setting))
 
 ;; We try to load this library so that we can later decide
 ;; whether to enable Bongo Last.fm mode by default.
@@ -2644,6 +2645,7 @@ If ALIST is a symbol, operate on the vaule of that symbol instead."
       (if entry (prog1 alist (setcdr entry value))
         (cons (cons key value) alist)))))
 
+(eval-and-compile
 (defun bongo-plist-get-all (plist property)
   "Return a list of all values in PLIST corresponding to PROPERTY."
   (let ((result nil))
@@ -2651,7 +2653,7 @@ If ALIST is a symbol, operate on the vaule of that symbol instead."
       (when (eq (car plist) property)
         (push (cadr plist) result))
       (setq plist (cddr plist)))
-    (nreverse result)))
+    (nreverse result))))
 
 (defun bongo-filter-alist (keys alist)
   "Return a new list of each pair in ALIST whose car is in KEYS.
