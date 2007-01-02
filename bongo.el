@@ -2666,10 +2666,10 @@ Key comparisons are done with `eq'.  Order is preserved."
 (defun bongo-filter-plist (keys plist)
   "Return a new list of each property in PLIST whose name is in KEYS.
 Key comparisons are done with `eq'.  Order is *not* preserved."
-  (let (result)
+  (let ((result nil))
     (while plist
       (when (memq (car plist) keys)
-        (setq result `(,(car plist) ,(cadr plist) ,@result)))
+        (setq result (cons (car plist) (cons (cadr plist) result))))
       (setq plist (cddr plist)))
     result))
 
@@ -7460,7 +7460,7 @@ if `bongo-prefer-library-buffers' is nil.
   (setq bongo-playing-track-marker (make-marker))
   (setq bongo-paused-track-marker (make-marker))
   (setq bongo-current-track-marker bongo-stopped-track-marker)
-  (when window-system
+  (when (and window-system (>= emacs-major-version 22))
     (catch 'abort
       (setq left-fringe-width
             (* 2 (or (bongo-face-width 'fringe)
