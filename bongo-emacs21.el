@@ -1,12 +1,12 @@
 ;;; bongo-emacs21.el --- compatibility functions for Emacs 21
-;; Copyright (C) 2006  Daniel Brockman
-;; Copyright (C) 1996, 1997, 1999, 2001, 2002, 2003, 2004,
-;;   2005, 2006  Free Software Foundation, Inc.
+;; Copyright (C) 2006, 2007  Daniel Brockman
+;; Copyright (C) 1985, 1986, 1992, 1994, 1995, 1996, 1997, 1999, 2000,
+;;   2001, 2002, 2003, 2004, 2005, 2006  Free Software Foundation, Inc.
 
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: December 27, 2006
-;; Updated: December 27, 2006
+;; Updated: January 3, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -55,6 +55,31 @@ INHERIT is ignored, since it is not supported by Emacs 21."
 Major mode functions should use this."
   (apply 'run-hooks hooks)
   (run-hooks 'after-change-major-mode-hook))
+
+;;; The following function was copied from `subr.el'.
+
+(defun read-number (prompt &optional default)
+  (let ((n nil))
+    (when default
+      (setq prompt
+	    (if (string-match "\\(\\):[ \t]*\\'" prompt)
+		(replace-match (format " (default %s)" default) t t prompt 1)
+	      (replace-regexp-in-string "[ \t]*\\'"
+					(format " (default %s) " default)
+					prompt t t))))
+    (while
+	(progn
+	  (let ((str (read-from-minibuffer prompt nil nil nil nil
+					   (and default
+						(number-to-string default)))))
+	    (setq n (cond
+		     ((zerop (length str)) default)
+		     ((stringp str) (read str)))))
+	  (unless (numberp n)
+	    (message "Please enter a number.")
+	    (sit-for 1)
+	    t)))
+    n))
 
 ;;; The following macros were copied from `byte-run.el'.
 
