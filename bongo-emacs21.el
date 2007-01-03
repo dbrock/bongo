@@ -147,12 +147,17 @@ Return non-nil iff the `customized-value' property actually changed."
                   (equal value (condition-case nil
                                    (eval (car old))
                                  (error nil)))))
-        (progn (put symbol 'customized-value (list (custom-quote value)))
-               
+        (progn (put symbol 'customized-value (list
+
+;;; Not available in Emacs 21.
+;;;                                               (custom-quote value)
+
+                                              (list 'quote value)))
+
 ;;; Not available in Emacs 21.
 ;;;                (custom-push-theme 'theme-value symbol 'user 'set
 ;;;                                   (custom-quote value))
-               
+
                )
       (put symbol 'customized-value nil))
     ;; Changed?
