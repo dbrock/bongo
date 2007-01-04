@@ -8,7 +8,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: January 2, 2007
+;; Updated: January 4, 2007
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -4693,20 +4693,18 @@ Optional argument DEVICE overrides `bongo-cd-device'."
 
 (defun bongo-libcddb-cdda-info (&optional device omit-lengths)
   "Use `cddb_query' to find the number of tracks on an audio CD.
+Track lengths are not retrieved.  OMIT-LENGTHS is ignored.
 This function is a suitable value for `bongo-cdda-info-function'."
-  (if omit-lengths
-      (with-temp-buffer
-        (apply 'call-process bongo-libcddb-cddb-query-program-name nil t nil
-               (nconc (when (or device bongo-cd-device)
-                        (list "-i" (or device bongo-cd-device)))
-                      (list "calc")))
-        (goto-char (point-min))
-        (when (re-search-forward "^CD contains \\(.+\\) track" nil t)
-          (string-to-number (match-string 1))))
-    (let ((cddb-info (bongo-libcddb-cddb-info device)))
-      (when cddb-info
-        (cons (cadr cddb-info)
-              (mapcar 'cdr (cddr cddb-info)))))))
+  (with-temp-buffer
+    (apply 'call-process bongo-libcddb-cddb-query-program-name nil t nil
+           (nconc (when (or device bongo-cd-device)
+                    (list "-i" (or device bongo-cd-device)))
+                  (list "calc")))
+    (goto-char (point-min))
+    (when (re-search-forward "^CD contains \\(.+\\) track" nil t)
+      (let ((count (string-to-number (match-string 1))))
+        (when (search-forward "CD disc ID is" nil t) ; valid CDDAs only
+          (cons count nil))))))
 
 (defun bongo-libcddb-cddb-info (&optional device omit-lengths)
   "Use `cddb_query' to find CDDB information about an audio CD.
@@ -4754,19 +4752,23 @@ This function is a suitable value for `bongo-cdda-info-function'."
     (when (re-search-forward "\\<in \\(.+\\) tracks\\>" nil t)
       (let ((track-count (string-to-number (match-string 1)))
             (track-lengths nil))
-        (unless omit-lengths
-          (while (re-search-forward "^\\s-+\\([0-9:.]+\\)" nil t)
-            (push (bongo-parse-time (match-string 1)) track-lengths)))
-        (cons track-count track-lengths)))))
+        (unless (and (= track-count 1)
+                     (save-excursion
+                       (search-forward "[DATA]" nil t)))
+          (unless omit-lengths
+            (while (re-search-forward "^\\s-+\\([0-9:.]+\\)" nil t)
+              (push (bongo-parse-time (match-string 1)) track-lengths)))
+          (cons track-count track-lengths))))))
 
 (defun bongo-cdtool-cddb-info (&optional device omit-lengths)
   "Use `cdown' to find CDDB information about an audio CD.
 This function is a suitable value for `bongo-cddb-info-function'.
-Note that this function cannot report album release year information.
-It also has problems with multiple CDDB matches."
+Note that this function cannot report album release year information."
   (with-current-buffer (get-buffer-create " *CDDB query*")
     (erase-buffer)
-    (apply 'call-process bongo-cdtool-cdown-program-name nil t nil
+    (insert "1\n")           ; Always pick first alternative.
+    (apply 'call-process-region (point-min) (point)
+           bongo-cdtool-cdown-program-name t t nil
            (nconc (when (or device bongo-cd-device)
                     (list "-d" (or device bongo-cd-device)))
                   (when bongo-cddb-server
@@ -4798,8 +4800,10 @@ It also has problems with multiple CDDB matches."
   "Prompt the user for a CD device name.
 Return a CD device name or nil."
   (let ((file-name
-         (read-file-name (format "CD device name (default `%s'): "
-                                 bongo-cd-device)
+         (read-file-name (format "CD device name (default %s): "
+                                 (if bongo-cd-device
+                                     (format "`%s'" bongo-cd-device)
+                                   "unspecified"))
                          "/dev/" bongo-cd-device t)))
     (unless (string-equal file-name "")
       (expand-file-name file-name))))
@@ -4863,10 +4867,7 @@ With C-u as prefix argument, prompt for CD device to use.
 With a numerical prefix argument, insert only that particular track."
   (interactive
    (list (when (consp current-prefix-arg)
-           (expand-file-name
-            (read-file-name (format "Audio CD device (default `%s'): "
-                                    bongo-cd-device)
-                            "/dev/" bongo-cd-device t)))))
+           (bongo-read-cd-device-name))))
   (when (null device)
     (setq device bongo-cd-device))
   (if (integerp current-prefix-arg)
@@ -4882,7 +4883,7 @@ With a numerical prefix argument, insert only that particular track."
         (if (null track-count)
             (error (concat "Cannot read audio CD"
                            (when device
-                             (format "in `%s'" device))))
+                             (format " in `%s'" device))))
           (with-bongo-buffer
             (let ((beginning (point))
                   (cddb-info (if bongo-use-cddb
