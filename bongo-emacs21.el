@@ -6,7 +6,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: December 27, 2006
-;; Updated: January 3, 2006
+;; Updated: January 4, 2007
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -138,6 +138,7 @@ Return non-nil iff the `customized-value' property actually changed."
 ;;; Not available in Emacs 21.
 ;;;   (custom-load-symbol symbol)
 
+  (require 'cus-edit)
   (let* ((get (or (get symbol 'custom-get) 'default-value))
          (value (funcall get symbol))
          (customized (get symbol 'customized-value))
@@ -147,12 +148,7 @@ Return non-nil iff the `customized-value' property actually changed."
                   (equal value (condition-case nil
                                    (eval (car old))
                                  (error nil)))))
-        (progn (put symbol 'customized-value (list
-
-;;; Not available in Emacs 21.
-;;;                                               (custom-quote value)
-
-                                              (list 'quote value)))
+        (progn (put symbol 'customized-value (list (custom-quote value)))
 
 ;;; Not available in Emacs 21.
 ;;;                (custom-push-theme 'theme-value symbol 'user 'set
