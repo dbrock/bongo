@@ -8,7 +8,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: January 4, 2007
+;; Updated: January 7, 2007
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -218,9 +218,12 @@ property of the backend name symbol.")
 See `bongo-custom-backend-matchers' for more information.")
 
 (defcustom bongo-enabled-backends nil
-  "(dummy declaration)" :group 'bongo)
+  "Dummy declaration."
+  :group 'bongo)
+
 (defcustom bongo-custom-backend-matchers nil
-  "(dummy declaration)" :group 'bongo)
+  "Dummy declaration."
+  :group 'bongo)
 
 (defun bongo-evaluate-backend-defcustoms ()
   "Define `bongo-enabled-backends' and `bongo-custom-backend-matchers'.
@@ -712,7 +715,8 @@ Accept DUMMY arguments to ease hook usage."
 With ARGUMENT equal to `toggle', or interactively
   with no prefix argument, toggle the mode.
 With zero or negative ARGUMENT, turn the mode off.
-With any other ARGUMENT, turn the mode on."
+With any other ARGUMENT, turn the mode on.
+When called interactively, CALLED-INTERACTIVELY-P is non-nil."
   ;; Use `toggle' rather than (if mode 0 1) so that using
   ;; `repeat-command' still does the toggling correctly.
   (interactive (list (or current-prefix-arg 'toggle)
@@ -964,7 +968,7 @@ static char *resume_18[] = {
 \"..................\",
 \"..................\"
 };"))
-  "Bongo [Resume] button icon (18 pixels tall)")
+  "Bongo [Resume] button icon (18 pixels tall).")
 
 (defvar bongo-mode-line-resume-icon-11
   '`(image :type xpm :ascent center :data ,(concat "/* XPM */
@@ -1069,7 +1073,7 @@ static char *previous_18[] = {
 \"....................\",
 \"....................\"
 };"))
-  "Bongo [Previous] button icon (18 pixels tall)")
+  "Bongo [Previous] button icon (18 pixels tall).")
 
 (defvar bongo-mode-line-previous-icon-11
   '`(image :type xpm :ascent center :data ,(concat "/* XPM */
@@ -1122,7 +1126,7 @@ static char *next_18[] = {
 \"....................\",
 \"....................\"
 };"))
-  "Bongo [Next] button icon (18 pixels tall)")
+  "Bongo [Next] button icon (18 pixels tall).")
 
 (defvar bongo-mode-line-next-icon-11
   '`(image :type xpm :ascent center :data ,(concat "/* XPM */
@@ -1353,7 +1357,8 @@ Accept DUMMY arguments to ease hook usage."
 With ARGUMENT equal to `toggle', or interactively
   with no prefix argument, toggle the mode.
 With zero or negative ARGUMENT, turn the mode off.
-With any other ARGUMENT, turn the mode on."
+With any other ARGUMENT, turn the mode on.
+When called interactively, CALLED-INTERACTIVELY-P is non-nil."
   ;; Use `toggle' rather than (if mode 0 1) so that using
   ;; `repeat-command' still does the toggling correctly.
   (interactive (list (or current-prefix-arg 'toggle)
@@ -2003,7 +2008,8 @@ If no matching line is found, return nil."
 
 (defun bongo-point-after-next-line-satisfying (predicate &optional point)
   "Return the position after the next line satisfying PREDICATE.
-This function works like `bongo-point-before-next-line-satisfying'."
+This function works like `bongo-point-before-next-line-satisfying'.
+Start searching at POINT, or at point if POINT is nil."
   (let ((before-next (bongo-point-before-next-line-satisfying
                       predicate point)))
     (when before-next
@@ -2052,7 +2058,8 @@ If no object line is found after the starting line, return nil."
 
 (defun bongo-point-after-next-object-line (&optional point)
   "Return the character position after the next object line.
-This function works like `bongo-point-before-next-object-line'."
+This function works like `bongo-point-before-next-object-line'.
+Start searching at POINT, or at point if POINT is nil."
   (bongo-point-after-next-line-satisfying 'bongo-object-line-p point))
 
 (put 'bongo-no-previous-object
@@ -2218,7 +2225,7 @@ This function is a suitable value for `forward-sexp-function'."
 With prefix argument N, do it that many times.
 With negative prefix argument -N, move forward instead.
 If there is no previous object, signal `bongo-no-previous-object'.
-If NO-ERROR is non-nil, move to the beginning of the buffer instead. "
+If NO-ERROR is non-nil, move to the beginning of the buffer instead."
   (interactive "p")
   (when (null n)
     (setq n 1))
@@ -2810,7 +2817,8 @@ The text properties will only be removed from the terminating newline."
     (remove-text-properties position (1+ position) (list name nil))))
 
 (defun bongo-keep-text-properties (beg end keys)
-  "Keep only some properties in text from BEG to END."
+  "Keep only some properties in the text between BEG and END.
+Remove any property that is not in KEYS."
   (save-excursion
     (save-restriction
       (narrow-to-region beg end)
@@ -3205,7 +3213,9 @@ to automatically enable Bongo Last.fm mode in Bongo playlist buffers."
   :group 'bongo)
 
 (defun bongo-lastfm-submit (infoset length)
-  "Submit song information to Last.fm using `lastfm-submit'."
+  "Submit song information to Last.fm using `lastfm-submit'.
+INFOSET must contain at least the artist name and the track title.
+LENGTH is the track length in seconds."
   (require 'lastfm-submit)
   (let ((artist-name (bongo-infoset-artist-name infoset))
         (track-title (bongo-infoset-track-title infoset))
@@ -3506,7 +3516,8 @@ This hook is only run for players started in Bongo buffers."
   "Abnormal hook run after a Bongo player seeks.")
 
 (defun bongo-player-sought (player new-elapsed-time)
-  "Run the hooks appropriate for when PLAYER has sought."
+  "Run the hooks appropriate for when PLAYER has sought.
+NEW-ELAPSED-TIME is the new value of the `elapsed-time' property."
   (save-current-buffer
     (when (buffer-live-p (bongo-player-buffer player))
       (set-buffer (bongo-player-buffer player)))
@@ -3698,9 +3709,9 @@ If the player backend cannot report this, return nil."
     (and value (> value 0) value)))
 
 (defun bongo-player-update-elapsed-time (player elapsed-time)
-  "Set PLAYER's `elapsed-time' property unless PLAYER has just sought.
-That is, set it unless PLAYER's last seek happened less than N seconds ago,
-where N is the value of PLAYER's `time-update-delay-after-seek' property."
+  "Set PLAYER's `elapsed-time' property to ELAPSED-TIME,
+unless PLAYER's last seek happened less than N seconds ago, where N
+is the value of PLAYER's `time-update-delay-after-seek' property."
   (let ((delay (bongo-player-get player 'time-update-delay-after-seek)))
     (when (or (null delay) (zerop delay)
               (let ((time (bongo-player-get player 'last-seek-time)))
@@ -3751,11 +3762,13 @@ Then call `bongo-player-explicitly-stopped'."
   (bongo-player-get player 'seeking-supported))
 
 (defun bongo-default-player-seek-by (player n)
-  "Signal an error explaining that PLAYER does not support seeking."
+  "Signal an error explaining that PLAYER does not support seeking.
+This is a dummy implementation, so N is ignored."
   (bongo-player-seek-to player (+ (bongo-player-elapsed-time player) n)))
 
 (defun bongo-default-player-seek-to (player n)
-  "Signal an error explaining that PLAYER does not support seeking."
+  "Signal an error explaining that PLAYER does not support seeking.
+This is a dummy implementation, so N is ignored."
   (error "Seeking is not supported for %s"
          (bongo-player-backend-name player)))
 
@@ -3768,7 +3781,8 @@ Then call `bongo-player-explicitly-stopped'."
   (bongo-player-get player 'total-time))
 
 (defun bongo-default-player-process-sentinel (process string)
-  "If PROCESS has exited or been killed, run the appropriate hooks."
+  "If PROCESS has exited or been killed, run the appropriate hooks.
+STRING is ignored; the process status of PROCESS is used instead."
   (let ((status (process-status process))
         (player (bongo-process-get process 'bongo-player)))
     (cond
@@ -4692,8 +4706,8 @@ Optional argument DEVICE overrides `bongo-cd-device'."
     (funcall bongo-cddb-info-function device)))
 
 (defun bongo-libcddb-cdda-info (&optional device omit-lengths)
-  "Use `cddb_query' to find the number of tracks on an audio CD.
-Track lengths are not retrieved.  OMIT-LENGTHS is ignored.
+  "Use `cddb_query' to find the track count on the audio CD in DEVICE.
+Track lengths are not retrieved; OMIT-LENGTHS is ignored.
 This function is a suitable value for `bongo-cdda-info-function'."
   (with-temp-buffer
     (apply 'call-process bongo-libcddb-cddb-query-program-name nil t nil
@@ -4703,11 +4717,15 @@ This function is a suitable value for `bongo-cdda-info-function'."
     (goto-char (point-min))
     (when (re-search-forward "^CD contains \\(.+\\) track" nil t)
       (let ((count (string-to-number (match-string 1))))
-        (when (search-forward "CD disc ID is" nil t) ; valid CDDAs only
+        ;; Return nil for non-audio CDs.
+        (when (search-forward "CD disc ID is" nil t)
           (cons count nil))))))
 
 (defun bongo-libcddb-cddb-info (&optional device omit-lengths)
-  "Use `cddb_query' to find CDDB information about an audio CD.
+  "Use `cddb_query' to find CDDB information about the CD in DEVICE.
+Return nil if there is no audio CD in DEVICE.
+If OMIT-LENGTHS is non-nil, do not include track lengths in the result.
+Retrieving track lengths takes almost no extra time for this function.
 This function is a suitable value for `bongo-cddb-info-function'."
   (with-current-buffer (get-buffer-create " *CDDB query*")
     (erase-buffer)
@@ -4742,7 +4760,10 @@ This function is a suitable value for `bongo-cddb-info-function'."
                 (cons track-count (nreverse tracks))))))))
 
 (defun bongo-cdtool-cdda-info (&optional device omit-lengths)
-  "Use `cdir' to find the track information of an audio CD.
+  "Use `cdir' to find track information about the CD in DEVICE.
+Return nil if there is no audio CD in DEVICE.
+If OMIT-LENGTHS is non-nil, do not include track lengths in the result.
+Retrieving track lengths takes almost no extra time for this function.
 This function is a suitable value for `bongo-cdda-info-function'."
   (with-temp-buffer
     (apply 'call-process bongo-cdtool-cdir-program-name nil t nil "-n"
@@ -4761,7 +4782,10 @@ This function is a suitable value for `bongo-cdda-info-function'."
           (cons track-count track-lengths))))))
 
 (defun bongo-cdtool-cddb-info (&optional device omit-lengths)
-  "Use `cdown' to find CDDB information about an audio CD.
+  "Use `cdown' to find CDDB information about the audio CD in DEVICE.
+Return nil if there is no audio CD in DEVICE.
+If OMIT-LENGTHS is non-nil, do not include track lengths in the result.
+Retrieving track lengths takes some extra time for this function.
 This function is a suitable value for `bongo-cddb-info-function'.
 Note that this function cannot report album release year information."
   (with-current-buffer (get-buffer-create " *CDDB query*")
@@ -4790,9 +4814,13 @@ Note that this function cannot report album release year information."
         (let ((track-lengths (unless omit-lengths
                                (cdr (bongo-cdtool-cdda-info device)))))
           (dotimes (dummy track-count)
-            (push (cons (car track-titles) (car track-lengths)) tracks)
+            (push (cons (car track-titles)
+                        (unless omit-lengths
+                          (car track-lengths)))
+                  tracks)
             (setq track-titles (cdr track-titles))
-            (setq track-lengths (cdr track-lengths)))))
+            (unless omit-lengths
+              (setq track-lengths (cdr track-lengths))))))
       (cons (list artist-name album-title nil)
             (cons track-count tracks)))))
 
@@ -4816,7 +4844,8 @@ Optional argument CDDB-INFO is a CDDB info structure for the CD, as
 If CDDB-INFO is nil but `bongo-use-cddb' is non-nil, call `bongo-cddb-info'
   to obtain a CDDB info structure for the CD.
 Optional argument DEVICE overrides `bongo-cd-device'.
-With C-u as prefix argument, prompt for the CD device to use."
+With \\[universal-argument] as prefix argument, \
+prompt for the CD device to use."
   (interactive
    (let ((device (or (when (consp current-prefix-arg)
                        (bongo-read-cd-device-name))
@@ -4863,7 +4892,7 @@ With C-u as prefix argument, prompt for the CD device to use."
 (defun bongo-insert-cd (&optional device)
   "Insert a new track line for each track on an audio CD.
 Optional argument DEVICE overrides `bongo-cd-device'.
-With C-u as prefix argument, prompt for CD device to use.
+With \\[universal-argument] as prefix argument, prompt for CD device to use.
 With a numerical prefix argument, insert only that particular track."
   (interactive
    (list (when (consp current-prefix-arg)
@@ -4936,7 +4965,8 @@ With \\[universal-argument] as prefix argument in a playlist buffer,
 
 (defun bongo-mouse-dwim (event)
   "In Bongo, do what the user means to the object that was clicked on.
-See `bongo-dwim'."
+EVENT is generated by Emacs when this function is called interactively.
+See `bongo-dwim', which this function delegates to."
   (interactive "e")
   (let ((posn (event-end event)))
     (with-current-buffer (window-buffer (posn-window posn))
@@ -5135,7 +5165,7 @@ This is used by `bongo-play-queued'.
 
 The functions `bongo-set-queued-track-position' and
 `bongo-unset-queued-track-position' can properly manipulate this
-variable and its value. ")
+variable and its value.")
 (make-variable-buffer-local 'bongo-queued-track-marker)
 
 (defun bongo-point-at-queued-track-line ()
@@ -5285,7 +5315,7 @@ This function sets the buffer-local or global value of `bongo-next-action'."
 
 (defun bongo-replay-current (&optional argument)
   "Play the current track in the nearest playlist from the start.
-With \\[universal-argument] as prefix argument, just switch to \
+With \\[universal-argument] as prefix ARGUMENT, just switch to \
 repeating playback mode."
   (interactive "P")
   (if (consp argument)
@@ -5459,14 +5489,16 @@ This function sets the buffer-local or global value of `bongo-next-action'."
      "Start playing tracks in random order")
 
 (defun bongo-randomly-playable-track-line-p (&optional point)
-  "Return non-nil if the track line at POINT is randomly playable.
+  "Return non-nil for randomly playable track lines.
 That is, if the track is an appropriate choice during random playback.
+Inspect the line at POINT; or the one at point, if POINT is nil.
 Currently, the only non-randomly-playable tracks are action tracks."
   (and (bongo-track-line-p point)
        (not (bongo-action-track-line-p point))))
 
 (defun bongo-unplayed-randomly-playable-track-line-p (&optional point)
   "Return non-nil for unplayed and randomly playable track lines.
+Inspect the line at POINT; or the one at point, if POINT is nil.
 See `bongo-randomly-playable-track-line-p' and `bongo-played-track-line-p'."
   (and (bongo-randomly-playable-track-line-p point)
        (not (bongo-played-track-line-p))))
@@ -5475,9 +5507,9 @@ See `bongo-randomly-playable-track-line-p' and `bongo-played-track-line-p'."
   "Start playing a random track in the nearest Bongo playlist buffer.
 If there are no randomly playable tracks, signal an error.
 Randomly playable tracks are unplayed non-action tracks.
-With \\[universal-argument] as prefix argument, just switch to \
+With \\[universal-argument] as prefix ARGUMENT, just switch to \
 random playback mode.
-With \\[universal-argument] \\[universal-argument] as prefix argument, \
+With \\[universal-argument] \\[universal-argument] as prefix ARGUMENT, \
 insert an action track at point."
   (interactive "P")
   (with-bongo-playlist-buffer
@@ -5501,9 +5533,9 @@ insert an action track at point."
   "Start playing a random track in the nearest Bongo playlist buffer.
 If there are no randomly playable tracks, just stop playback.
 Randomly playable tracks are unplayed non-action tracks.
-With \\[universal-argument] as prefix argument, just switch to \
+With \\[universal-argument] as prefix ARGUMENT, just switch to \
 random playback mode.
-With \\[universal-argument] \\[universal-argument] as prefix argument, \
+With \\[universal-argument] \\[universal-argument] as prefix ARGUMENT, \
 insert an action track at point."
   (interactive "P")
   (condition-case nil
@@ -5600,7 +5632,7 @@ stop when playback reaches point."
 
 (defun bongo-start/stop (&optional argument)
   "Start or stop playback in the nearest Bongo playlist buffer.
-With prefix ARGUMENT, call `bongo-stop' even if already stopped. "
+With prefix ARGUMENT, call `bongo-stop' even if already stopped."
   (interactive "P")
   (if (or argument (bongo-playing-p))
       (bongo-stop argument)
@@ -6068,7 +6100,8 @@ This variable is bound by `bongo-insert-directory-tree'
 and modified by `bongo-insert-directory-tree-1'.")
 
 (defun bongo-insert-directory-tree-1 (directory-name)
-  "Helper function for `bongo-insert-directory-tree'."
+  "Insert a new track line for each playable file below DIRECTORY-NAME.
+This is a helper function for `bongo-insert-directory-tree'."
   (when bongo-insert-album-covers
     (bongo-maybe-insert-album-cover directory-name))
   (let ((file-names (directory-files directory-name t "\\`[^.]")))
@@ -6087,15 +6120,14 @@ and modified by `bongo-insert-directory-tree-1'.")
                 (+ 1 bongo-insert-directory-tree-current-file-count)))))))
 
 (defun bongo-insert-directory-tree (directory-name)
-  "Insert a new track line for each file below DIRECTORY-NAME.
+  "Insert a new track line for each playable file below DIRECTORY-NAME.
+Recursively descend each subdirectory of DIRECTORY-NAME.
+Join inserted tracks afterwards if `bongo-join-inserted-tracks' is non-nil.
 Only insert files that can be played by some backend, as determined by
-the matchers returned by the function `bongo-backend-matchers'.
-
+  the matchers returned by the function `bongo-backend-matchers'.
 If `bongo-insert-album-covers' is non-nil, then for each directory
-that contains a file whose name is in `bongo-album-cover-file-names',
-insert the image in that file before the directory contents.
-
-This function descends each subdirectory of DIRECTORY-NAME recursively."
+  that contains a file whose name is in `bongo-album-cover-file-names',
+  insert the image in that file before the directory contents."
   (interactive (list (expand-file-name
                       (bongo-read-directory-name
                        "Insert directory tree: "
@@ -6492,7 +6524,7 @@ If the value is a symbol, treat it as if it were a singleton list."
                (t content)))))))
 
 (defun bongo-redisplay-region (beg end)
-  "Redisplay the Bongo objects in the region."
+  "Redisplay the Bongo objects in the region between BEG and END."
   (interactive "r")
   (unless (bongo-buffer-p)
     (error "Not a Bongo buffer"))
@@ -6665,7 +6697,7 @@ See also `bongo-kill-line'."
       (goto-char end))))
 
 (defun bongo-kill-region (&optional beg end)
-  "In Bongo, kill the lines between point and mark.
+  "In Bongo, kill the lines in the region between BEG and END.
 If the region ends inside a section, kill that whole section.
 See `kill-region'."
   (interactive "r")
@@ -6729,9 +6761,9 @@ See `kill-region'."
 use `insert' and manually call `bongo-redisplay' and
 `bongo-clean-up-after-insertion' instead" "2006-12-08")
 
-(defun bongo-yank (&optional arg)
+(defun bongo-yank (&optional argument)
   "In Bongo, reinsert the last sequence of killed lines.
-See `yank'."
+See `yank' for the meaning of ARGUMENT."
   (interactive "P")
   (let ((inhibit-read-only t))
     (beginning-of-line)
@@ -6739,26 +6771,26 @@ See `yank'."
       (bongo-skip-invisible))
     (let ((yank-excluded-properties
            (remq 'invisible yank-excluded-properties)))
-      (yank arg))
+      (yank argument))
     (bongo-clean-up-after-insertion
      (region-beginning) (region-end))))
 
 ;; XXX: This definitely does not work properly.
-(defun bongo-yank-pop (&optional arg)
+(defun bongo-yank-pop (&optional argument)
   "In Bongo, replace the just-yanked lines with different ones.
-See `yank-pop'."
+See `yank-pop' for the meaning of ARGUMENT."
   (interactive "P")
   (let ((inhibit-read-only t))
-    (yank-pop arg)
+    (yank-pop argument)
     (bongo-externalize-fields)))
 
 ;; XXX: This probably does not work properly.
-(defun bongo-undo (&optional arg)
+(defun bongo-undo (&optional argument)
   "In Bongo, undo some previous changes.
-See `undo'."
+See `undo' for the meaning of ARGUMENT."
   (interactive "P")
   (let ((inhibit-read-only t))
-    (undo arg)))
+    (undo argument)))
 
 
 ;;;; Enqueuing commands
@@ -6841,12 +6873,14 @@ If MODE is `append', append the tracks to the end of the playlist."
     (bongo-enqueue-text mode text)))
 
 (defun bongo-insert-enqueue-region (beg end)
-  "Insert the region just below the current Bongo track."
+  "Insert the region just below the current Bongo track.
+The region is all track lines between BEG and END."
   (interactive "r")
   (bongo-enqueue-region 'insert beg end))
 
 (defun bongo-append-enqueue-region (beg end)
-  "Append the region to the end of the Bongo playlist."
+  "Append the region to the end of the Bongo playlist.
+The region is all track lines between BEG and END."
   (interactive "r")
   (bongo-enqueue-region 'append beg end))
 
@@ -6877,7 +6911,8 @@ Return the playlist position of the newly-inserted text."
 (defun bongo-insert-enqueue-line (&optional n called-interactively-p)
   "Insert the next N tracks or sections just below the current track.
 When called interactively, leave point after the enqueued tracks or sections.
-Return the playlist position of the newly-inserted text."
+Return the playlist position of the newly-inserted text.
+CALLED-INTERACTIVELY-P is non-nil when called interactively."
   (interactive (list (prefix-numeric-value current-prefix-arg)
                      'called-interactively-p))
   (bongo-enqueue-line 'insert n called-interactively-p))
@@ -6885,7 +6920,8 @@ Return the playlist position of the newly-inserted text."
 (defun bongo-append-enqueue-line (&optional n called-interactively-p)
   "Append the next N tracks or sections to the Bongo playlist buffer.
 When called interactively, leave point after the enqueued tracks or sections.
-Return the playlist position of the newly-inserted text. "
+Return the playlist position of the newly-inserted text.
+CALLED-INTERACTIVELY-P is non-nil when called interactively."
   (interactive (list (prefix-numeric-value current-prefix-arg)
                      'called-interactively-p))
   (bongo-enqueue-line 'append n called-interactively-p))
@@ -7062,7 +7098,8 @@ This function uses `bongo-update-references-to-renamed-files'."
         (bongo-insert-line 'bongo-file-name new-name)))))
 
 (defun bongo-rename-uri-track (new-uri &optional new-title point)
-  "Change and retitle the URI at POINT."
+  "Retarget and optionally retitle the URI track at POINT.
+NEW-URI is the new URI; NEW-TITLE, if non-nil, is the new title."
   (interactive
    (when (bongo-uri-track-line-p)
      (list (read-from-minibuffer "Change URI to: " (bongo-line-file-name))
@@ -7083,7 +7120,8 @@ This function uses `bongo-update-references-to-renamed-files'."
     (bongo-redisplay-line)))
 
 (defun bongo-rename-action-track (new-action &optional point)
-  "Change the action of the track at POINT."
+  "Change the action of the action track at POINT.
+NEW-ACTION is the new action (a function or an expression)."
   (interactive (when (bongo-action-track-line-p)
                  (list (read-from-minibuffer "Change action to: "
                                              (prin1-to-string
@@ -7242,6 +7280,7 @@ However, setting it through Custom does this automatically."
   "Keymap used in Bongo playlist and library buffers.")
 
 (defun bongo-redefine-keys ()
+  "Define the usual keys in `bongo-mode-map'."
   (let ((map bongo-mode-map))
     (define-key map "\C-m" 'bongo-dwim)
     (define-key map [mouse-2] 'bongo-mouse-dwim)
@@ -7770,7 +7809,10 @@ See the function `bongo-buffer'."
 ;;; time-stamp-start: ";; Updated: "
 ;;; time-stamp-end: "$"
 ;;; time-stamp-line-limit: 20
+;;; checkdoc-arguments-in-order-flag: nil
+;;; checkdoc-permit-comma-termination-flag: t
+;;; checkdoc-symbol-words: ("command-line")
 ;;; End:
 
 (provide 'bongo)
-;;; bongo.el ends here.
+;;; bongo.el ends here
