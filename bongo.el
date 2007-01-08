@@ -1827,16 +1827,21 @@ we require that URI schemes be at least two characters long."
                            (bongo-unescape-uri file-name)
                          file-name)))))))
 
+(defun bongo-double-alist-get (alist-1 key-1 key-2)
+  (let ((alist-2 (bongo-alist-get alist-1 key-1)))
+    (when (listp alist-2)
+      (bongo-alist-get alist-2 key-2))))
+
 (defun bongo-infoset-artist-name (infoset)
-  (bongo-alist-get (bongo-alist-get infoset 'artist) 'name))
+  (bongo-double-alist-get infoset 'artist 'name))
 (defun bongo-infoset-album-year (infoset)
-  (bongo-alist-get (bongo-alist-get infoset 'album) 'year))
+  (bongo-double-alist-get infoset 'album 'year))
 (defun bongo-infoset-album-title (infoset)
-  (bongo-alist-get (bongo-alist-get infoset 'album) 'title))
+  (bongo-double-alist-get infoset 'album 'title))
 (defun bongo-infoset-track-index (infoset)
-  (bongo-alist-get (bongo-alist-get infoset 'track) 'index))
+  (bongo-double-alist-get infoset 'track 'index))
 (defun bongo-infoset-track-title (infoset)
-  (bongo-alist-get (bongo-alist-get infoset 'track) 'title))
+  (bongo-double-alist-get infoset 'track 'title))
 
 
 ;;;; Basic point-manipulation routines
