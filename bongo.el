@@ -8,7 +8,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: January 7, 2007
+;; Updated: January 8, 2007
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -7776,16 +7776,15 @@ This function stores the current window configuration in the variable
 If prefix argument OTHER-WINDOW is non-nil, display the other buffer
 in another window."
   (interactive "P")
-  (with-bongo-buffer
-    (let* ((buffer (if (bongo-library-buffer-p)
-                       (bongo-playlist-buffer)
-                    (bongo-library-buffer)))
-           (window (get-buffer-window buffer)))
-      (if window
-          (select-window window)
-        (if other-window
-            (pop-to-buffer buffer)
-          (switch-to-buffer buffer))))))
+  (let* ((buffer (if (bongo-playlist-buffer-p)
+                     (bongo-library-buffer)
+                   (bongo-playlist-buffer)))
+         (window (get-buffer-window buffer)))
+    (if window
+        (select-window window)
+      (if other-window
+          (pop-to-buffer buffer)
+        (switch-to-buffer buffer)))))
 
 (defun bongo ()
   "Switch to a Bongo buffer.
