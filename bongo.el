@@ -8,7 +8,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: January 8, 2007
+;; Updated: January 14, 2007
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -3355,11 +3355,14 @@ This function runs `bongo-player-started-functions'."
          (constructor (bongo-backend-constructor backend))
          (transformers (bongo-backend-get backend 'file-name-transformers))
          (extra-arguments nil))
-    (dolist (transformer transformers)
-      (setq file-name (bongo-transform-file-name file-name transformer))
-      (when (consp file-name)
-        (setq extra-arguments (nconc (cdr file-name) extra-arguments))
-        (setq file-name (car file-name))))
+    (dolist (transformer transformers) 
+      (let ((transformed-file-name
+             (bongo-transform-file-name file-name transformer)))
+        (when transformed-file-name
+          (setq file-name transformed-file-name)
+          (when (consp file-name)
+            (setq extra-arguments (nconc (cdr file-name) extra-arguments))
+            (setq file-name (car file-name))))))
     (let* ((player (funcall constructor file-name extra-arguments))
            (process (bongo-player-process player)))
       (prog1 player
