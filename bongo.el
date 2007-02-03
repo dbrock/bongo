@@ -2444,11 +2444,11 @@ The internal infoset contains values of the internal fields only."
 
 (defun bongo-line-field-value (field &optional point)
   "Return the value of FIELD for the line at POINT."
-  (assoc field (bongo-line-infoset point)))
+  (cdr (assoc field (bongo-line-infoset point))))
 
 (defun bongo-line-field-values (fields &optional point)
   "Return the values of FIELDS for the line at POINT."
-  (bongo-filter-alist fields (bongo-line-infoset point)))
+  (mapcar 'cdr (bongo-filter-alist fields (bongo-line-infoset point))))
 
 (defun bongo-line-fields (&optional point)
   "Return the names of the fields defined for the line at POINT."
