@@ -6485,9 +6485,10 @@ unless `find-file-wildcards' is set to nil."
         ((consp file-name)
          (if (null (cdr file-name))
              (bongo-insert-file (car file-name))
-           (let ((beginning (point)))
-             (mapc 'bongo-insert-file file-name)
-             (bongo-maybe-join-inserted-tracks beginning (point)))))
+           (with-bongo-buffer
+             (let ((beginning (point)))
+               (mapc 'bongo-insert-file file-name)
+               (bongo-maybe-join-inserted-tracks beginning (point))))))
         ((file-directory-p file-name)
          (bongo-insert-directory-tree file-name))
         (t
@@ -6664,6 +6665,71 @@ Optional argument TITLE specifies a custom title for the URI."
     (message "Inserted URI: %s"
              (bongo-format-infoset
               (bongo-infoset-from-file-name uri)))))
+
+(defun bongo-insert-m3u-playlist-contents (file-name)
+  "Insert the contents of M3U playlist FILE-NAME."
+  (interactive "fInsert contents of M3U playlist file: ")
+  (let ((beginning (with-bongo-buffer (point))))
+    (with-temp-buffer
+      (let ((coding-system-for-read
+             (if (string-equal (file-name-extension file-name) "m3u8")
+                 'utf-8
+               coding-system-for-read)))
+        (let* ((absolute-file-name (car (insert-file-contents file-name)))
+               (default-directory (file-name-directory absolute-file-name)))
+          (goto-char (point-min))
+          (while (not (eobp))
+            (unless (char-equal ?# (char-after (point)))
+              (bongo-insert-file
+               (expand-file-name
+                (buffer-substring (point) (point-at-eol)))))
+            (forward-line 1)))))
+    (with-bongo-buffer
+      (bongo-maybe-join-inserted-tracks beginning (point)))))
+
+(defun bongo-insert-pls-playlist-contents (file-name)
+  "Insert the contents of PLS playlist FILE-NAME."
+  (interactive "fInsert contents of PLS playlist file: ")
+  (let ((beginning (with-bongo-buffer (point))))
+    (with-temp-buffer
+      (let* ((absolute-file-name (car (insert-file-contents file-name)))
+             (default-directory (file-name-directory absolute-file-name)))
+        (goto-char (point-min))
+        (when (not (looking-at "^\\[playlist\\]$"))
+          (error "File does not appear to be a PLS playlist"))
+        (forward-line 1)
+        (let ((i 1))
+          (catch 'bongo-done
+            (while t
+              (if (null (re-search-forward
+                         (format "^file%d=\\(.*\\)$" i) nil t))
+                  (throw 'bongo-done nil)
+                (let ((entry-file-name (match-string 1))
+                      (entry-title
+                       (and (re-search-forward
+                             (format "^title%d=\\(.*\\)" i) nil t)
+                            (not (string-equal "" (match-string 1)))
+                            (match-string 1))))
+                  (if (bongo-uri-p entry-file-name)
+                      (bongo-insert-uri entry-file-name entry-title)
+                    (bongo-insert-file
+                     (expand-file-name entry-file-name))))
+                (setq i (+ i 1))))))))
+    (with-bongo-buffer
+      (bongo-maybe-join-inserted-tracks beginning (point)))))
+
+(defun bongo-insert-playlist-contents (file-name)
+  "Insert the contents of playlist FILE-NAME.
+If the first line in the file is `[playlist]', then it is
+  assumed to be a PLS playlist.
+Otherwise, it is assumed to be an M3U playlist."
+  (interactive "fInsert contents of playlist file: ")
+  (if (with-temp-buffer
+        (insert-file-contents file-name nil 0 (length "[playlist]\r\n"))
+        (goto-char (point-min))
+        (looking-at "^\\[playlist\\]$"))
+      (bongo-insert-pls-playlist-contents file-name)
+    (bongo-insert-m3u-playlist-contents file-name)))
 
 (defun bongo-insert-action (action)
   "Insert a new action track line corresponding to ACTION."
@@ -7952,6 +8018,7 @@ However, setting it through Custom does this automatically."
 
 (defun bongo-redefine-keys ()
   "Define the usual keys in `bongo-mode-map'."
+  (interactive)
   (let ((map bongo-mode-map))
     (define-key map "\C-m" 'bongo-dwim)
     (define-key map [mouse-2] 'bongo-mouse-dwim)
@@ -8001,6 +8068,7 @@ However, setting it through Custom does this automatically."
     (define-key map "id" 'bongo-insert-directory)
     (define-key map "it" 'bongo-insert-directory-tree)
     (define-key map "iu" 'bongo-insert-uri)
+    (define-key map "il" 'bongo-insert-playlist-contents)
     (define-key map "iC" 'bongo-insert-cd)
     (define-key map "e" 'bongo-append-enqueue)
     (define-key map "E" 'bongo-insert-enqueue)
