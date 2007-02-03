@@ -1751,8 +1751,9 @@ we require that URI schemes be at least two characters long."
     (match-string 1 file-name)))
 
 (defun bongo-uri-p (file-name)
-  "Return non-nil if FILE-NAME is a URI."
-  (not (null (bongo-uri-scheme file-name))))
+  "Return non-nil if FILE-NAME is a URI.
+As a special case, return nil if FILE-NAME is nil."
+  (and file-name (not (null (bongo-uri-scheme file-name)))))
 
 (defun bongo-unescape-uri (uri)
   "Replace all occurences of `%HH' in URI by the character HH."
@@ -6171,7 +6172,9 @@ Optional argument TITLE specifies a custom title for the URI."
                      (let ((primary (x-get-selection)))
                        (and (bongo-uri-p primary) primary)))
                 (and (x-selection-exists-p 'CLIPBOARD)
-                     (let ((clipboard (x-get-clipboard)))
+                     (let ((clipboard (if (fboundp 'x-get-clipboard)
+                                          (x-get-clipboard)
+                                        (x-get-selection 'CLIPBOARD))))
                        (and (bongo-uri-p clipboard) clipboard)))))
           (uri
            (read-string (concat "Insert URI"
