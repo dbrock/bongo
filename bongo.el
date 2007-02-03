@@ -1157,7 +1157,13 @@ static char *next_11[] = {
       (define-key map [mode-line mouse-1]
         (lambda (e)
           (interactive "e")
-          (bongo-start))))))
+          (bongo-start)))
+      (define-key map [mode-line mouse-3]
+        (lambda (e)
+          (interactive "e")
+          (if (bongo-buffer-p)
+              (bongo-switch-buffers)
+            (bongo)))))))
 
 (defvar bongo-mode-line-pause/resume-map
   (let ((map (make-sparse-keymap)))
@@ -1165,7 +1171,13 @@ static char *next_11[] = {
       (define-key map [mode-line mouse-1]
         (lambda (e)
           (interactive "e")
-          (bongo-pause/resume))))))
+          (bongo-pause/resume)))
+      (define-key map [mode-line mouse-3]
+        (lambda (e)
+          (interactive "e")
+          (if (bongo-buffer-p)
+              (bongo-switch-buffers)
+            (bongo)))))))
 
 (defvar bongo-mode-line-stop-map
   (let ((map (make-sparse-keymap)))
@@ -1173,7 +1185,13 @@ static char *next_11[] = {
       (define-key map [mode-line mouse-1]
         (lambda (e)
           (interactive "e")
-          (bongo-stop))))))
+          (bongo-stop)))
+      (define-key map [mode-line mouse-3]
+        (lambda (e)
+          (interactive "e")
+          (if (bongo-buffer-p)
+              (bongo-switch-buffers)
+            (bongo)))))))
 
 (defvar bongo-mode-line-previous-map
   (let ((map (make-sparse-keymap)))
@@ -1181,7 +1199,13 @@ static char *next_11[] = {
       (define-key map [mode-line mouse-1]
         (lambda (e)
           (interactive "e")
-          (bongo-play-previous))))))
+          (bongo-play-previous)))
+      (define-key map [mode-line mouse-3]
+        (lambda (e)
+          (interactive "e")
+          (if (bongo-buffer-p)
+              (bongo-switch-buffers)
+            (bongo)))))))
 
 (defvar bongo-mode-line-next-map
   (let ((map (make-sparse-keymap)))
@@ -1189,7 +1213,13 @@ static char *next_11[] = {
       (define-key map [mode-line mouse-1]
         (lambda (e)
           (interactive "e")
-          (bongo-play-next))))))
+          (bongo-play-next)))
+      (define-key map [mode-line mouse-3]
+        (lambda (e)
+          (interactive "e")
+          (if (bongo-buffer-p)
+              (bongo-switch-buffers)
+            (bongo)))))))
 
 (defun bongo-face-height (face-name)
   "Return the height of the font used for FACE-NAME, or nil.
