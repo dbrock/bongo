@@ -6202,9 +6202,7 @@ Optional argument TITLE specifies a custom title for the URI."
                      (let ((primary (x-get-selection)))
                        (and (bongo-uri-p primary) primary)))
                 (and (x-selection-exists-p 'CLIPBOARD)
-                     (let ((clipboard (if (fboundp 'x-get-clipboard)
-                                          (x-get-clipboard)
-                                        (x-get-selection 'CLIPBOARD))))
+                     (let ((clipboard (x-get-selection 'CLIPBOARD)))
                        (and (bongo-uri-p clipboard) clipboard)))))
           (uri
            (read-string (concat "Insert URI"
