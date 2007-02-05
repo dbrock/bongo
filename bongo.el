@@ -4956,7 +4956,7 @@ This function is a suitable value for `bongo-cddb-info-function'."
             (when (re-search-forward "^Year:\\s-*\\(.+\\)$" nil t)
               (setq album-year (match-string 1))))
           (while (re-search-forward (concat "^\\s-+\\[[0-9]+\\] '\\(.+\\)'"
-                                            "\\s-+.*(\\(.+\\))$") nil t)
+                                            "\\s-+.*(\\(.+\\))") nil t)
             (push (cons (match-string 1)
                         (bongo-parse-time (match-string 2)))
                   tracks))
