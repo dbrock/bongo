@@ -4746,7 +4746,7 @@ These will come at the end or right before the file name, if any."
          (arguments (append
                      (when bongo-vlc-interactive
                        (append (list "-I" "rc" "--rc-fake-tty")
-                               (when (eq system-type 'windows)
+                               (when (eq window-system 'w32)
                                  (list "--rc-quiet"))))
                      (bongo-evaluate-program-arguments
                       bongo-vlc-extra-arguments)
