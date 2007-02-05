@@ -7900,6 +7900,13 @@ However, setting it through Custom does this automatically."
         '("----" . nil))
       (define-key menu-map [bongo-flush-playlist]
         '("Flush Playlist" . bongo-flush-playlist))
+      (define-key menu-map [bongo-insert-action]
+        '("Insert Action Track..." . bongo-insert-action))
+      (define-key menu-map [bongo-insert-playlist-contents]
+        '("Insert Contents of M3U/PLS Playlist..."
+          . bongo-insert-playlist-contents))
+      (define-key menu-map [bongo-insert-uri]
+        '("Insert URI..." . bongo-insert-uri))
       (define-key menu-map [bongo-insert-directory-tree]
         '("Insert Directory Tree..." . bongo-insert-directory-tree))
       (define-key menu-map [bongo-insert-directory]
@@ -7922,10 +7929,13 @@ However, setting it through Custom does this automatically."
         '("----" . nil))
       (when (require 'volume nil t)
         (define-key menu-map [bongo-change-volume]
-          '("Change Volume..." . volume)))
+          '("Change the Audio Volume..." . volume)))
       (define-key menu-map [bongo-stop]
         '(menu-item "Stop Playback" bongo-stop
                     :enable (bongo-playing-p)))
+      (define-key menu-map [bongo-seek-interactively]
+        '(menu-item "Seek Interactively..." bongo-seek
+                    :enable (bongo-seeking-supported-p)))
       (define-key menu-map [bongo-seek-backward]
         '(menu-item "Seek Backward" bongo-seek-backward
                     :enable (bongo-seeking-supported-p)))
@@ -7938,20 +7948,26 @@ However, setting it through Custom does this automatically."
                     :button (:toggle . (bongo-paused-p))))
       (define-key menu-map [bongo-menu-separator-2]
         '("----" . nil))
-      (define-key menu-map [bongo-rename-track-file]
-        '("Rename Track File..." . bongo-rename-line))
+      (define-key menu-map [bongo-rename-track]
+        '("Rename Track..." . bongo-rename-line))
+      (define-key menu-map [bongo-move-track-downwards]
+        '("Move Track Downwards" . bongo-transpose-forward))
+      (define-key menu-map [bongo-move-track-upwards]
+        '("Move Track Upwards" . bongo-transpose-backward))
+      (define-key menu-map [bongo-track-at-point]
+        '(menu-item "Track at Point"))
       (define-key menu-map [bongo-kill-track]
-        '("Cut Track" . bongo-kill-line))
+        '("Cut Track(s)" . bongo-kill))
       (define-key menu-map [bongo-copy-track]
-        '("Copy Track" . bongo-copy-line-as-kill))
+        '("Copy Track(s)" . bongo-copy))
       (define-key menu-map [bongo-insert-enqueue]
         '("Enqueue Track(s) Urgently" . bongo-insert-enqueue))
       (define-key menu-map [bongo-append-enqueue]
         '("Enqueue Track(s)" . bongo-append-enqueue))
-      (define-key menu-map [bongo-play-track]
-        '("Play Track" . bongo-play-line))
-      (define-key menu-map [bongo-selected-track]
-        '(menu-item "Selected Track"))
+      (define-key menu-map [bongo-play]
+        '("Play Track(s)" . bongo-play))
+      (define-key menu-map [bongo-selected-tracks]
+        '(menu-item "Tracks in Region or Marking or at Point"))
       (define-key menu-map [bongo-menu-separator-1]
         '("----" . nil))
       (define-key menu-map [bongo-switch-to-library]
