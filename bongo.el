@@ -1,7 +1,7 @@
 ;;; bongo.el --- buffer-oriented media player for Emacs
+
 ;; Copyright (C) 2005, 2006, 2007  Daniel Brockman
-;; Copyright (C) 2006  Daniel Jensen
-;; Copyright (C) 2005  Lars Öhrman
+;; Copyright (C) 2006, 2007  Daniel Jensen
 ;; Copyright (C) 1998, 2000, 2001, 2002, 2003, 2004, 2005
 ;;   Free Software Foundation, Inc.
 
