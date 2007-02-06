@@ -6410,12 +6410,13 @@ If `bongo-insert-album-covers' is non-nil, then for each directory
 Optional argument TITLE specifies a custom title for the URI."
   (interactive
    (let* ((default-uri
-            (or (and (x-selection-exists-p)
-                     (let ((primary (x-get-selection)))
-                       (and (bongo-uri-p primary) primary)))
-                (and (x-selection-exists-p 'CLIPBOARD)
-                     (let ((clipboard (x-get-selection 'CLIPBOARD)))
-                       (and (bongo-uri-p clipboard) clipboard)))))
+            (and (fboundp 'x-selection-exists-p)
+                 (or (and (x-selection-exists-p)
+                          (let ((primary (x-get-selection)))
+                            (and (bongo-uri-p primary) primary)))
+                     (and (x-selection-exists-p 'CLIPBOARD)
+                          (let ((clipboard (x-get-selection 'CLIPBOARD)))
+                            (and (bongo-uri-p clipboard) clipboard))))))
           (uri
            (read-string (concat "Insert URI"
                                 (when default-uri
