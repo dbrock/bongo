@@ -2893,8 +2893,8 @@ values to be joinable."
       (bongo-ignore-movement-errors
         (bongo-snap-to-object-line)
         (let ((last (bongo-line-field-value field)))
-          (while (and (< (point) end) result)
-            (bongo-next-object-line)
+          (while (progn (bongo-next-object-line)
+                        (and (< (point) end) result))
             (let ((current (bongo-line-field-value field)))
               (if (bongo-joinable-field-values-p last current)
                   (when (or last current)
