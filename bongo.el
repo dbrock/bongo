@@ -6392,18 +6392,25 @@ If `bongo-insert-album-covers' is non-nil, then for each directory
       (bongo-maybe-join-inserted-tracks beginning (point))))
   (message "Inserting directory tree...done"))
 
+(defun bongo-get-x-selection (&optional type)
+  "Return the value of the X Windows selection TYPE, if it exists.
+If no value exists for the given selection type, return nil.
+TYPE defaults to `PRIMARY'.  Use `CLIPBOARD' on Microsoft Windows."
+  (when (and (fboundp 'x-selection-exists-p)
+             (x-selection-exists-p type))
+    (if (eq window-system 'w32)
+        (w32-get-clipboard-data)
+      (x-get-selection type))))
+
 (defun bongo-insert-uri (uri &optional title)
   "Insert a new track line corresponding to URI.
 Optional argument TITLE specifies a custom title for the URI."
   (interactive
    (let* ((default-uri
-            (and (fboundp 'x-selection-exists-p)
-                 (or (and (x-selection-exists-p)
-                          (let ((primary (x-get-selection)))
-                            (and (bongo-uri-p primary) primary)))
-                     (and (x-selection-exists-p 'CLIPBOARD)
-                          (let ((clipboard (x-get-selection 'CLIPBOARD)))
-                            (and (bongo-uri-p clipboard) clipboard))))))
+            (or (let ((primary (bongo-get-x-selection)))
+                  (and (bongo-uri-p primary) primary))
+                (let ((clipboard (bongo-get-x-selection 'CLIPBOARD)))
+                  (and (bongo-uri-p clipboard) clipboard))))
           (uri
            (read-string (concat "Insert URI"
                                 (when default-uri
