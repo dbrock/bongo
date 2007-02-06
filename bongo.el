@@ -108,6 +108,10 @@
     'read-directory-name)
   (defalias 'bongo-run-mode-hooks
     'run-mode-hooks)
+  (defalias 'bongo-process-get
+    'process-get)
+  (defalias 'bongo-process-put
+    'process-put)
   (defalias 'bongo-custom-set-minor-mode
     'custom-set-minor-mode)
   (defalias 'bongo-customize-mark-as-set
@@ -2738,31 +2742,6 @@ Key comparisons are done with `eq'.  Order is *not* preserved."
 (defun bongo-region-active-p ()
   "Return non-nil if the region is active."
   (and transient-mark-mode mark-active))
-
-
-;;;; Fallback implementations of `process-{get,put}'.
-
-(defvar bongo-process-alist nil)
-
-(defun bongo-process-plist (process)
-  (bongo-alist-get bongo-process-alist process))
-
-(defun bongo-process-set-plist (process plist)
-  (bongo-alist-put 'bongo-process-alist process plist))
-
-(defun bongo-process-get (process property)
-  "Return the value of PROPERTY for PROCESS."
-  (plist-get (bongo-process-plist process) property))
-
-(defun bongo-process-put (process property value)
-  "Change the value of PROPERTY for PROCESS to VALUE."
-  (bongo-process-set-plist
-   process (plist-put (bongo-process-plist process)
-                      property value)))
-
-(when (and (fboundp 'process-put) (fboundp 'process-get))
-  (defalias 'bongo-process-get 'process-get)
-  (defalias 'bongo-process-put 'process-put))
 
 
 ;;;; Line-oriented convenience routines

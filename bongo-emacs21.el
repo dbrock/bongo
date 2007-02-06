@@ -6,7 +6,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: December 27, 2006
-;; Updated: January 4, 2007
+;; Updated: February 6, 2007
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -106,6 +106,27 @@ variable alias, because there is no such thing in Emacs 21."
 ;;;      (defvaralias ,obsolete-name ,current-name ,docstring)
 
      (make-obsolete-variable ,obsolete-name ,current-name ,when)))
+
+
+;;;; Fallback implementations of `process-{get,put}'.
+
+(defvar bongo-process-alist nil)
+
+(defun bongo-process-plist (process)
+  (bongo-alist-get bongo-process-alist process))
+
+(defun bongo-process-set-plist (process plist)
+  (bongo-alist-put 'bongo-process-alist process plist))
+
+(defun bongo-process-get (process property)
+  "Return the value of PROPERTY for PROCESS."
+  (plist-get (bongo-process-plist process) property))
+
+(defun bongo-process-put (process property value)
+  "Change the value of PROPERTY for PROCESS to VALUE."
+  (bongo-process-set-plist
+   process (plist-put (bongo-process-plist process)
+                      property value)))
 
 
 ;;;; Custom
