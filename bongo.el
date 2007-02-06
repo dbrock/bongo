@@ -1823,46 +1823,50 @@ As a special case, return nil if FILE-NAME is nil."
         (let ((fifth-and-rest (nthcdr 4 values)))
           (setcar fifth-and-rest (bongo-join-fields fifth-and-rest))
           (setcdr fifth-and-rest nil)))
-      (cond
-       ((= 5 (length values))
-        (if (string-match bongo-file-name-track-index-regexp (nth 3 values))
-            `((artist (name . ,(nth 0 values)))
-              (album (year . ,(nth 1 values))
-                     (title . ,(nth 2 values)))
-              (track (index . ,(nth 3 values))
-                     (title . ,(nth 4 values))))
-          `((artist (name . ,(nth 0 values)))
-            (album (year . ,(nth 1 values))
-                   (title . ,(nth 2 values)))
-            (track (title . ,(bongo-join-fields (nthcdr 3 values)))))))
-       ((and (= 4 (length values))
-             (string-match bongo-file-name-track-index-regexp (nth 2 values)))
-        `((artist (name . ,(nth 0 values)))
-          (album (title . ,(nth 1 values)))
-          (track (index . ,(nth 2 values))
-                 (title . ,(nth 3 values)))))
-       ((and (= 4 (length values))
-             (string-match bongo-file-name-album-year-regexp (nth 1 values)))
-        `((artist (name . ,(nth 0 values)))
-          (album (year . ,(nth 1 values))
-                 (title . ,(nth 2 values)))
-          (track (title . ,(nth 3 values)))))
-       ((= 4 (length values))
-        `((artist (name . ,(nth 0 values)))
-          (album (title . ,(nth 1 values)))
-          (track (title . ,(bongo-join-fields (nthcdr 2 values))))))
-       ((= 3 (length values))
-        `((artist (name . ,(nth 0 values)))
-          (album (title . ,(nth 1 values)))
-          (track (title . ,(nth 2 values)))))
-       ((= 2 (length values))
-        `((artist (name . ,(nth 0 values)))
-          (album . unknown)
-          (track (title . ,(nth 1 values)))))
-       ((= 1 (length values))
-        `((artist . unknown)
-          (album . unknown)
-          (track (title . ,(nth 0 values)))))))))
+      (cond ((= 5 (length values))
+             (if (string-match bongo-file-name-track-index-regexp
+                               (nth 3 values))
+                 `((artist (name . ,(nth 0 values)))
+                   (album (year . ,(nth 1 values))
+                          (title . ,(nth 2 values)))
+                   (track (index . ,(nth 3 values))
+                          (title . ,(nth 4 values))))
+               `((artist (name . ,(nth 0 values)))
+                 (album (year . ,(nth 1 values))
+                        (title . ,(nth 2 values)))
+                 (track (title . ,(bongo-join-fields
+                                   (nthcdr 3 values)))))))
+            ((and (= 4 (length values))
+                  (string-match bongo-file-name-track-index-regexp
+                                (nth 2 values)))
+             `((artist (name . ,(nth 0 values)))
+               (album (title . ,(nth 1 values)))
+               (track (index . ,(nth 2 values))
+                      (title . ,(nth 3 values)))))
+            ((and (= 4 (length values))
+                  (string-match bongo-file-name-album-year-regexp
+                                (nth 1 values)))
+             `((artist (name . ,(nth 0 values)))
+               (album (year . ,(nth 1 values))
+                      (title . ,(nth 2 values)))
+               (track (title . ,(nth 3 values)))))
+            ((= 4 (length values))
+             `((artist (name . ,(nth 0 values)))
+               (album (title . ,(nth 1 values)))
+               (track (title . ,(bongo-join-fields
+                                 (nthcdr 2 values))))))
+            ((= 3 (length values))
+             `((artist (name . ,(nth 0 values)))
+               (album (title . ,(nth 1 values)))
+               (track (title . ,(nth 2 values)))))
+            ((= 2 (length values))
+             `((artist (name . ,(nth 0 values)))
+               (album . unknown)
+               (track (title . ,(nth 1 values)))))
+            ((= 1 (length values))
+             `((artist . unknown)
+               (album . unknown)
+               (track (title . ,(nth 0 values)))))))))
 
 (defun bongo-simple-infoset-from-file-name (file-name)
   `((track (title . ,(file-name-sans-extension
@@ -3517,12 +3521,15 @@ If TRANSFORMER is a pair ((REGEXP . N) . REPLACEMENT), do the same,
          (funcall transformer file-name))
         ((consp transformer)
          (if (stringp (car transformer))
-             (replace-regexp-in-string (car transformer) (cdr transformer)
+             (replace-regexp-in-string (car transformer)
+                                       (cdr transformer)
                                        file-name 'fixed-case)
-           (replace-regexp-in-string (caar transformer) (cdr transformer)
+           (replace-regexp-in-string (caar transformer)
+                                     (cdr transformer)
                                      file-name 'fixed-case
                                      nil (cdar transformer))))
-        (t (error "Malformed file name transformer: %S" transformer))))
+        (t (error "Malformed file name transformer: %S"
+                  transformer))))
 
 (defun bongo-file-name-matches-p (file-name matcher)
   "Return non-nil if FILE-NAME matches MATCHER.
@@ -3549,18 +3556,20 @@ Otherwise, signal an error."
             (or (equal type-matcher needed-type-matcher)
                 (and (listp type-matcher)
                      (member needed-type-matcher type-matcher))))
-      (cond
-       ((eq value-matcher t) t)
-       ((stringp value-matcher) (string-match value-matcher file-name))
-       ((symbolp value-matcher) (funcall value-matcher file-name))
-       ((and (listp value-matcher) (stringp (car value-matcher)))
-        (let ((actual-extension
-               (downcase (or (file-name-extension file-name) ""))))
-          (catch 'match
-            (dolist (extension value-matcher nil)
-              (when (string-equal extension actual-extension)
-                (throw 'match t))))))
-       (t (error "Malformed file name matcher: %S" value-matcher))))))
+      (cond ((eq value-matcher t) t)
+            ((stringp value-matcher)
+             (string-match value-matcher file-name))
+            ((symbolp value-matcher)
+             (funcall value-matcher file-name))
+            ((and (listp value-matcher) (stringp (car value-matcher)))
+             (let ((actual-extension
+                    (downcase (or (file-name-extension file-name) ""))))
+               (catch 'match
+                 (dolist (extension value-matcher nil)
+                   (when (string-equal extension actual-extension)
+                     (throw 'match t))))))
+            (t (error "Malformed file name matcher: %S"
+                      value-matcher))))))
 
 (defun bongo-backend-matchers ()
   "Return a list of all backend matchers in order of priority."
@@ -3606,10 +3615,10 @@ to automatically enable Bongo Last.fm mode in Bongo playlist buffers."
         (if bongo-lastfm-mode
             (bongo-start-lastfm-timer bongo-player)
           (bongo-cancel-lastfm-timer bongo-player)))
-      (let ((value bongo-lastfm-mode))
-        (kill-local-variable 'bongo-lastfm-mode)
-        (when (not (null value))
-          (error "Bongo Last.fm mode can only be enabled in playlists")))))
+    (let ((value bongo-lastfm-mode))
+      (kill-local-variable 'bongo-lastfm-mode)
+      (when (not (null value))
+        (error "Bongo Last.fm mode can only be enabled in playlists")))))
 
 (defun bongo-turn-on-lastfm-mode-if-applicable ()
   (when (bongo-playlist-buffer-p)
@@ -4214,15 +4223,14 @@ STRING is ignored; the process status of PROCESS is used instead."
 (defun bongo-evaluate-program-argument (argument)
   ;; Lists returned by this function will be destroyed by
   ;; the `nconc' in `bongo-evaluate-program-argument'.
-  (cond
-   ((stringp argument) (list argument))
-   ((symbolp argument)
-    (let ((value (symbol-value argument)))
-      (if (listp value) (copy-sequence value) (list value))))
-   ((listp argument)
-    (let ((value (eval argument)))
-      (if (listp value) (copy-sequence value) (list value))))
-   (t (error "Invalid program argument specifier: `%s'" argument))))
+  (cond ((stringp argument) (list argument))
+        ((symbolp argument)
+         (let ((value (symbol-value argument)))
+           (if (listp value) (copy-sequence value) (list value))))
+        ((listp argument)
+         (let ((value (eval argument)))
+           (if (listp value) (copy-sequence value) (list value))))
+        (t (error "Invalid program argument specifier: `%s'" argument))))
 
 (defun bongo-evaluate-program-arguments (arguments)
   (apply 'nconc (mapcar 'bongo-evaluate-program-argument arguments)))
@@ -5915,22 +5923,22 @@ This functionality may not be available for all backends."
      (if bongo-player
          (list
           (let ((unit (bongo-player-get bongo-player 'seek-unit)))
-            (cond
-             ((null unit)
-              (error "This player does not support seeking"))
-             ((eq unit 'frames)
-              (read-number "Seek to (in frames): "))
-             ((eq unit 'seconds)
-              (let ((total-time (bongo-player-total-time bongo-player)))
-                (bongo-until
-                    (bongo-parse-time
-                     (read-string
-                      (if (null total-time)
-                          "Seek to (in seconds or MM:SS): "
-                        (format "Seek to (max %s): "
-                                (bongo-format-seconds total-time)))))
-                  (message "Please enter a number or HH:MM:SS.")
-                  (sit-for 2)))))))
+            (cond ((null unit)
+                   (error "This player does not support seeking"))
+                  ((eq unit 'frames)
+                   (read-number "Seek to (in frames): "))
+                  ((eq unit 'seconds)
+                   (let ((total-time
+                          (bongo-player-total-time bongo-player)))
+                     (bongo-until
+                         (bongo-parse-time
+                          (read-string
+                           (if (null total-time)
+                               "Seek to (in seconds or MM:SS): "
+                             (format "Seek to (max %s): "
+                                     (bongo-format-seconds total-time)))))
+                       (message "Please enter a number or HH:MM:SS.")
+                       (sit-for 2)))))))
        (error "No active player"))))
   (let ((seeking-interactively (eq major-mode 'bongo-seek-mode)))
     (with-bongo-playlist-buffer
@@ -6970,8 +6978,8 @@ Return the description string."
   (let* ((player (with-bongo-playlist-buffer
                    (or bongo-player
                        (error "No currently playing track"))))
-         (elapsed-time (when player (bongo-player-elapsed-time player)))
-         (total-time (when player (bongo-player-total-time player)))
+         (elapsed-time (and player (bongo-player-elapsed-time player)))
+         (total-time (and player (bongo-player-total-time player)))
          (description (bongo-format-infoset
                        (bongo-player-infoset player)))
          (string (if (not (and elapsed-time total-time))
