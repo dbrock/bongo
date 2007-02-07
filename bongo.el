@@ -7804,8 +7804,8 @@ However, setting it through Custom does this automatically."
     (define-key map "\M-p" 'bongo-previous-header-line)
     (define-key map "\M-n" 'bongo-next-header-line)
     (if bongo-xmms-refugee-mode
-        (define-key map "C" 'bongo-copy)
-      (define-key map "c" 'bongo-copy))
+        (define-key map "C" 'bongo-copy-forward)
+      (define-key map "c" 'bongo-copy-forward))
     (define-key map "k" 'bongo-kill)
     (substitute-key-definition
      'kill-line 'bongo-kill-line map global-map)
@@ -7956,7 +7956,7 @@ However, setting it through Custom does this automatically."
       (define-key menu-map [bongo-kill-track]
         '("Cut Track(s)" . bongo-kill))
       (define-key menu-map [bongo-copy-track]
-        '("Copy Track(s)" . bongo-copy))
+        '("Copy Track(s)" . bongo-copy-forward))
       (define-key menu-map [bongo-insert-enqueue]
         '("Enqueue Track(s) Urgently" . bongo-insert-enqueue))
       (define-key menu-map [bongo-append-enqueue]
