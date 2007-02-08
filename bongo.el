@@ -3310,7 +3310,8 @@ Otherwise, just unmark the previous track."
 (defun bongo-unmark-all ()
   "Unmark all tracks in the current buffer."
   (interactive)
-  (let ((markers bongo-marked-track-line-markers))
+  (let ((markers bongo-marked-track-line-markers)
+        (line-move-ignore-invisible nil))
     (setq bongo-marked-track-line-markers nil)
     (save-excursion
       (dolist (marker markers)
@@ -3336,7 +3337,8 @@ Return the number of newly-marked tracks."
 (defun bongo-unmark-track-lines-satisfying (predicate)
   "Unmark all track lines satisfying PREDICATE.
 Return the number of newly-unmarked tracks."
-  (let ((count 0))
+  (let ((count 0)
+        (line-move-ignore-invisible nil))
     (save-excursion
       (dolist (marker bongo-marked-track-line-markers)
         (goto-char marker)
@@ -6874,6 +6876,7 @@ including the terminating newline character."
   (when line-move-ignore-invisible
     (bongo-skip-invisible))
   (let ((inhibit-read-only t)
+        (line-move-ignore-invisible nil)
         (indentation (bongo-line-indentation))
         (infoset (bongo-line-internal-infoset))
         (header (bongo-header-line-p))
@@ -6890,21 +6893,19 @@ including the terminating newline character."
       (dotimes (dummy indentation)
         (insert bongo-indentation-string))
       (when marked
-        (goto-char (point-at-bol))
+        (bongo-beginning-of-line)
         (let ((mark-string (bongo-format-string bongo-mark-format)))
           (insert mark-string)
           (delete-char (min (length mark-string)
-                            (- (point-at-eol) (point)))))
-        (goto-char (point-at-eol)))
+                            (- (bongo-point-at-eol) (point)))))
+        (bongo-end-of-line))
       (let* ((bongo-infoset-formatting-target
               (current-buffer))
              (bongo-infoset-formatting-target-line
               (bongo-point-before-line))
              (content
-              (apply 'propertize (bongo-format-infoset infoset)
-                     'follow-link t 'mouse-face 'highlight
-                     (when invisible
-                       (list 'invisible invisible)))))
+              (propertize (bongo-format-infoset infoset)
+                          'follow-link t 'mouse-face 'highlight)))
         (if header
             (setq content (bongo-format-header content collapsed))
           (cond (currently-playing
@@ -6916,7 +6917,11 @@ including the terminating newline character."
         (insert content))
       (when marked
         (let ((bongo-facify-below-existing-faces t))
-          (bongo-facify-current-line 'bongo-marked-track-line))))))
+          (bongo-facify-current-line 'bongo-marked-track-line)))
+      (when invisible
+        (put-text-property (bongo-point-before-line)
+                           (bongo-point-after-line)
+                           'invisible t)))))
 
 (defun bongo-redisplay-region (beg end)
   "Redisplay the Bongo objects in the region between BEG and END."
@@ -7058,11 +7063,8 @@ Otherwise, just kill the line as `kill-line' would."
                (bongo-line-set-property 'bongo-queued-track-flag t)
                (bongo-unset-queued-track-position)
                (bongo-line-remove-property 'bongo-queued-track-flag))
-             (let ((kill-whole-line t))
-               (beginning-of-line)
-               (when line-move-ignore-invisible
-                 (bongo-skip-invisible))
-               (kill-line)))
+             (kill-region (bongo-point-before-line)
+                          (bongo-point-after-line)))
             ((bongo-header-line-p)
              (save-excursion
                (beginning-of-line)
@@ -7089,7 +7091,8 @@ If the region ends inside a section, kill that whole section."
   "In Bongo, kill all marked track lines."
   (interactive)
   (when bongo-marked-track-line-markers
-    (let ((markers (nreverse bongo-marked-track-line-markers)))
+    (let ((markers (nreverse bongo-marked-track-line-markers))
+          (line-move-ignore-invisible nil))
       (setq bongo-marked-track-line-markers nil)
       (bongo-kill-line (car markers))
       (dolist (marker (cdr markers))
@@ -7124,7 +7127,14 @@ Return the character position of the end of the copied text."
                  (bongo-point-after-object point)
                (bongo-point-after-line point))))
     (prog1 end
-      (copy-region-as-kill (bongo-point-before-line point) end))))
+      (let ((buffer-substring-filters
+             (cons (lambda (string)
+                     (prog1 (setq string (copy-sequence string))
+                       (remove-text-properties 0 (length string)
+                                               '(invisible nil)
+                                               string)))
+                   buffer-substring-filters)))
+        (copy-region-as-kill (bongo-point-before-line point) end)))))
 
 (bongo-define-obsolete-function-alias 'bongo-copy-line-as-kill
   'bongo-copy-line "2007-01-16")
@@ -7174,9 +7184,10 @@ otherwise, just move to the previous line of text."
 (defun bongo-copy-marked ()
   "In Bongo, copy all marked track lines."
   (interactive)
-  (dolist (marker (reverse bongo-marked-track-line-markers))
-    (bongo-copy-line marker)
-    (append-next-kill)))
+  (let ((line-move-ignore-invisible nil))
+    (dolist (marker (reverse bongo-marked-track-line-markers))
+      (bongo-copy-line marker)
+      (append-next-kill))))
 
 (defun bongo-copy-forward (&optional n)
   "In Bongo, copy N objects, or the region, or the marked tracks.
@@ -7435,7 +7446,8 @@ If MODE is `append', append to the end of the playlist.
 Return the playlist position of the newly-inserted text."
   (when bongo-marked-track-line-markers
     (save-excursion
-      (let ((markers (reverse bongo-marked-track-line-markers)))
+      (let ((markers (reverse bongo-marked-track-line-markers))
+            (line-move-ignore-invisible nil))
         (goto-char (car markers))
         (prog1 (bongo-enqueue-line mode)
           (dolist (marker (cdr markers))
