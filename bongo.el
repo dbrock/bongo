@@ -4355,8 +4355,8 @@ STRING is ignored; the process status of PROCESS is used instead."
                :group ',group-name)))
 
        ,@(when (null (plist-get options :constructor))
-           `((defun ,constructor (file-name)
-               (bongo-start-simple-player ',name file-name))))
+           `((defun ,constructor (file-name &optional extra-arguments)
+               (bongo-start-simple-player ',name file-name extra-arguments))))
 
        ,@(mapcar (lambda (matcher-expression)
                    `(add-to-list 'bongo-backend-matchers
