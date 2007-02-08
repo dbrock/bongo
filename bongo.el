@@ -4091,6 +4091,10 @@ Interactive processes may support pausing and seeking."
   (bongo-player-call-with-default
    player 'paused-p 'bongo-default-player-paused-p))
 
+(defun bongo-player-pause-signal (player)
+  "Return the value of PLAYER's backend's `pause-signal' property."
+  (bongo-backend-get (bongo-player-backend player) 'pause-signal))
+
 (defun bongo-player-pause/resume (player)
   "Tell PLAYER to toggle its paused state.
 If PLAYER does not support pausing, signal an error."
@@ -4157,9 +4161,9 @@ Then call `bongo-player-explicitly-stopped'."
   (bongo-player-explicitly-stopped player))
 
 (defun bongo-default-player-running-p (player)
-  "Return non-nil if PLAYER has a running process."
+  "Return non-nil if PLAYER has a running or stopped process."
   (let ((process (bongo-player-process player)))
-    (and process (eq 'run (process-status process)))))
+    (and process (memq (process-status process) '(run stop)) t)))
 
 (defun bongo-default-player-interactive-p (player)
   "Return the value of PLAYER's `interactive' property."
@@ -4170,13 +4174,32 @@ Then call `bongo-player-explicitly-stopped'."
   (bongo-player-get player 'pausing-supported))
 
 (defun bongo-default-player-paused-p (player)
-  "Return the value of PLAYER's `paused' property."
-  (bongo-player-get player 'paused))
+  "Return non-nil if PLAYER has a non-nil `paused' property,
+or a stopped (but continuable) process."
+  (or (bongo-player-get player 'paused)
+      (let ((process (bongo-player-process player)))
+        (and process (eq (process-status process) 'stop)))))
 
 (defun bongo-default-player-pause/resume (player)
-  "Signal an error explaining that PLAYER does not support pausing."
-  (error "Pausing is not supported for %s"
-         (bongo-player-backend-name player)))
+  "Pause/resume PLAYER using SIGSTOP/SIGCONT.
+Some signal other that SIGSTOP may be used for pausing if
+the player's backend has a non-nil `pause-signal' property."
+  (if (bongo-player-paused-p player)
+      ;; We can't use `signal-process' with `cont' here,
+      ;; because that won't change the process status.
+      ;; This could be seen as a bug in Emacs.
+      (continue-process (bongo-player-process player))
+    ;; We _can_ use `signal-process' with `stop', however,
+    ;; because Emacs will update the process status upon
+    ;; handling the SIGCHLD sent when a child is stopped.
+    ;;
+    ;; Some players pause upon receiving a SIGTSTP signal,
+    ;; which gives them an opportunity to prepare first.
+    ;; If they go ahead and stop themselves after preparing,
+    ;; we should be nice and let them.  That's why this code
+    ;; does not assume that it should always send SIGSTOP.
+    (signal-process (bongo-player-process player)
+                    (bongo-player-pause-signal player))))
 
 (defun bongo-default-player-seeking-supported-p (player)
   "Return the value of PLAYER's `seeking-supported' property."
@@ -4215,7 +4238,9 @@ STRING is ignored; the process status of PROCESS is used instead."
              (bongo-player-failed player)))
           ((eq status 'signal)
            (unless (bongo-player-explicitly-stopped-p player)
-             (bongo-player-killed player))))))
+             (bongo-player-killed player)))
+          ((memq status '(run stop))
+           (bongo-player-paused/resumed player)))))
 
 
 ;;;; Backends
@@ -4252,7 +4277,8 @@ STRING is ignored; the process status of PROCESS is used instead."
          (player (list backend-name
                        (cons 'process process)
                        (cons 'file-name file-name)
-                       (cons 'buffer (current-buffer)))))
+                       (cons 'buffer (current-buffer))
+                       (cons 'pausing-supported t))))
     (prog1 player
       (set-process-sentinel process 'bongo-default-player-process-sentinel)
       (bongo-process-put process 'bongo-player player))))
@@ -4292,6 +4318,7 @@ STRING is ignored; the process status of PROCESS is used instead."
                           :program-name
                           :program-arguments
                           :extra-program-arguments
+                          :pause-signal
                           :matcher
                           :file-name-transformer))
         (error "Unsupported keyword `%S' for `define-bongo-backend'"
@@ -4320,6 +4347,8 @@ STRING is ignored; the process status of PROCESS is used instead."
                     'bongo-extra-arguments 'bongo-file-name)))
          (extra-program-arguments
           (eval (plist-get options :extra-program-arguments)))
+         (pause-signal
+          (or (eval (plist-get options :pause-signal)) 'SIGSTOP))
          (matcher-expressions
           (bongo-plist-get-all options :matcher))
          (file-name-transformers
@@ -4370,6 +4399,7 @@ STRING is ignored; the process status of PROCESS is used instead."
                                             program-name))
                   (cons 'program-arguments ',program-arguments)
                   (cons 'pretty-name ',pretty-name)
+                  (cons 'pause-signal ',pause-signal)
                   (cons 'file-name-transformers
                         ',file-name-transformers)))
        (add-to-list 'bongo-backends ',name t)
@@ -4470,13 +4500,12 @@ These will come at the end or right before the file name, if any."
   'bongo-default-player-paused-p)
 
 (defun bongo-mpg123-player-pause/resume (player)
-  (when (not (bongo-player-interactive-p player))
-    (error (concat "This mpg123 process is not interactive "
-                   "and so does not support pausing")))
-  (process-send-string (bongo-player-process player) "PAUSE\n")
-  (bongo-player-put player 'paused
-    (not (bongo-player-get player 'paused)))
-  (bongo-player-paused/resumed player))
+  (if (not (bongo-player-interactive-p player))
+      (bongo-default-player-pause/resume player)
+    (process-send-string (bongo-player-process player) "PAUSE\n")
+    (bongo-player-put player 'paused
+      (not (bongo-player-get player 'paused)))
+    (bongo-player-paused/resumed player)))
 
 (defun bongo-seconds-to-mp3-frames (seconds)
   (round (* seconds 38.3)))
@@ -4545,7 +4574,7 @@ These will come at the end or right before the file name, if any."
                 (cons 'file-name file-name)
                 (cons 'buffer (current-buffer))
                 (cons 'interactive bongo-mpg123-interactive)
-                (cons 'pausing-supported bongo-mpg123-interactive)
+                (cons 'pausing-supported t)
                 (cons 'seeking-supported bongo-mpg123-interactive)
                 (cons 'time-update-delay-after-seek
                       bongo-mpg123-time-update-delay-after-seek)
@@ -4634,10 +4663,9 @@ These will come at the end or right before the file name, if any."
   :group 'bongo-vlc)
 
 (defun bongo-vlc-player-pause/resume (player)
-  (when (not (bongo-player-interactive-p player))
-    (error (concat "This VLC process is not interactive "
-                   "and so does not support pausing")))
-  (process-send-string (bongo-player-process player) "pause\n"))
+  (if (bongo-player-interactive-p player)
+      (process-send-string (bongo-player-process player) "pause\n")
+    (bongo-default-player-pause/resume player)))
 
 (defun bongo-vlc-player-seek-to (player seconds)
   (when (not (bongo-player-interactive-p player))
@@ -4749,7 +4777,7 @@ These will come at the end or right before the file name, if any."
                 (cons 'file-name file-name)
                 (cons 'buffer (current-buffer))
                 (cons 'interactive bongo-vlc-interactive)
-                (cons 'pausing-supported bongo-vlc-interactive)
+                (cons 'pausing-supported t)
                 (cons 'seeking-supported bongo-vlc-interactive)
                 (cons 'time-update-delay-after-seek
                       bongo-vlc-time-update-delay-after-seek)
@@ -4767,6 +4795,7 @@ These will come at the end or right before the file name, if any."
 ;;;; Simple backends
 
 (define-bongo-backend ogg123
+  :pause-signal 'SIGTSTP
   :matcher '(local-file "ogg" "flac"))
 
 (define-bongo-backend speexdec

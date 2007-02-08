@@ -1,0 +1,10 @@
+Bongo NEWS file listing user-visible changes.
+This file is in the public domain.
+
+
+February 8, 2007
+
+ * All backends now support pausing.  Non-interactive backend
+   players are paused and resumed using SIGSTOP and SIGCONT.
+   In particular, this means that pausing and resuming is now
+   available for ogg123, speexdec, TiMidity and MikMod.
