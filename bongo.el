@@ -86,6 +86,8 @@
 (eval-and-compile
   (if (<= emacs-major-version 21)
       (require 'bongo-emacs21)
+
+    ;; These are macros.
     (defalias 'bongo-define-obsolete-function-alias
       'define-obsolete-function-alias)
     (defalias 'bongo-define-obsolete-variable-alias
@@ -97,27 +99,27 @@
     (put 'bongo-define-obsolete-variable-alias
          'lisp-indent-function 'defun)
     (put 'bongo-define-global-minor-mode
-         'lisp-indent-function 'defun)))
+         'lisp-indent-function 'defun)
 
-(when (>= emacs-major-version 22)
-  (defalias 'bongo-face-foreground
-    'face-foreground)
-  (defalias 'bongo-face-background
-    'face-background)
-  (defalias 'bongo-read-directory-name
-    'read-directory-name)
-  (defalias 'bongo-run-mode-hooks
-    'run-mode-hooks)
-  (defalias 'bongo-process-get
-    'process-get)
-  (defalias 'bongo-process-put
-    'process-put)
-  (defalias 'bongo-custom-set-minor-mode
-    'custom-set-minor-mode)
-  (defalias 'bongo-customize-mark-as-set
-    'customize-mark-as-set)
-  (defalias 'bongo-custom-reevaluate-setting
-    'custom-reevaluate-setting))
+    ;; These are functions.
+    (defalias 'bongo-face-foreground
+      'face-foreground)
+    (defalias 'bongo-face-background
+      'face-background)
+    (defalias 'bongo-read-directory-name
+      'read-directory-name)
+    (defalias 'bongo-run-mode-hooks
+      'run-mode-hooks)
+    (defalias 'bongo-process-get
+      'process-get)
+    (defalias 'bongo-process-put
+      'process-put)
+    (defalias 'bongo-custom-set-minor-mode
+      'custom-set-minor-mode)
+    (defalias 'bongo-customize-mark-as-set
+      'customize-mark-as-set)
+    (defalias 'bongo-custom-reevaluate-setting
+      'custom-reevaluate-setting)))
 
 ;; We try to load this library so that we can later decide
 ;; whether to enable Bongo Last.fm mode by default.
@@ -210,7 +212,7 @@ Return the final value of TEST.
        ,result)))
 
 
-;;;; Customization variables
+;;;; Commonly-used variables
 
 (defvar bongo-backends '()
   "List of names of available Bongo player backends.
@@ -220,6 +222,17 @@ property of the backend name symbol.")
 (defvar bongo-backend-matchers '()
   "List of Bongo player backend matchers.
 See `bongo-custom-backend-matchers' for more information.")
+
+(defvar bongo-player nil
+  "The currently active player for this buffer, or nil.
+This variable is only used in Bongo mode buffers.")
+(make-variable-buffer-local 'bongo-player)
+
+(defvar bongo-seek-buffer nil
+  "The current interactive Bongo Seek buffer, or nil.")
+
+
+;;;; Customization variables
 
 (defcustom bongo-enabled-backends nil
   "Dummy declaration."
@@ -3709,11 +3722,6 @@ See `bongo-lastfm-submit'."
 
 ;;;; Players
 
-(defvar bongo-player nil
-  "The currently active player for this buffer, or nil.
-This variable is only used in Bongo mode buffers.")
-(make-variable-buffer-local 'bongo-player)
-
 (defcustom bongo-player-started-hook '(bongo-show)
   "Normal hook run when a Bongo player is started.
 This hook is only run for players started in Bongo buffers."
@@ -3758,6 +3766,30 @@ As soon as another track starts playing, this marker is set to
 point to nowhere.")
 (make-variable-buffer-local 'bongo-stopped-track-marker)
 (put 'bongo-stopped-track-marker 'overlay-arrow-bitmap 'filled-square)
+
+(defcustom bongo-player-process-priority nil
+  "The desired scheduling priority of Bongo player processes.
+If set to a non-nil value, `bongo-renice' will be used to alter
+the scheduling priority after a player process is started."
+  :type '(choice (const :tag "Default" nil)
+                 (const :tag "Slightly higher (-5)" -5)
+                 (const :tag "Much higher (-10)" -10)
+                 (const :tag "Very much higher (-15)" -15)
+                 integer)
+  :group 'bongo)
+
+(defcustom bongo-renice-command "sudo renice"
+  "The shell command to use in place of the `renice' program.
+It will get three arguments: the priority, \"-p\", and the PID."
+  :type 'string
+  :group 'bongo)
+
+(defun bongo-renice (pid priority)
+  "Alter the priority of PID (process ID) to PRIORITY.
+The variable `bongo-renice-command' says what command to use."
+  (call-process shell-file-name nil nil nil shell-command-switch
+                (format "%s %d -p %d" bongo-renice-command
+                        priority pid)))
 
 (defun bongo-play-file (file-name &optional backend)
   "Start playing FILE-NAME using BACKEND and return the new player.
@@ -3966,30 +3998,6 @@ By ``one of the times'' is meant elapsed time or total time.")
     (run-hook-with-args 'bongo-player-times-changed-functions player)
     (when (bufferp bongo-seek-buffer)
       (bongo-seek-redisplay))))
-
-(defcustom bongo-player-process-priority nil
-  "The desired scheduling priority of Bongo player processes.
-If set to a non-nil value, `bongo-renice' will be used to alter
-the scheduling priority after a player process is started."
-  :type '(choice (const :tag "Default" nil)
-                 (const :tag "Slightly higher (-5)" -5)
-                 (const :tag "Much higher (-10)" -10)
-                 (const :tag "Very much higher (-15)" -15)
-                 integer)
-  :group 'bongo)
-
-(defcustom bongo-renice-command "sudo renice"
-  "The shell command to use in place of the `renice' program.
-It will get three arguments: the priority, \"-p\", and the PID."
-  :type 'string
-  :group 'bongo)
-
-(defun bongo-renice (pid priority)
-  "Alter the priority of PID (process ID) to PRIORITY.
-The variable `bongo-renice-command' says what command to use."
-  (call-process shell-file-name nil nil nil shell-command-switch
-                (format "%s %d -p %d" bongo-renice-command
-                        priority pid)))
 
 (defun bongo-player-backend-name (player)
   "Return the name of PLAYER's backend."
@@ -6012,9 +6020,6 @@ That is, when `bongo-seek-electric-mode' is non-nil.")
   "Face used for messages in Bongo Seek mode."
   :group 'bongo-faces)
 
-(defvar bongo-seek-buffer nil
-  "The current interactive Bongo Seek buffer, or nil.")
-
 (defun bongo-seek-quit ()
   "Quit Bongo Seek mode."
   (interactive)
@@ -6025,18 +6030,6 @@ That is, when `bongo-seek-electric-mode' is non-nil.")
         (delete-window (get-buffer-window bongo-seek-buffer))))
     (kill-buffer bongo-seek-buffer)
     (setq bongo-seek-buffer nil)))
-
-(defun bongo-seek-mode ()
-  "Major mode for interactively seeking in Bongo tracks.
-
-\\{bongo-seek-mode-map}"
-  (interactive)
-  (kill-all-local-variables)
-  (setq major-mode 'bongo-seek-mode)
-  (setq mode-name "Bongo Seek")
-  (use-local-map bongo-seek-mode-map)
-  (setq buffer-undo-list t)
-  (bongo-run-mode-hooks 'bongo-seek-mode-hook))
 
 (defvar bongo-seek-mode-map
   (let ((map (make-sparse-keymap))
@@ -6093,6 +6086,18 @@ That is, when `bongo-seek-electric-mode' is non-nil.")
     (define-key map [escape escape] 'bongo-seek-quit)
     map)
   "Keymap for Bongo Seek mode.")
+
+(defun bongo-seek-mode ()
+  "Major mode for interactively seeking in Bongo tracks.
+
+\\{bongo-seek-mode-map}"
+  (interactive)
+  (kill-all-local-variables)
+  (setq major-mode 'bongo-seek-mode)
+  (setq mode-name "Bongo Seek")
+  (use-local-map bongo-seek-mode-map)
+  (setq buffer-undo-list t)
+  (bongo-run-mode-hooks 'bongo-seek-mode-hook))
 
 (defvar bongo-seek-redisplaying nil
   "Non-nil in the dynamic scope of `bongo-seek-redisplay'.")
