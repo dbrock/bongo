@@ -4695,12 +4695,14 @@ These will come at the end or right before the file name, if any."
                                      (zero-or-more (or space ")"))
                                      line-end))))
               (case (string-to-number (match-string 1))
-                (1 (bongo-player-put player 'paused nil)
-                   (bongo-player-paused/resumed player)
-                   (when (null (bongo-player-get player 'timer))
-                     (bongo-vlc-player-start-timer player)))
-                (2 (bongo-player-put player 'paused t)
-                   (bongo-player-paused/resumed player))))
+                ((1 3)
+                 (bongo-player-put player 'paused nil)
+                 (bongo-player-paused/resumed player)
+                 (when (null (bongo-player-get player 'timer))
+                   (bongo-vlc-player-start-timer player)))
+                ((2 4)
+                 (bongo-player-put player 'paused t)
+                 (bongo-player-paused/resumed player))))
              ((looking-at (eval-when-compile
                             (rx (and line-start
                                      (optional
