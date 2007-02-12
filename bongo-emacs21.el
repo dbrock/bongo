@@ -6,7 +6,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: December 27, 2006
-;; Updated: February 6, 2007
+;; Updated: February 12, 2007
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -80,6 +80,35 @@ Major mode functions should use this."
 	    (sit-for 1)
 	    t)))
     n))
+
+;;; The following were copied from `image.el.'
+
+(defconst image-type-file-name-regexps
+  '(("\\.png\\'" . png)
+    ("\\.gif\\'" . gif)
+    ("\\.jpe?g\\'" . jpeg)
+    ("\\.bmp\\'" . bmp)
+    ("\\.xpm\\'" . xpm)
+    ("\\.pbm\\'" . pbm)
+    ("\\.xbm\\'" . xbm)
+    ("\\.ps\\'" . postscript)
+    ("\\.tiff?\\'" . tiff))
+  "Alist of (REGEXP . IMAGE-TYPE) pairs used to identify image files.
+When the name of an image file match REGEXP, it is assumed to
+be of image type IMAGE-TYPE.")
+
+(defun image-type-from-file-name (file)
+  "Determine the type of image file FILE from its name.
+Value is a symbol specifying the image type, or nil if type cannot
+be determined."
+  (let ((types image-type-file-name-regexps)
+	type)
+    (while types
+      (if (string-match (car (car types)) file)
+	  (setq type (cdr (car types))
+		types nil)
+	(setq types (cdr types))))
+    type))
 
 ;;; The following macros were copied from `byte-run.el'.
 

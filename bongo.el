@@ -110,6 +110,10 @@
       'read-directory-name)
     (defalias 'bongo-run-mode-hooks
       'run-mode-hooks)
+    (defalias 'bongo-read-number
+      'read-number)
+    (defalias 'bongo-image-type-from-file-name
+      'image-type-from-file-name)
     (defalias 'bongo-process-get
       'process-get)
     (defalias 'bongo-process-put
@@ -740,7 +744,7 @@ If nil, use the same icon as for unplayed tracks."
   (find-image
    (list (list :ascent 'center
                :file file-name
-               :type (image-type-from-file-name file-name)
+               :type (bongo-image-type-from-file-name file-name)
                :background (face-background
                             (or background-face 'default) nil t)))))
 
@@ -5294,8 +5298,8 @@ prompt for the CD device to use."
              (let* ((track-count (bongo-cdda-track-count device))
                     (range-string (when track-count
                                     (format " (1-%d)" track-count))))
-               (read-number (format "Audio CD track number%s: "
-                                    (or range-string "")))))
+               (bongo-read-number (format "Audio CD track number%s: "
+                                          (or range-string "")))))
            nil device)))
   (when (and (null cddb-info) bongo-use-cddb)
     (setq cddb-info (bongo-cddb-info device)))
@@ -6174,7 +6178,7 @@ This functionality may not be available for all backends."
             (cond ((null unit)
                    (error "This player does not support seeking"))
                   ((eq unit 'frames)
-                   (read-number "Seek to (in frames): "))
+                   (bongo-read-number "Seek to (in frames): "))
                   ((eq unit 'seconds)
                    (let ((total-time
                           (bongo-player-total-time bongo-player)))
