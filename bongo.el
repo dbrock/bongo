@@ -651,15 +651,141 @@ When the expressions are evaluated,
   :type 'string
   :group 'bongo-display)
 
-(defcustom bongo-base-indentation-string "  "
-  "String prefixed to all Bongo object lines."
-  :type 'string
+(defcustom bongo-display-header-icons t
+  "Whether to display icons for header lines in Bongo buffers."
+  :type 'boolean
+  :group 'bongo-display)
+
+(defcustom bongo-expanded-header-icon nil
+  "File name of icon to use for header lines of expanded sections.
+If nil, do not use any icon."
+  :type '(choice file (const :tag "None" nil))
+  :group 'bongo-display)
+
+(defcustom bongo-collapsed-header-icon nil
+  "File name of icon to use for header lines of collapsed sections.
+If nil, do not use any icon."
+  :type '(choice file (const :tag "None" nil))
   :group 'bongo-display)
 
 (defcustom bongo-indentation-string "  "
   "String prefixed to lines once for each level of indentation."
   :type 'string
   :group 'bongo-display)
+
+(defgroup bongo-track-icons nil
+  "Display of track icons in Bongo buffers."
+  :group 'bongo-display)
+
+(defcustom bongo-display-track-icons t
+  "Whether to display icons for track lines in Bongo buffers."
+  :type 'boolean
+  :group 'bongo-track-icons
+  :group 'bongo-display)
+
+(defcustom bongo-unknown-local-file-track-icon
+  "unknown-local-file-track-icon.png"
+  "File name of icon to use for unknown local file tracks."
+  :type '(choice file (const :tag "None" nil))
+  :group 'bongo-track-icons)
+
+(defcustom bongo-local-audio-file-track-icon
+  "local-audio-file-track-icon.png"
+  "File name of icon to use for local audio file tracks.
+If nil, use the same icon as for unknown local file tracks."
+  :type '(choice file (const :tag "\
+Same as for unknown local file tracks" nil))
+  :group 'bongo-track-icons)
+
+(defcustom bongo-local-video-file-track-icon
+  "local-video-file-track-icon.png"
+  "File name of icon to use for video file tracks.
+If nil, use the same icon as for unknown file tracks."
+  :type '(choice file (const :tag "\
+Same as for unknown local file tracks" nil))
+  :group 'bongo-track-icons)
+
+(defcustom bongo-audio-cd-track-icon "audio-cd-track-icon.png"
+  "File name of icon to use for audio CD tracks.
+If nil, use the same icon as for local audio file tracks."
+  :type '(choice file (const :tag "\
+Same as for local audio file tracks" nil))
+  :group 'bongo-track-icons)
+
+(defcustom bongo-uri-track-icon "uri-track-icon.png"
+  "File name of icon to use for URI tracks.
+If nil, do not use any icon at all."
+  :type '(choice file (const :tag "None" nil))
+  :group 'bongo-track-icons)
+
+(defcustom bongo-action-track-icon "action-track-icon.png"
+  "File name of icon to use for action tracks.
+If nil, do not use any icon at all."
+  :type '(choice file (const :tag "None" nil))
+  :group 'bongo-track-icons)
+
+(defcustom bongo-currently-playing-track-icon nil
+  "File name of icon to use for currently playing tracks.
+If nil, use the same icon as for other tracks."
+  :type '(choice file (const :tag "Same as for other tracks" nil))
+  :group 'bongo-track-icons)
+
+(defcustom bongo-played-track-icon nil
+  "File name of icon to use for played track lines.
+If nil, use the same icon as for unplayed tracks."
+  :type '(choice file (const :tag "Same as for other tracks" nil))
+  :group 'bongo-track-icons)
+
+(defun bongo-find-image (file-name &optional background-face)
+  (find-image
+   (list (list :ascent 'center
+               :file file-name
+               :type (image-type-from-file-name file-name)
+               :background (face-background
+                            (or background-face 'default) nil t)))))
+
+(defun bongo-make-image-string (image)
+  "Return a string with IMAGE in its `display' property."
+  (propertize " " 'display image))
+
+(defun bongo-make-image-placeholder-string (image)
+  "Return a blank string taking up as much space as IMAGE would."
+  (let ((size (image-size image t)))
+    (propertize " " 'display `(space :width (,(car size))
+                                     :height (,(cdr size))))))
+
+(defun bongo-line-icon-string ()
+  "Return the string to use as an icon for the current line."
+  (let ((file-name
+         (cond ((and (bongo-header-line-p)
+                     bongo-display-header-icons)
+                (if (bongo-collapsed-header-line-p)
+                    bongo-collapsed-header-icon
+                  bongo-expanded-header-icon))
+               ((and (bongo-track-line-p)
+                     bongo-display-track-icons)
+                (cond ((and (bongo-currently-playing-track-line-p)
+                            bongo-currently-playing-track-icon)
+                       bongo-currently-playing-track-icon)
+                      ((and (bongo-played-track-line-p)
+                            bongo-played-track-icon)
+                       bongo-played-track-icon)
+                      ((bongo-audio-cd-track-line-p)
+                       bongo-audio-cd-track-icon)
+                      ((bongo-uri-track-line-p)
+                       bongo-uri-track-icon)
+                      ((bongo-action-track-line-p)
+                       bongo-action-track-icon)
+                      ((bongo-local-audio-file-track-line-p)
+                       (or bongo-local-audio-file-track-icon
+                           bongo-unknown-local-file-track-icon))
+                      ((bongo-local-video-file-track-line-p)
+                       (or bongo-local-video-file-track-icon
+                           bongo-unknown-local-file-track-icon))
+                      ((bongo-local-file-track-line-p)
+                       bongo-unknown-local-file-track-icon))))))
+    (when file-name
+      (bongo-make-image-string (bongo-find-image file-name)))))
 
 (defgroup bongo-header-line nil
   "Display of header lines in Bongo playlist buffers."
@@ -2580,10 +2706,56 @@ See `bongo-line-proposed-external-fields'."
   (and (bongo-file-track-line-p point)
        (bongo-uri-p (bongo-line-file-name point))))
 
+(defun bongo-audio-cd-uri-p (file-name)
+  "Return non-nil if FILE-NAME is an audio CD (CDDA) URI."
+  (equal (bongo-uri-scheme file-name) "cdda"))
+
+(defun bongo-audio-cd-track-line-p (&optional point)
+  "Return non-nil if the line at POINT is an audio CD track line."
+  (and (bongo-file-track-line-p point)
+       (bongo-audio-cd-uri-p (bongo-line-file-name point))))
+
 (defun bongo-local-file-track-line-p (&optional point)
   "Return non-nil if the line at POINT is a local file track line."
   (and (bongo-file-track-line-p point)
        (not (bongo-uri-track-line-p point))))
+
+(defcustom bongo-audio-file-name-extensions
+  `("ogg" "flac" "spx" "mka" "mp3" "wav" "wma"
+    "mid" "midi" "mod" "rcp" "r36" "g18" "g36"
+    "669" "amf" "dsm" "far" "gdm" "imf"
+    "it" "med" "mod" "mtm" "okt" "s3m"
+    "stm" "stx" "ult" "uni" "apun" "xm")
+  "List of file name extensions of audio files."
+  :type '(repeat string)
+  :group 'bongo-file-names)
+
+(defun bongo-audio-file-name-p (file-name)
+  "Return non-nil if FILE-NAME has an audio file name extension."
+  (member (file-name-extension file-name)
+          bongo-audio-file-name-extensions))
+
+(defun bongo-local-audio-file-track-line-p (&optional point)
+  "Return non-nil if the line at POINT is an audio file track line."
+  (and (bongo-local-file-track-line-p point)
+       (bongo-audio-file-name-p (bongo-line-file-name point))))
+
+(defcustom bongo-video-file-name-extensions
+  `("ogm" "avi" "mpg" "mpeg" "mp4" "vob" "mkv" "flv"
+    "mov" "asf" "wmv" "rm" "rmvb" "qt" "ts")
+  "List of file name extensions of video files."
+  :type '(repeat string)
+  :group 'bongo-file-names)
+
+(defun bongo-video-file-name-p (file-name)
+  "Return non-nil if FILE-NAME has a video file name extension."
+  (member (file-name-extension file-name)
+          bongo-video-file-name-extensions))
+
+(defun bongo-local-video-file-track-line-p (&optional point)
+  "Return non-nil if the line at POINT is an video file track line."
+  (and (bongo-local-file-track-line-p point)
+       (bongo-video-file-name-p (bongo-line-file-name point))))
 
 (defun bongo-action-track-line-p (&optional point)
   "Return non-nil if the line at POINT is an action track line."
@@ -3120,21 +3292,56 @@ existing header into two (see `bongo-maybe-insert-intermediate-header')."
 ;;; Marks on killed tracks do not persist when yanking the
 ;;; tracks back into a Bongo buffer.
 
+(defgroup bongo-track-marks nil
+  "Track marks in Bongo."
+  :group 'bongo)
+
+(defcustom bongo-track-mark-icon-file-name "track-mark-icon.png"
+  "File name of icon to use for track marks in Bongo."
+  :type '(choice file (const :tag "None" nil))
+  :group 'bongo-track-marks
+  :group 'bongo-display)
+
+(defcustom bongo-track-mark-icon-string "*"
+  "String to use for track marks in Bongo."
+  :type 'string
+  :group 'bongo-track-marks
+  :group 'bongo-display)
+
+(defun bongo-track-mark-icon-string ()
+  "Return the string to use as a marker icon for the current line."
+  (if (and bongo-track-mark-icon-file-name (display-images-p))
+      (let ((image (bongo-find-image bongo-track-mark-icon-file-name
+                                     'bongo-marked-track-line)))
+        (if (bongo-marked-track-line-p)
+            (bongo-make-image-string image)
+          (bongo-make-image-placeholder-string image)))
+    (if (bongo-marked-track-line-p)
+        bongo-track-mark-icon-string
+      (make-string (length bongo-track-mark-icon-string) ? ))))
+
+(defcustom bongo-track-mark-format
+  '((bongo-track-mark-icon-string) " ")
+  "Template for displaying track marks in Bongo.
+Value is a list of expressions, each evaluating to a string or nil.
+The values of the expressions are concatenated."
+  :type '(repeat sexp)
+  :group 'bongo-display
+  :group 'bongo-track-marks)
+
+(bongo-define-obsolete-variable-alias 'bongo-mark-format
+  'bongo-track-mark-format "2007-02-12")
+
 (defface bongo-marked-track '((t nil))
   "Face used for marked Bongo tracks."
+  :group 'bongo-track-marks
   :group 'bongo-faces)
 
 (defface bongo-marked-track-line
   '((t (:inherit fringe)))
   "Face used for lines of marked Bongo tracks."
+  :group 'bongo-track-marks
   :group 'bongo-faces)
-
-(defcustom bongo-mark-format '("* ")
-  "Template for displaying marks in Bongo.
-Value is a list of expressions, each evaluating to a string or nil.
-The values of the expressions are concatenated."
-  :type '(repeat sexp)
-  :group 'bongo-display)
 
 (defvar bongo-marked-track-line-markers nil
   "List of markers pointing at marked track lines.
@@ -6889,16 +7096,12 @@ including the terminating newline character."
     (save-excursion
       (bongo-clear-line)
       (bongo-line-set-properties properties)
-      (insert bongo-base-indentation-string)
+      (insert (bongo-format-string bongo-track-mark-format))
       (dotimes (dummy indentation)
         (insert bongo-indentation-string))
-      (when marked
-        (bongo-beginning-of-line)
-        (let ((mark-string (bongo-format-string bongo-mark-format)))
-          (insert mark-string)
-          (delete-char (min (length mark-string)
-                            (- (bongo-point-at-eol) (point)))))
-        (bongo-end-of-line))
+      (let ((icon-string (bongo-line-icon-string)))
+        (when icon-string
+          (insert icon-string " ")))
       (let* ((bongo-infoset-formatting-target
               (current-buffer))
              (bongo-infoset-formatting-target-line

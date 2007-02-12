@@ -1,7 +1,16 @@
 Bongo NEWS file listing user-visible changes.
 This file is in the public domain.
 
-
+February 12, 2007
+
+ * Bongo is now able to display various kinds of icons.
+   It ships with a set of icons from the GNOME project.
+   See the following variables and their containing groups:
+
+     - `bongo-display-track-icons'
+     - `bongo-display-header-icons'
+     - `bongo-track-mark-icon-file-name'
+
 February 8, 2007
 
  * All backends now support pausing.  Non-interactive backend
