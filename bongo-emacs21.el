@@ -58,7 +58,7 @@ Major mode functions should use this."
 
 ;;; The following function was copied from `subr.el'.
 
-(defun read-number (prompt &optional default)
+(defun bongo-read-number (prompt &optional default)
   (let ((n nil))
     (when default
       (setq prompt
@@ -83,7 +83,7 @@ Major mode functions should use this."
 
 ;;; The following were copied from `image.el.'
 
-(defconst image-type-file-name-regexps
+(defconst bongo-image-type-file-name-regexps
   '(("\\.png\\'" . png)
     ("\\.gif\\'" . gif)
     ("\\.jpe?g\\'" . jpeg)
@@ -97,11 +97,11 @@ Major mode functions should use this."
 When the name of an image file match REGEXP, it is assumed to
 be of image type IMAGE-TYPE.")
 
-(defun image-type-from-file-name (file)
+(defun bongo-image-type-from-file-name (file)
   "Determine the type of image file FILE from its name.
 Value is a symbol specifying the image type, or nil if type cannot
 be determined."
-  (let ((types image-type-file-name-regexps)
+  (let ((types bongo-image-type-file-name-regexps)
 	type)
     (while types
       (if (string-match (car (car types)) file)
