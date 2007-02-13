@@ -3314,15 +3314,16 @@ existing header into two (see `bongo-maybe-insert-intermediate-header')."
 
 (defun bongo-track-mark-icon-string ()
   "Return the string to use as a marker icon for the current line."
-  (if (and bongo-track-mark-icon-file-name (display-images-p))
-      (let ((image (bongo-find-image bongo-track-mark-icon-file-name
-                                     'bongo-marked-track-line)))
+  (let ((image (and bongo-track-mark-icon-file-name (display-images-p)
+                    (bongo-find-image bongo-track-mark-icon-file-name
+                                      'bongo-marked-track-line))))
+    (if image
         (if (bongo-marked-track-line-p)
             (bongo-make-image-string image)
-          (bongo-make-image-placeholder-string image)))
-    (if (bongo-marked-track-line-p)
-        bongo-track-mark-icon-string
-      (make-string (length bongo-track-mark-icon-string) ? ))))
+          (bongo-make-image-placeholder-string image))
+      (if (bongo-marked-track-line-p)
+          bongo-track-mark-icon-string
+        (make-string (length bongo-track-mark-icon-string) ? )))))
 
 (defcustom bongo-track-mark-format
   '((bongo-track-mark-icon-string) " ")
