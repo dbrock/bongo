@@ -745,7 +745,7 @@ If nil, use the same icon as for unplayed tracks."
    (list (list :ascent 'center
                :file file-name
                :type (bongo-image-type-from-file-name file-name)
-               :background (face-background
+               :background (bongo-face-background
                             (or background-face 'default) nil t)))))
 
 (defun bongo-make-image-string (image)
