@@ -6846,13 +6846,24 @@ If called interactively, SKIP is always non-nil."
     (bongo-skip-invisible))
   (unless (bongo-header-line-p)
     (bongo-backward-up-section))
-  (let ((line-move-ignore-invisible nil))
+  (let ((line-move-ignore-invisible nil)
+        (inhibit-read-only t))
     (bongo-line-set-property 'bongo-collapsed t)
     (bongo-redisplay-line)
+    (save-excursion
+      (forward-line 1)
+      ;; There is a bug in Emacs that causes invisible text
+      ;; with a `display' property to become visible, but
+      ;; only if it is right next to visible text.
+      ;; Therefore, we have to make sure that the invisible
+      ;; block of text starts with a character that does not
+      ;; have a `display' property.  This character is later
+      ;; removed by `bongo-expand'.
+      (insert (propertize " " 'invisible t
+                          'bongo-invisibility-padding t)))
     (let ((end (bongo-point-after-object)))
       (forward-line 1)
-      (let ((inhibit-read-only t))
-        (put-text-property (point) end 'invisible t))
+      (put-text-property (point) end 'invisible t)
       (if (not skip)
           (forward-line -1)
         (goto-char end)
@@ -6881,6 +6892,11 @@ If called interactively, SKIP is always non-nil."
     (put-text-property (bongo-point-after-line)
                        (bongo-point-after-object)
                        'invisible nil)
+    (save-excursion
+      ;; See the comment in `bongo-collapse'.
+      (forward-line 1)
+      (when (get-text-property (point) 'bongo-invisibility-padding)
+        (delete-char 1)))
     (let ((indentation (bongo-line-indentation)))
       (bongo-ignore-movement-errors
         (bongo-next-object-line)
@@ -7134,8 +7150,6 @@ including the terminating newline character."
 (defun bongo-redisplay-region (beg end)
   "Redisplay the Bongo objects in the region between BEG and END."
   (interactive "r")
-  (unless (bongo-buffer-p)
-    (error "Not a Bongo buffer"))
   (let ((target-string (if (and (= beg (point-min))
                                 (= end (point-max)))
                            "buffer" "region"))
@@ -7970,10 +7984,12 @@ instead, use high-level functions such as `find-file'."
           (condition-case nil
               (let ((object (read (current-buffer))))
                 (delete-region start (point))
-                (if (stringp object) (insert object)
+                (if (stringp object)
+                    (insert object)
                   (error "Unexpected object: %s" object)))
             (end-of-file
              (delete-region start (point-max))))))
+      (bongo-redisplay-region (point-min) (point-max))
       (point-max))))
 
 (defvar bongo-line-serializable-properties
@@ -8002,6 +8018,8 @@ instead, use high-level functions such as `save-buffer'."
                   bongo-playlist-magic-string
                 bongo-library-magic-string) "\n")
       (while (not (eobp))
+        (when (bongo-object-line-p)
+          (delete-region (point-at-bol) (point-at-eol)))
         (bongo-keep-text-properties (point-at-bol) (point-at-eol)
                                     '(face mouse-face display follow-link))
         (bongo-keep-text-properties (point-at-eol) (1+ (point-at-eol))
