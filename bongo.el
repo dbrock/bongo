@@ -600,7 +600,7 @@ When the expressions are evaluated,
  - `bongo-track' is bound to the contents of the `track' field;
  - `bongo-infoset' is bound to the whole infoset;
  - `bongo-target' is short for `bongo-infoset-formatting-target';
- - `bongo-line' is short for `bongo-infoset-formattnig-target-line'.
+ - `bongo-line' is short for `bongo-infoset-formatting-target-line'.
 The values of the expressions are concatenated.
 
 Value may also be a format string, in which case
