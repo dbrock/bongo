@@ -3716,7 +3716,16 @@ If BACKEND-NAME is not a symbol, just return it."
 
 (defun bongo-backend-put (backend property value)
   "Set BACKEND's PROPERTY to VALUE."
-  (bongo-alist-put (cdr (bongo-backend backend)) property value))
+  (setcdr (bongo-backend backend)
+          (bongo-alist-put (cdr (bongo-backend backend))
+                           property value)))
+(put 'bongo-backend-put 'lisp-indent-function 2)
+
+(defun bongo-backend-push (backend property element)
+  "Push ELEMENT to the list stored in BACKEND's PROPERTY."
+  (bongo-backend-put backend property
+    (cons element (bongo-backend-get backend property))))
+(put 'bongo-backend-push 'lisp-indent-function 2)
 
 (defun bongo-backend-constructor (backend)
   "Return BACKEND's constructor."
@@ -4231,7 +4240,7 @@ By ``one of the times'' is meant elapsed time or total time.")
 (put 'bongo-player-put 'lisp-indent-function 2)
 
 (defun bongo-player-push (player property element)
-  "Push ELEMENT to the head of PLAYER's PROPERTY."
+  "Push ELEMENT to the list stored in PLAYER's PROPERTY."
   (bongo-player-put player property
     (cons element (bongo-player-get player property))))
 (put 'bongo-player-push 'lisp-indent-function 2)
