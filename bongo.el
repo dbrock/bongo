@@ -494,8 +494,8 @@ This is used by the function `bongo-default-format-field'."
 
 (defcustom bongo-insert-album-covers (and window-system t)
   "Whether to put album cover images into Bongo buffers.
-This is done by `bongo-insert-directory' and by
-  `bongo-insert-directory-tree'.
+This is done by `bongo-insert-directory', `bongo-insert-directory-tree',
+`bongo-insert-m3u-playlist-contents', and `bongo-insert-pls-playlist-contents'.
 See also `bongo-album-cover-file-names'."
   :type 'boolean
   :link '(custom-group-link bongo-file-names)
@@ -6695,6 +6695,7 @@ Optional argument TITLE specifies a custom title for the URI."
 (defun bongo-insert-m3u-playlist-contents (file-name)
   "Insert the contents of M3U playlist FILE-NAME."
   (interactive "fInsert contents of M3U playlist file: ")
+  (bongo-maybe-insert-album-cover (file-name-directory file-name))
   (let ((beginning (with-bongo-buffer (point))))
     (with-temp-buffer
       (let ((coding-system-for-read
@@ -6716,6 +6717,7 @@ Optional argument TITLE specifies a custom title for the URI."
 (defun bongo-insert-pls-playlist-contents (file-name)
   "Insert the contents of PLS playlist FILE-NAME."
   (interactive "fInsert contents of PLS playlist file: ")
+  (bongo-maybe-insert-album-cover (file-name-directory file-name))
   (let ((beginning (with-bongo-buffer (point))))
     (with-temp-buffer
       (let* ((absolute-file-name (car (insert-file-contents file-name)))
