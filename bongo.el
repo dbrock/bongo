@@ -8076,7 +8076,6 @@ However, setting it through Custom does this automatically."
     (define-key map [mouse-2] 'bongo-mouse-dwim)
     (define-key map "q" 'bongo-quit)
     (define-key map "Q" 'bury-buffer)
-    (define-key map "g" 'bongo-redisplay)
     (define-key map "h" 'bongo-switch-buffers)
     (define-key map "l" 'bongo-recenter)
     (define-key map "\C-i" 'bongo-toggle-collapsed)
@@ -8129,7 +8128,6 @@ However, setting it through Custom does this automatically."
     (define-key map "f" 'bongo-flush-playlist)
     (define-key map "F" 'bongo-reset-playlist)
     (define-key map "m" 'bongo-mark-forward)
-    (define-key map "M" 'bongo-mark-backward)
     (define-key map "u" 'bongo-unmark-forward)
     (define-key map "\177" 'bongo-unmark-backward)
     (substitute-key-definition

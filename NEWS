@@ -1,6 +1,13 @@
 Bongo NEWS file listing user-visible changes.
 This file is in the public domain.
 
+February 25, 2007
+
+ * The `M' command is gone.  Use `- m' instead.  (To do it
+   many times, `- m C-x z z z ...' is handy.)
+
+ * The `g' command is gone.  Use `M-x bongo-redisplay'.
+
 February 12, 2007
 
  * Bongo is now able to display various kinds of icons.
