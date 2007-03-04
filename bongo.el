@@ -6046,12 +6046,15 @@ insert an action track at point."
 (put 'bongo-play-random-or-stop
      'bongo-playback-mode-indicator "random")
 
-(defun bongo-start ()
+(defun bongo-start (&optional called-interactively-p)
   "Start playing the current track in the nearest playlist buffer.
 If there is no current track, perform the action appropriate for the current
-playback mode (for example, for regressive playback, play the last track).
-However, if something is already playing, do nothing."
-  (interactive)
+  playback mode (for example, for regressive playback, play the last track).
+However, if something is already playing, do nothing.
+When called interactively and the current track is a stop action track,
+  continue playback as if the action track had finished playing.
+CALLED-INTERACTIVELY-P is non-nil when called interactively."
+  (interactive (list 'called-interactively-p))
   (with-bongo-playlist-buffer
     (unless (bongo-playing-p)
       (let ((position (bongo-point-at-current-track-line)))
@@ -6063,7 +6066,8 @@ However, if something is already playing, do nothing."
                   (bongo-play-line (bongo-point-at-last-track-line)))
                  (t
                   (bongo-perform-next-action))))
-              ((and (bongo-action-track-line-p position)
+              ((and called-interactively-p
+                    (bongo-action-track-line-p position)
                     (equal (bongo-line-action position)
                            '(bongo-stop)))
                (bongo-perform-next-action))
@@ -6129,13 +6133,14 @@ stop when playback reaches point."
                    n (if (= n 1) "" "s"))
          "Stop playback")))
 
-(defun bongo-start/stop (&optional argument)
+(defun bongo-start/stop (&optional argument called-interactively-p)
   "Start or stop playback in the nearest Bongo playlist buffer.
-With prefix ARGUMENT, call `bongo-stop' even if already stopped."
-  (interactive "P")
+With prefix ARGUMENT, call `bongo-stop' even if already stopped.
+CALLED-INTERACTIVELY-P is non-nil when called interactively."
+  (interactive (list current-prefix-arg 'called-interactively-p))
   (if (or argument (bongo-playing-p))
       (bongo-stop argument)
-    (bongo-start)))
+    (bongo-start called-interactively-p)))
 
 (defun bongo-pause/resume ()
   "Pause or resume playback in the nearest Bongo playlist buffer.
