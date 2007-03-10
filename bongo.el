@@ -6875,8 +6875,9 @@ If called interactively, SKIP is always non-nil."
       ;; block of text starts with a character that does not
       ;; have a `display' property.  This character is later
       ;; removed by `bongo-expand'.
-      (insert (propertize " " 'invisible t
-                          'bongo-invisibility-padding t)))
+      (unless (get-text-property (point) 'bongo-invisibility-padding)
+        (insert (propertize " " 'invisible t
+                            'bongo-invisibility-padding t))))
     (let ((end (bongo-point-after-object)))
       (forward-line 1)
       (put-text-property (point) end 'invisible t)
