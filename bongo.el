@@ -2236,9 +2236,9 @@ If no matching line is found, return nil."
   "Return the position of a random line satisfying PREDICATE.
 If there are no lines that satisfy PREDICATE, loop forever."
   (save-excursion
-    (while (progn (goto-char (+ (point-min)
-                                (random (- (point-max)
-                                           (point-min)))))
+    (while (progn (goto-line (+ (point-min)
+                                (random (count-lines (point-max)
+                                                     (point-min)))))
                   (not (funcall predicate))))
     (point)))
 
