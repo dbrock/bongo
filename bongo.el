@@ -61,9 +61,6 @@
 
 ;; Better error messages when players fail.
 
-;; The user should have a way to say ``play this track using
-;; that backend.''
-
 ;; Generalize intra-playlist queue.
 
 ;; Implement intra-track region repeat.
@@ -3005,7 +3002,7 @@ Actually only look at the terminating newline."
   (list 'bongo-file-name 'bongo-action 'bongo-infoset
         'bongo-fields 'bongo-external-fields
         'bongo-header 'bongo-collapsed 'bongo-marked
-        'bongo-player 'bongo-played)
+        'bongo-player 'bongo-backend 'bongo-played)
   "List of semantic text properties used in Bongo buffers.
 When redisplaying lines, semantic text properties are preserved,
 whereas all other text properties (e.g., `face') are discarded.")
@@ -3830,6 +3827,17 @@ Otherwise, signal an error."
 (bongo-define-obsolete-function-alias
   'bongo-best-backend-for-file
   'bongo-backend-for-file)
+
+(defun bongo-set-backend-for-track (backend &optional point)
+  "Change to using BACKEND for the track at POINT."
+  (interactive
+   (list (intern (completing-read "Backend: "
+                                  (mapcar (lambda (x) (list (symbol-name x)))
+                                          bongo-enabled-backends)
+                                  nil t))))
+  (save-excursion
+    (bongo-goto-point point)
+    (bongo-line-set-property 'bongo-backend backend)))
 
 
 ;;;; Last.fm
@@ -5713,7 +5721,9 @@ signal an error if there is no track after POINT."
     (bongo-set-current-track-position)
     (let ((player (if (bongo-action-track-line-p)
                       (bongo-start-action-player (bongo-line-action))
-                    (bongo-play-file (bongo-line-file-name)))))
+                    (bongo-play-file
+                     (bongo-line-file-name)
+                     (bongo-line-get-property 'bongo-backend)))))
       (bongo-player-put player 'infoset (bongo-line-infoset))
       (setq bongo-player player)
       (bongo-line-set-property 'bongo-player player)
