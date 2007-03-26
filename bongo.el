@@ -7847,10 +7847,10 @@ However, only unset the current track marker if nothing is playing."
           (line-move-ignore-invisible nil))
       (save-excursion
         (goto-char (point-min))
-        (bongo-snap-to-object-line)
-        (while (bongo-next-object-line 'no-error)
+        (while (bongo-snap-to-object-line 'no-error)
           (bongo-line-remove-property 'bongo-played)
-          (bongo-redisplay-line))))))
+          (bongo-redisplay-line)
+          (goto-char (bongo-point-after-object)))))))
 
 (defun bongo-rename-line ()
   "Interactively rename the track at point.
