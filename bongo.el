@@ -7559,7 +7559,7 @@ See `undo' for the meaning of ARGUMENT."
 If MODE is `insert', insert TEXT just below the current track.
 If MODE is `append', append TEXT to the end of the playlist."
   (let ((insertion-point
-         (with-bongo-playlist-buffer
+         (with-current-buffer (bongo-playlist-buffer)
            (save-excursion
              (ecase mode
                (insert (if (bongo-point-at-current-track-line)
