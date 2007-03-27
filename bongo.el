@@ -7391,6 +7391,7 @@ Return the character position of the end of the copied text."
 (defun bongo-copy-line-forward (&optional n)
   "In Bongo, copy the next N tracks or sections or lines of text."
   (interactive "p")
+  (or n (setq n 1))
   (if (< n 0)
       (bongo-copy-line-backward (- n))
     (when (> n 0)
@@ -7416,6 +7417,7 @@ otherwise, just move to the previous line of text."
 (defun bongo-copy-line-backward (&optional n)
   "In Bongo, copy the previous N tracks or sections or lines of text."
   (interactive "p")
+  (or n (setq n 1))
   (if (< n 0)
       (bongo-copy-line-forward (- n))
     (when (> n 0)
