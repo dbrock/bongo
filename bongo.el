@@ -6010,6 +6010,8 @@ Currently, the only non-randomly-playable tracks are action tracks."
 Inspect the line at POINT; or the one at point, if POINT is nil.
 See `bongo-randomly-playable-track-line-p' and `bongo-played-track-line-p'."
   (and (bongo-randomly-playable-track-line-p point)
+       (not (and bongo-mark-played-tracks
+                 (bongo-currently-playing-track-line-p)))
        (not (bongo-played-track-line-p))))
 
 (defun bongo-play-random (&optional argument)
