@@ -54,9 +54,6 @@
 ;; Fix bug related to collapsing the section containing the
 ;; currently playing track.
 
-;; Prevent the header line from flashing away and back when
-;; going from one track to the next.
-
 ;; Implement scrolling for the header line.
 
 ;; Better error messages when players fail.
@@ -188,6 +185,31 @@ If there is no next track line, signal an error."
          (bongo-goto-point (or (bongo-point-at-next-track-line)
                                (error "No track at point"))))
        ,@body)))
+
+(defvar bongo-player-start-imminent nil
+  "If non-nil, Bongo is just about to start playing some track.
+For example, this will be non-nil while switching tracks.
+See `with-imminent-bongo-player-start'.")
+
+(defvar bongo-deferred-status-indicator-updates nil
+  "List of deferred Bongo status indicator updates.
+Entries are of the form (FUNCTION . ARGUMENTS).
+When `bongo-player-start-imminent' is non-nil, all status
+indicator updates should be deferred to prevent flicker.")
+
+(defmacro with-imminent-bongo-player-start (&rest body)
+  "Execute BODY with `bongo-player-start-imminent' bound to t.
+Afterwards, unless `bongo-player-start-imminent' was already bound
+to a non-nil value, perform all deferred status indicator updates.
+See `bongo-deferred-status-indicator-updates'."
+  (declare (indent 0) (debug t))
+  `(progn
+     (let ((bongo-player-start-imminent t))
+       ,@body)
+     (unless bongo-player-start-imminent
+       (dolist (entry (nreverse bongo-deferred-status-indicator-updates))
+         (apply (car entry) (cdr entry)))
+       (setq bongo-deferred-status-indicator-updates nil))))
 
 (defmacro bongo-ignore-movement-errors (&rest body)
   "Execute BODY; if a Bongo movement error occurs, return nil.
@@ -848,20 +870,32 @@ The name of this variable should go in `header-line-format'.")
 If Bongo is not playing anything, set the header line string to nil.
 Accept DUMMY arguments to ease hook usage."
   (when (bongo-buffer-p)
-    (when (null header-line-format)
-      (setq header-line-format '("")))
-    (if bongo-header-line-mode
-        (add-to-list 'header-line-format
-          'bongo-header-line-string t)
-      (setq header-line-format
-            (remq 'bongo-header-line-string header-line-format)))
-    (setq bongo-header-line-string
-          (when (bongo-playing-p)
-            (bongo-format-string bongo-header-line-format)))
-    (when (or (equal header-line-format '(""))
-              (and (equal header-line-format '("" bongo-header-line-string))
-                   (null bongo-header-line-string)))
-      (setq header-line-format nil))))
+    (let ((new-header-line-format header-line-format)
+          (new-bongo-header-line-string bongo-header-line-string))
+      (when (null new-header-line-format)
+        (setq new-header-line-format '("")))
+      (if bongo-header-line-mode
+          (add-to-list 'new-header-line-format
+            'bongo-header-line-string t)
+        (setq new-header-line-format
+              (remq 'bongo-header-line-string new-header-line-format)))
+      (setq new-bongo-header-line-string
+            (when (bongo-playing-p)
+              (bongo-format-string bongo-header-line-format)))
+      (when (or (equal new-header-line-format '(""))
+                (and (equal new-header-line-format
+                            '("" bongo-header-line-string))
+                     (null new-bongo-header-line-string)))
+        (setq new-header-line-format nil))
+      (if (not bongo-player-start-imminent)
+          (setq header-line-format new-header-line-format
+                bongo-header-line-string new-bongo-header-line-string)
+        (add-to-list 'bongo-deferred-status-indicator-updates
+          (list 'set 'header-line-format
+                new-header-line-format))
+        (add-to-list 'bongo-deferred-status-indicator-updates
+          (list 'set 'bongo-header-line-string
+                new-bongo-header-line-string))))))
 
 (defun bongo-header-line-mode (argument &optional called-interactively-p)
   "Toggle display of Bongo mode line indicator on or off.
@@ -880,24 +914,6 @@ When called interactively, CALLED-INTERACTIVELY-P is non-nil."
           (> (prefix-numeric-value argument) 0)))
   (when called-interactively-p
     (bongo-customize-mark-as-set 'bongo-header-line-mode))
-  (if bongo-header-line-mode
-      (progn
-        (add-hook 'bongo-player-started-functions
-                  'bongo-update-header-line-string)
-        (add-hook 'bongo-player-stopped-functions
-                  'bongo-update-header-line-string)
-        (add-hook 'bongo-player-paused/resumed-functions
-                  'bongo-update-header-line-string)
-        (add-hook 'bongo-player-times-changed-functions
-                  'bongo-update-header-line-string))
-    (remove-hook 'bongo-player-started-functions
-                 'bongo-update-header-line-string)
-    (remove-hook 'bongo-player-stopped-functions
-                 'bongo-update-header-line-string)
-    (remove-hook 'bongo-player-paused/resumed-functions
-                 'bongo-update-header-line-string)
-    (remove-hook 'bongo-player-times-changed-functions
-                 'bongo-update-header-line-string))
   (when (interactive-p)
     (message "Bongo header line mode %s."
              (if bongo-header-line-mode
@@ -1531,8 +1547,12 @@ Evalutate elements of `bongo-mode-line-indicator-format' and store
   the resulting string in `bongo-mode-line-indicator-string'.
 Accept DUMMY arguments to ease hook usage."
   (when (bongo-buffer-p)
-    (setq bongo-mode-line-indicator-string
-          (bongo-format-string bongo-mode-line-indicator-format))))
+    (let ((new-value (bongo-format-string
+                      bongo-mode-line-indicator-format)))
+      (if (not bongo-player-start-imminent)
+          (setq bongo-mode-line-indicator-string new-value)
+        (add-to-list 'bongo-deferred-status-indicator-updates
+          (list 'set 'bongo-mode-line-indicator-string new-value))))))
 
 (defun bongo-mode-line-indicator-mode
   (argument &optional called-interactively-p)
@@ -1561,24 +1581,6 @@ When called interactively, CALLED-INTERACTIVELY-P is non-nil."
         (set bongo-mode-line-indicator-parent '("")))
       (add-to-list bongo-mode-line-indicator-parent
         'bongo-mode-line-indicator-string 'append)))
-  (if bongo-mode-line-indicator-mode
-      (progn
-        (add-hook 'bongo-player-started-functions
-                  'bongo-update-mode-line-indicator-string)
-        (add-hook 'bongo-player-stopped-functions
-                  'bongo-update-mode-line-indicator-string)
-        (add-hook 'bongo-player-paused/resumed-functions
-                  'bongo-update-mode-line-indicator-string)
-        (add-hook 'bongo-player-times-changed-functions
-                  'bongo-update-mode-line-indicator-string))
-    (remove-hook 'bongo-player-started-functions
-                 'bongo-update-mode-line-indicator-string)
-    (remove-hook 'bongo-player-stopped-functions
-                 'bongo-update-mode-line-indicator-string)
-    (remove-hook 'bongo-player-paused/resumed-functions
-                 'bongo-update-mode-line-indicator-string)
-    (remove-hook 'bongo-player-times-changed-functions
-                 'bongo-update-mode-line-indicator-string))
   (when (interactive-p)
     (message "Bongo mode line indicator mode %s."
              (if bongo-mode-line-indicator-mode
@@ -4158,6 +4160,10 @@ This hook is only run for players started in Bongo buffers."
             (bongo-line-set-property 'bongo-played t)
             (bongo-redisplay-line))))
       (bongo-set-current-track-marker bongo-stopped-track-marker)
+      (when bongo-header-line-mode
+        (bongo-update-header-line-string))
+      (when bongo-mode-line-indicator-mode
+        (bongo-update-mode-line-indicator-string))
       (run-hooks 'bongo-player-stopped-hook))
     (when (bufferp bongo-seek-buffer)
       (bongo-seek-redisplay))))
@@ -4181,6 +4187,10 @@ This hook is only run for players started in Bongo buffers."
       (bongo-set-current-track-marker (if (bongo-paused-p)
                                           bongo-paused-track-marker
                                         bongo-playing-track-marker))
+      (when bongo-header-line-mode
+        (bongo-update-header-line-string))
+      (when bongo-mode-line-indicator-mode
+        (bongo-update-mode-line-indicator-string))
       (run-hooks 'bongo-player-paused/resumed-hook))))
 
 (defcustom bongo-player-sought-hook nil
@@ -4220,6 +4230,11 @@ By ``one of the times'' is meant elapsed time or total time.")
     (when (buffer-live-p (bongo-player-buffer player))
       (set-buffer (bongo-player-buffer player)))
     (run-hook-with-args 'bongo-player-times-changed-functions player)
+    (when (bongo-buffer-p)
+      (when bongo-header-line-mode
+        (bongo-update-header-line-string))
+      (when bongo-mode-line-indicator-mode
+        (bongo-update-mode-line-indicator-string)))
     (when (bufferp bongo-seek-buffer)
       (bongo-seek-redisplay))))
 
@@ -5708,21 +5723,26 @@ signal an error if there is no track after POINT."
   (interactive "d")
   (unless (bongo-playlist-buffer-p)
     (error "Not a Bongo playlist buffer"))
-  (with-point-at-bongo-track point
-    (when bongo-player
-      (bongo-player-stop bongo-player))
-    (bongo-set-current-track-position)
-    (let ((player (if (bongo-action-track-line-p)
-                      (bongo-start-action-player (bongo-line-action))
-                    (bongo-play-file
-                     (bongo-line-file-name)
-                     (bongo-line-get-property 'bongo-backend)))))
-      (bongo-player-put player 'infoset (bongo-line-infoset))
-      (setq bongo-player player)
-      (bongo-line-set-property 'bongo-player player)
-      (bongo-set-current-track-marker bongo-playing-track-marker)
-      (run-hooks 'bongo-player-started-hook)
-      (bongo-redisplay-line))))
+  (with-imminent-bongo-player-start
+    (with-point-at-bongo-track point
+      (when bongo-player
+        (bongo-player-stop bongo-player))
+      (bongo-set-current-track-position)
+      (let ((player (if (bongo-action-track-line-p)
+                        (bongo-start-action-player (bongo-line-action))
+                      (bongo-play-file
+                       (bongo-line-file-name)
+                       (bongo-line-get-property 'bongo-backend)))))
+        (bongo-player-put player 'infoset (bongo-line-infoset))
+        (setq bongo-player player)
+        (bongo-line-set-property 'bongo-player player)
+        (bongo-set-current-track-marker bongo-playing-track-marker)
+        (when bongo-header-line-mode
+          (bongo-update-header-line-string))
+        (when bongo-mode-line-indicator-mode
+          (bongo-update-mode-line-indicator-string))
+        (run-hooks 'bongo-player-started-hook)
+        (bongo-redisplay-line)))))
 
 (defun bongo-play-lines (&optional n)
   "Start playing the next N tracks or sections.
@@ -5861,9 +5881,10 @@ insert an action track at point."
         (bongo-progressive-playback-mode))
     (if (< (prefix-numeric-value n) 0)
         (bongo-play-previous (- (prefix-numeric-value n)))
-      (bongo-stop)
-      (bongo-next n)
-      (bongo-start))))
+      (with-imminent-bongo-player-start
+        (bongo-stop)
+        (bongo-next n)
+        (bongo-start)))))
 
 (defun bongo-play-next-or-stop (&optional n)
   "Maybe start playing the next track in the nearest playlist buffer.
@@ -5933,9 +5954,10 @@ insert an action track at point."
         (bongo-regressive-playback-mode))
     (if (< (prefix-numeric-value n) 0)
         (bongo-play-next (- (prefix-numeric-value n)))
-      (bongo-stop)
-      (bongo-previous n)
-      (bongo-start))))
+      (with-imminent-bongo-player-start
+        (bongo-stop)
+        (bongo-previous n)
+        (bongo-start)))))
 
 (defun bongo-play-previous-or-stop (&optional n)
   "Maybe start playing the previous track in the playlist buffer.
