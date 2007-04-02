@@ -1401,7 +1401,7 @@ If running without a window system, signal an error."
       (concat
        (when (>= emacs-major-version 22)
          (propertize " " 'display '(space :width (1))))
-       (propertize "[Start]"
+       (propertize " "
                    'display (cond ((= icon-size 18)
                                    (eval bongo-mode-line-resume-icon-18))
                                   ((= icon-size 11)
@@ -1419,7 +1419,7 @@ If running without a window system, signal an error."
       (concat
        (when (>= emacs-major-version 22)
          (propertize " " 'display '(space :width (1))))
-       (propertize "[Stop]"
+       (propertize " "
                    'display (cond ((= icon-size 18)
                                    (eval bongo-mode-line-stop-icon-18))
                                   ((= icon-size 11)
@@ -1474,7 +1474,7 @@ If running without a window system, signal an error."
       (concat
        (when (>= emacs-major-version 22)
          (propertize " " 'display '(space :width (1))))
-       (propertize "[Previous]"
+       (propertize " "
                    'display (cond ((= icon-size 18)
                                    (eval bongo-mode-line-previous-icon-18))
                                   ((= icon-size 11)
@@ -1499,7 +1499,7 @@ If running without a window system, signal an error."
       (concat
        (when (>= emacs-major-version 22)
          (propertize " " 'display '(space :width (1))))
-       (propertize "[Next]"
+       (propertize " "
                    'display (cond ((= icon-size 18)
                                    (eval bongo-mode-line-next-icon-18))
                                   ((= icon-size 11)
@@ -6546,7 +6546,7 @@ Album covers are files whose names are in `bongo-album-cover-file-names'."
           (error "Unrecognized file name extension: %s" cover-file-name))
         (let ((cover-file-type (cdr file-type-entry))
               (inhibit-read-only t))
-          (insert (propertize "[cover image]" 'display
+          (insert (propertize " " 'display
                               `(image :type ,cover-file-type
                                       :file ,cover-file-name)))
           (insert "\n"))))))
