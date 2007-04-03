@@ -2141,8 +2141,7 @@ after a line is the same as the point before the next line."
   "Return the position of the first line beginning after or at POINT.
 If POINT is at the beginning of a line, just return POINT.
 Otherwise, return the first character position after the line at POINT."
-  (when (null point)
-    (setq point (point)))
+  (or point (setq point (point)))
   (if (= point (bongo-point-at-bol point))
       point
     (bongo-point-after-line point)))
@@ -2381,8 +2380,7 @@ With negative N, move backward instead."
 With prefix argument N, do it that many times.
 With negative argument -N, move forward instead."
   (interactive "p")
-  (when (null n)
-    (setq n 1))
+  (or n (setq n 1))
   (if (< n 0)
       (bongo-forward-expression (- n))
     (catch 'done
@@ -2406,8 +2404,7 @@ With prefix argument N, do it that many times.
 With negative argument -N, move backward instead.
 This function is a suitable value for `forward-sexp-function'."
   (interactive "p")
-  (when (null n)
-    (setq n 1))
+  (or n (setq n 1))
   (if (< n 0)
       (bongo-backward-expression (- n))
     (catch 'done
@@ -2430,8 +2427,7 @@ With negative prefix argument -N, move forward instead.
 If there is no previous object, signal `bongo-no-previous-object'.
 If NO-ERROR is non-nil, move to the beginning of the buffer instead."
   (interactive "p")
-  (when (null n)
-    (setq n 1))
+  (or n (setq n 1))
   (if (< n 0)
       (bongo-next-object no-error (- n))
     (dotimes (dummy n)
@@ -2447,8 +2443,7 @@ With negative prefix argument -N, move backward instead.
 If there is no next object, signal `bongo-no-next-object'.
 If NO-ERROR is non-nil, move to end of the buffer instead."
   (interactive (list nil (prefix-numeric-value current-prefix-arg)))
-  (when (null n)
-    (setq n 1))
+  (or n (setq n 1))
   (if (< n 0)
       (bongo-previous-object no-error (- n))
     (dotimes (dummy n)
@@ -3218,8 +3213,7 @@ This function respects `bongo-insert-intermediate-headers',
 With N, repeat that many times.
 If there are not enough sections at point, signal an error."
   (interactive "p")
-  (when (null n)
-    (setq n 1))
+  (or n (setq n 1))
   (while (> n 0)
     (bongo-snap-to-object-line)
     (if (bongo-header-line-p)
@@ -3234,8 +3228,7 @@ If there are not enough sections at point, signal an error."
   "Move to the header line of this section.
 With N, repeat that many times."
   (interactive "p")
-  (when (null n)
-    (setq n 1))
+  (or n (setq n 1))
   (while (> n 0)
     (let ((indentation (bongo-line-indentation)))
       (when (zerop indentation)
@@ -7657,8 +7650,7 @@ Afterwards, if SKIP is non-nil, move point past the enqueued objects.
 If MODE is `insert', insert just below the current track.
 If MODE is `append', append to the end of the playlist.
 Return the playlist position of the newly-inserted text."
-  (when (null n)
-    (setq n 1))
+  (or n (setq n 1))
   (when line-move-ignore-invisible
     (bongo-skip-invisible))
   (let ((line-move-ignore-invisible nil))
