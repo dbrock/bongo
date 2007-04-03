@@ -2230,9 +2230,15 @@ If no matching line is found, return nil."
       (point)
     (bongo-point-at-next-line-satisfying predicate)))
 
+(defvar bongo-random-number-generator-seeded nil
+  "Non-nil if Bongo has seeded the random number generator.")
+
 (defun bongo-point-at-random-line-satisfying (predicate)
   "Return the position of a random line satisfying PREDICATE.
 If there are no lines that satisfy PREDICATE, loop forever."
+  (unless bongo-random-number-generator-seeded
+    (random t)
+    (setq bongo-random-number-generator-seeded t))
   (save-excursion
     (while (progn (goto-line (+ (point-min)
                                 (random (count-lines (point-max)
