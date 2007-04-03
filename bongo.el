@@ -32,7 +32,7 @@
 
 ;; <http://www.brockman.se/software/lastfm-submit.el>
 
-;;; Todo:
+;;; TODO:
 
 ;; Better support for streaming media.  Bongo should be able
 ;; to parse metadata provided by streaming media servers.
@@ -70,6 +70,9 @@
 ;; inserted even for singleton albums.
 
 ;; Implement support for crossfading.
+
+;; Optimize `bongo-line-get-property' as much as possible,
+;; as it is called lots of times all over the place.
 
 ;;; Code:
 
