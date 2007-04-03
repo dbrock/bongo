@@ -3293,6 +3293,8 @@ existing header into two (see `bongo-maybe-insert-intermediate-header')."
 ;;;
 ;;; Marks on killed tracks do not persist when yanking the
 ;;; tracks back into a Bongo buffer.
+;;;
+;;; Sets of marks are called `markings'.
 
 (defgroup bongo-track-marks nil
   "Track marks in Bongo."
@@ -3512,6 +3514,25 @@ Otherwise, just unmark the previous track."
         (t
          (bongo-unmark-line-backward))))
 
+(defvar bongo-stored-marking nil
+  "Stored marking that can be restored with `bongo-toggle-marking'.")
+(make-variable-buffer-local 'bongo-stored-marking)
+
+(defun bongo-toggle-marking ()
+  "Save the current marking, or restore the saved one."
+  (interactive)
+  (if (null bongo-marked-track-line-markers)
+      (mapc 'bongo-mark-line (reverse bongo-stored-marking))
+    (let ((markers bongo-marked-track-line-markers)
+          (line-move-ignore-invisible nil))
+      (setq bongo-marked-track-line-markers nil)
+      (setq bongo-stored-marking markers)
+      (dolist (marker markers)
+        (let ((position (marker-position marker)))
+          (when position
+            (bongo-unmark-line position)
+            (move-marker marker position)))))))
+
 (defun bongo-mark-all ()
   "Mark all tracks in the current buffer."
   (interactive)
@@ -3520,14 +3541,11 @@ Otherwise, just unmark the previous track."
 (defun bongo-unmark-all ()
   "Unmark all tracks in the current buffer."
   (interactive)
-  (let ((markers bongo-marked-track-line-markers)
-        (line-move-ignore-invisible nil))
-    (setq bongo-marked-track-line-markers nil)
-    (save-excursion
-      (dolist (marker markers)
-        (when (marker-position marker)
-          (goto-char marker)
-          (bongo-unmark-line))))))
+  (when bongo-marked-track-line-markers
+    (let (bongo-stored-marking)
+      (bongo-toggle-marking)
+      (dolist (marker bongo-stored-marking)
+        (move-marker marker nil)))))
 
 (defun bongo-mark-track-lines-satisfying (predicate)
   "Mark all track lines satisfying PREDICATE.
@@ -7150,21 +7168,21 @@ including the terminating newline character."
 
 (defun bongo-redisplay-line (&optional point)
   "Redisplay the line at POINT, preserving semantic text properties."
-  (bongo-goto-point point)
-  (when line-move-ignore-invisible
-    (bongo-skip-invisible))
-  (let ((inhibit-read-only t)
-        (line-move-ignore-invisible nil)
-        (indentation (bongo-line-indentation))
-        (infoset (bongo-line-internal-infoset))
-        (header (bongo-header-line-p))
-        (collapsed (bongo-collapsed-header-line-p))
-        (invisible (bongo-line-get-property 'invisible))
-        (currently-playing (bongo-currently-playing-track-line-p))
-        (played (bongo-played-track-line-p))
-        (marked (bongo-marked-track-line-p))
-        (properties (bongo-line-get-semantic-properties)))
-    (save-excursion
+  (save-excursion
+    (bongo-goto-point point)
+    (when line-move-ignore-invisible
+      (bongo-skip-invisible))
+    (let ((inhibit-read-only t)
+          (line-move-ignore-invisible nil)
+          (indentation (bongo-line-indentation))
+          (infoset (bongo-line-internal-infoset))
+          (header (bongo-header-line-p))
+          (collapsed (bongo-collapsed-header-line-p))
+          (invisible (bongo-line-get-property 'invisible))
+          (currently-playing (bongo-currently-playing-track-line-p))
+          (played (bongo-played-track-line-p))
+          (marked (bongo-marked-track-line-p))
+          (properties (bongo-line-get-semantic-properties)))
       (bongo-clear-line)
       (bongo-line-set-properties properties)
       (insert (bongo-format-string bongo-track-mark-format))
@@ -7458,10 +7476,12 @@ otherwise, just move to the previous line of text."
 (defun bongo-copy-marked ()
   "In Bongo, copy all marked track lines."
   (interactive)
-  (let ((line-move-ignore-invisible nil))
-    (dolist (marker (reverse bongo-marked-track-line-markers))
-      (bongo-copy-line marker)
-      (append-next-kill))))
+  (when bongo-marked-track-line-markers
+    (let ((line-move-ignore-invisible nil))
+      (dolist (marker (reverse bongo-marked-track-line-markers))
+        (bongo-copy-line marker)
+        (append-next-kill)))
+    (bongo-toggle-marking)))
 
 (defun bongo-copy-forward (&optional n)
   "In Bongo, copy N objects, or the region, or the marked tracks.
@@ -7725,7 +7745,8 @@ Return the playlist position of the newly-inserted text."
         (prog1 (bongo-enqueue-line mode)
           (dolist (marker (cdr markers))
             (goto-char marker)
-            (bongo-enqueue-line mode)))))))
+            (bongo-enqueue-line mode)))))
+    (bongo-toggle-marking)))
 
 (defun bongo-insert-enqueue-marked ()
   "Insert the marked tracks just below the current track."
@@ -8174,6 +8195,7 @@ However, setting it through Custom does this automatically."
     (substitute-key-definition
      'backward-delete-char 'bongo-unmark-backward map global-map)
     (define-key map "U" 'bongo-unmark-all)
+    (define-key map "**" 'bongo-toggle-marking)
     (define-key map "%" nil)            ; For Emacs 21.
     (define-key map "%m" 'bongo-mark-by-formatted-infoset-regexp)
     (define-key map "%u" 'bongo-unmark-by-formatted-infoset-regexp)
