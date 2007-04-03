@@ -62,9 +62,6 @@
 
 ;; Implement intra-track region repeat.
 
-;; Provide a way to switch to the playlist by clicking on
-;; something in the mode line.
-
 ;; Provide a way to specify that intermediate headers
 ;; (cf. `bongo-insert-intermediate-headers') should be
 ;; inserted even for singleton albums.
