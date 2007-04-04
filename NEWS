@@ -1,6 +1,31 @@
 Bongo NEWS file listing user-visible changes.
 This file is in the public domain.
 
+April 4, 2007
+
+ * The various commands beginning with `i' are no longer
+   bound to any keys.  Instead, there is a general `i'
+   command for inserting files and directories, and another
+   command `I' for inserting special things.  Unfortunately,
+   this currently includes URIs (use `I u RET').
+
+ * Commands that operate on the marked tracks now kill the
+   current marking after using it.  Use `* y' to restore the
+   last marking, or `* k' to manually kill the current one.
+   Killing a marking discards the previously killed one ---
+   in the future, there might be a stack of killed markings.
+
+   The handy command `* *' toggles between some marking and
+   the blank marking by killing or yanking as appropriate.
+   Thus, `% m Dylan RET e * *' enqueues all tracks matching
+   the string "Dylan" and then restores the marking of them.
+   Typing `* *' another time gets rid of the marking again.
+
+March 18, 2007
+
+ * You can now specify which backend to use for individual
+   tracks using `M-x bongo-set-backend-for-track'.
+
 February 25, 2007
 
  * The `M' command is gone.  Use `- m' instead.  (To do it
