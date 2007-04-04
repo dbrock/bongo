@@ -6925,11 +6925,12 @@ Otherwise, it is assumed to be an M3U playlist."
   "Prompt for something to insert into the current Bongo buffer.
 See `bongo-insertion-command-alist'."
   (interactive)
-  (call-interactively
-   (cdr (assoc (let ((completion-ignore-case t))
-                 (completing-read "Insert: "
-                                  bongo-insertion-command-alist nil t))
-               bongo-insertion-command-alist))))
+  (let* ((completion-ignore-case t)
+         (type (completing-read "Type of thing to insert: "
+                                bongo-insertion-command-alist nil t))
+         (command (cdr (assoc type bongo-insertion-command-alist))))
+    (when command
+      (call-interactively command))))
 
 
 ;;;; Drag-and-drop support
