@@ -6911,6 +6911,26 @@ Otherwise, it is assumed to be an M3U playlist."
   (with-bongo-buffer
     (bongo-insert-line 'bongo-action action)))
 
+(defvar bongo-insertion-command-alist
+  '(("Action" . bongo-insert-action)
+    ("CD tracks" . bongo-insert-cd)
+    ("Directory" . bongo-insert-directory)
+    ("Directory tree" . bongo-insert-directory-tree)
+    ("File" . bongo-insert-file)
+    ("Playlist contents" . bongo-insert-playlist-contents)
+    ("URI" . bongo-insert-uri))
+  "Alist of insertion commands for `bongo-insert-special'.")
+
+(defun bongo-insert-special ()
+  "Prompt for something to insert into the current Bongo buffer.
+See `bongo-insertion-command-alist'."
+  (interactive)
+  (call-interactively
+   (cdr (assoc (let ((completion-ignore-case t))
+                 (completing-read "Insert: "
+                                  bongo-insertion-command-alist nil t))
+               bongo-insertion-command-alist))))
+
 
 ;;;; Drag-and-drop support
 
@@ -8303,6 +8323,7 @@ However, setting it through Custom does this automatically."
     (define-key map "iu" 'bongo-insert-uri)
     (define-key map "il" 'bongo-insert-playlist-contents)
     (define-key map "iC" 'bongo-insert-cd)
+    (define-key map "I" 'bongo-insert-special)
     (define-key map "e" 'bongo-append-enqueue)
     (define-key map "E" 'bongo-insert-enqueue)
     (define-key map "t" 'bongo-transpose-forward)
