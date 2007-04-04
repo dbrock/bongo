@@ -3004,7 +3004,8 @@ Actually only look at the terminating newline."
   ;; `bongo-line-serializable-properties'.
   (list 'bongo-file-name 'bongo-action 'bongo-infoset
         'bongo-fields 'bongo-external-fields
-        'bongo-header 'bongo-collapsed 'bongo-marked
+        'bongo-header 'bongo-collapsed
+        'bongo-marked 'bongo-reference-counted-marker
         'bongo-player 'bongo-backend 'bongo-played)
   "List of semantic text properties used in Bongo buffers.
 When redisplaying lines, semantic text properties are preserved,
@@ -3278,23 +3279,34 @@ existing header into two (see `bongo-maybe-insert-intermediate-header')."
 ;;;; Marks
 
 ;;; Each track line in Bongo is either marked or unmarked.
+;;; The set of marked track lines is called the `marking'.
 ;;; Many commands default to operating on the marked track
 ;;; lines whenever the buffer has at least one.
 ;;;
-;;; Every marked track line has a `bongo-marked' property
-;;; holding a marker in `bongo-marked-track-line-markers',
-;;; which is a list of markers pointing to the start of
-;;; marked track lines.
+;;; Marked track lines have non-nil `bongo-marked' properties,
+;;; and the values of their `bongo-reference-counted-marker'
+;;; properties appear in `bongo-marking', which is a list of
+;;; pairs (MARKER . REFERENCE-COUNT) such that each MARKER
+;;; points either nowhere (in which case the track line to
+;;; which it refers is currently unavailable --- for example,
+;;; it may be killed), or to the start of a marked track line.
 ;;;
-;;; The `bongo-marked-track-line-markers' list facilitates
-;;; quickly walking over all marked track lines, but the
-;;; double bookkeeping increases complexity.  (Remember to
-;;; update both the text property and the global list.)
+;;; The `bongo-marking' list facilitates quickly walking
+;;; over all marked track lines, but the double bookkeeping
+;;; increases complexity.  (Remember to update both the text
+;;; property and the global list.)
 ;;;
-;;; Marks on killed tracks do not persist when yanking the
-;;; tracks back into a Bongo buffer.
+;;; Contrary to earlier versions, marks on killed tracks do
+;;; persist when yanking the tracks back, provided that the
+;;; same marking is still in effect in the buffer.
 ;;;
-;;; Sets of marks are called `markings'.
+;;; There is another list `bongo-killed-marking', which does
+;;; not necessarily hold markers pointing to currently marked
+;;; track lines; instead, it stores an inactive marking that
+;;; can be restored at a later time.  Most commands operating
+;;; on the marked tracks kill the current marking afterwards.
+;;;
+;;; [In the future, this feature may be extended to a stack.]
 
 (defgroup bongo-track-marks nil
   "Track marks in Bongo."
@@ -3348,21 +3360,78 @@ The values of the expressions are concatenated."
   :group 'bongo-track-marks
   :group 'bongo-faces)
 
-(defvar bongo-marked-track-line-markers nil
-  "List of markers pointing at marked track lines.
-Bongo track lines can be `marked' or `unmarked'; this is a
-high-level Bongo concept, not to be confused with `markers',
-the primitive Emacs objects used to mark buffer positions.")
-(make-variable-buffer-local 'bongo-marked-track-line-markers)
+(defvar bongo-marking nil
+  "List of reference-counted markers pointing at marked track lines.
+Reference-counted markers are pairs (MARKER . REFERENCE-COUNT).")
+(make-variable-buffer-local 'bongo-marking)
+
+(make-obsolete-variable 'bongo-marked-track-line-markers
+                        (concat "use `bongo-marking' instead, "
+                                "but note that the markers are "
+                                "now reference-counted")
+                        "2007-04-04")
 
 (defun bongo-marked-track-line-p (&optional point)
   "Return non-nil if the line at POINT is a marked track line."
-  (not (null (bongo-line-get-property 'bongo-marked point))))
+  (bongo-line-get-property 'bongo-marked point))
 
 (defun bongo-unmarked-track-line-p (&optional point)
   "Return non-nil if the line at POINT is an unmarked track line."
   (and (bongo-track-line-p point)
        (not (bongo-marked-track-line-p point))))
+
+(defun bongo-reference-marker (reference-counted-marker)
+  "Increase the reference count of REFERENCE-COUNTED-MARKER.
+Return REFERENCE-COUNTED-MARKER."
+  (prog1 reference-counted-marker
+    (setcdr reference-counted-marker
+            (+ (cdr reference-counted-marker) 1))))
+
+(defun bongo-unreference-marker (reference-counted-marker)
+  "Decrease the reference count of REFERENCE-COUNTED-MARKER.
+If the reference count drops to zero, make the marker point nowhere.
+Return REFERENCE-COUNTED-MARKER."
+  (prog1 reference-counted-marker
+    (setcdr reference-counted-marker
+            (- (cdr reference-counted-marker) 1))
+    (when (zerop (cdr reference-counted-marker))
+      (move-marker (car reference-counted-marker) nil))))
+
+(defun bongo-line-reference-counted-marker (&optional point)
+  "Return the reference-counted marker for the line at POINT, if any.
+The reference-counted marker is a pair (MARKER . REFERENCE-COUNT)."
+  (bongo-line-get-property 'bongo-reference-counted-marker point))
+
+(defun bongo-line-marker (&optional point)
+  "Return the marker for the line at POINT, if any."
+  (car (bongo-line-reference-counted-marker point)))
+
+(defun bongo-reference-line-marker (&optional point)
+  "Increase the reference count of the marker for the line at POINT.
+Return the reference-counted marker, creating it if necessary.
+The reference-counted marker is a pair (MARKER . REFERENCE-COUNT)."
+  (let ((reference-counted-marker
+         (bongo-line-reference-counted-marker point)))
+    (if reference-counted-marker
+        (bongo-reference-marker reference-counted-marker)
+      (let* ((marker (move-marker (make-marker)
+                                  (bongo-point-at-bol point)))
+             (reference-counted-marker (cons marker 1)))
+        (prog1 reference-counted-marker
+          (bongo-line-set-property 'bongo-reference-counted-marker
+                                   reference-counted-marker point))))))
+
+(defun bongo-unreference-line-marker (&optional point)
+  "Decrease the reference count of the marker for line at POINT.
+If the reference count drops to zero, make the marker point nowhere
+and remove the `bongo-reference-counted-marker' property of the line.
+Return the reference-counted marker, or signal an error if none exists.
+The reference-counted marker is a pair (MARKER . REFERENCE-COUNT)."
+  (let ((reference-counted-marker
+         (bongo-line-reference-counted-marker point)))
+    (when (= (cdr reference-counted-marker) 1)
+      (bongo-line-remove-property 'bongo-reference-counted-marker point))
+    (bongo-unreference-marker reference-counted-marker)))
 
 (defun bongo-mark-line (&optional point)
   "Mark the track or section at POINT.
@@ -3372,14 +3441,14 @@ Marking a section just marks all tracks in that section."
                             (bongo-point-after-object point)))
         ((bongo-unmarked-track-line-p point)
          (let ((buffer-undo-list t))
-           (let ((marker (move-marker (make-marker)
-                                      (bongo-point-at-bol point))))
-             (push marker bongo-marked-track-line-markers)
-             (bongo-line-set-property 'bongo-marked marker point))
+           (add-to-list 'bongo-marking
+             (bongo-reference-line-marker point))
+           (bongo-line-set-property 'bongo-marked t point)
            (bongo-redisplay-line point))
-         (push (list 'apply 'bongo-unmark-line
-                     (bongo-point-at-bol point))
-               buffer-undo-list))))
+         (when (listp buffer-undo-list)
+           (push (list 'apply 'bongo-unmark-line
+                       (bongo-point-at-bol point))
+                 buffer-undo-list)))))
 
 (defun bongo-mark-line-forward (&optional n)
   "Mark the next N tracks or sections.
@@ -3443,15 +3512,16 @@ Unmarking a section unmarks all tracks in that section."
                               (bongo-point-after-object point)))
         ((bongo-marked-track-line-p point)
          (let ((buffer-undo-list t))
-           (let ((marker (bongo-line-get-property 'bongo-marked point)))
-             (setq bongo-marked-track-line-markers
-                   (delete marker bongo-marked-track-line-markers))
-             (move-marker marker nil))
-          (bongo-line-remove-property 'bongo-marked point)
-          (bongo-redisplay-line point))
-         (push (list 'apply 'bongo-mark-line
-                     (bongo-point-at-bol point))
-               buffer-undo-list))))
+           (bongo-unreference-line-marker point)
+           (setq bongo-marking
+                 (delq (bongo-line-reference-counted-marker point)
+                       bongo-marking))
+           (bongo-line-remove-property 'bongo-marked point)
+           (bongo-redisplay-line point))
+         (when (listp buffer-undo-list)
+           (push (list 'apply 'bongo-mark-line
+                       (bongo-point-at-bol point))
+                 buffer-undo-list)))))
 
 (defun bongo-unmark-line-forward (&optional n)
   "Unmark the next N tracks or sections.
@@ -3514,24 +3584,45 @@ Otherwise, just unmark the previous track."
         (t
          (bongo-unmark-line-backward))))
 
-(defvar bongo-stored-marking nil
-  "Stored marking that can be restored with `bongo-toggle-marking'.")
-(make-variable-buffer-local 'bongo-stored-marking)
+(defvar bongo-killed-marking nil
+  "Killed marking that can be restored with `bongo-yank-marking'.")
+(make-variable-buffer-local 'bongo-killed-marking)
+
+(define-obsolete-variable-alias
+  'bongo-stored-marking
+  'bongo-killed-marking "2007-04-04")
+
+(defun bongo-yank-marking ()
+  "Restore the killed marking from `bongo-killed-marking'.
+Discard the current marking."
+  (interactive)
+  (bongo-unmark-all)
+  (dolist (reference-counted-marker bongo-killed-marking)
+    (when (marker-position (car reference-counted-marker))
+      (bongo-mark-line (car reference-counted-marker)))))
+
+(defun bongo-kill-marking ()
+  "Kill the current marking and store it in `bongo-killed-marking'.
+Discard the old value of `bongo-killed-marking'."
+  (interactive)
+  (let ((markers bongo-marking)
+        (line-move-ignore-invisible nil))
+    (setq bongo-marking nil)
+    (dolist (marker markers)
+      (when (marker-position (car marker))
+        (bongo-reference-marker marker)
+        (bongo-unmark-line (car marker))))
+    (dolist (marker bongo-killed-marking)
+      (bongo-unreference-marker marker))
+    (setq bongo-killed-marking markers)))
 
 (defun bongo-toggle-marking ()
-  "Save the current marking, or restore the saved one."
+  "Kill the current marking, if any, or restore the killed one.
+See `bongo-kill-marking' and `bongo-yank-marking'."
   (interactive)
-  (if (null bongo-marked-track-line-markers)
-      (mapc 'bongo-mark-line (reverse bongo-stored-marking))
-    (let ((markers bongo-marked-track-line-markers)
-          (line-move-ignore-invisible nil))
-      (setq bongo-marked-track-line-markers nil)
-      (setq bongo-stored-marking markers)
-      (dolist (marker markers)
-        (let ((position (marker-position marker)))
-          (when position
-            (bongo-unmark-line position)
-            (move-marker marker position)))))))
+  (if bongo-marking
+      (bongo-kill-marking)
+    (bongo-yank-marking)))
 
 (defun bongo-mark-all ()
   "Mark all tracks in the current buffer."
@@ -3541,11 +3632,9 @@ Otherwise, just unmark the previous track."
 (defun bongo-unmark-all ()
   "Unmark all tracks in the current buffer."
   (interactive)
-  (when bongo-marked-track-line-markers
-    (let (bongo-stored-marking)
-      (bongo-toggle-marking)
-      (dolist (marker bongo-stored-marking)
-        (move-marker marker nil)))))
+  (let (bongo-killed-marking)
+    (bongo-kill-marking)
+    (mapc 'bongo-unreference-marker bongo-killed-marking)))
 
 (defun bongo-mark-track-lines-satisfying (predicate)
   "Mark all track lines satisfying PREDICATE.
@@ -3568,23 +3657,24 @@ Return the number of newly-unmarked tracks."
   (let ((count 0)
         (line-move-ignore-invisible nil))
     (save-excursion
-      (dolist (marker bongo-marked-track-line-markers)
-        (goto-char marker)
-        (when (funcall predicate)
-          (bongo-unmark-line)
-          (setq count (+ count 1)))))
+      (dolist (reference-counted-marker bongo-marking)
+        (when (marker-position (car reference-counted-marker))
+          (goto-char (car reference-counted-marker))
+          (when (funcall predicate)
+            (bongo-unmark-line)
+            (setq count (+ count 1))))))
     count))
 
 (defun bongo-mark-by-regexp (regexp key-function)
   "Mark all track lines for which KEY-FUNCTION's value matches REGEXP.
 Do not mark lines for which KEY-FUNCTION returns nil.
 Return the number of newly-marked tracks."
-  (let* ((previously-marked-track-lines bongo-marked-track-line-markers)
+  (let* ((previous-marking bongo-marking)
          (count (bongo-mark-track-lines-satisfying
                  (lambda ()
                    (let ((key (funcall key-function)))
                      (and key (string-match regexp key)))))))
-    (if previously-marked-track-lines
+    (if previous-marking
         (if (zerop count)
             (message "Marked no additional tracks.")
           (message "Marked %d additional track%s." count
@@ -3599,7 +3689,7 @@ Return the number of newly-marked tracks."
   "Unmark all track lines for which KEY-FUNCTION's value matches REGEXP.
 Do not unmark lines for which KEY-FUNCTION returns nil.
 Return the number of newly-unmarked tracks."
-  (if (null bongo-marked-track-line-markers)
+  (if (null bongo-marking)
       (message "No marked tracks.")
     (let ((count (bongo-unmark-track-lines-satisfying
                   (lambda ()
@@ -5820,7 +5910,7 @@ In Bongo Library mode, enqueue and play in the nearest playlist."
            (with-bongo-playlist-buffer
              (bongo-play-line position))))
         ((bongo-playlist-buffer-p)
-         (if bongo-marked-track-line-markers
+         (if bongo-marking
              (error "Intra-playlist enqueuing is not yet supported")
            (cond ((not (null n))
                   (bongo-play-lines (prefix-numeric-value n)))
@@ -7343,8 +7433,8 @@ Otherwise, just kill the line as `kill-line' would."
     (bongo-goto-point point)
     (let ((inhibit-read-only t))
       (cond ((bongo-track-line-p)
-             (when (bongo-marked-track-line-p)
-               (bongo-unmark-line))
+             (when (bongo-line-marker)
+               (move-marker (bongo-line-marker) nil))
              (when (bongo-current-track-line-p)
                (bongo-unset-current-track-position))
              (when (bongo-queued-track-line-p)
@@ -7378,16 +7468,19 @@ If the region ends inside a section, kill that whole section."
   (move-marker end nil))
 
 (defun bongo-kill-marked ()
-  "In Bongo, kill all marked track lines."
+  "In Bongo, kill all marked track lines and kill the marking."
   (interactive)
-  (when bongo-marked-track-line-markers
-    (let ((markers (nreverse bongo-marked-track-line-markers))
-          (line-move-ignore-invisible nil))
-      (setq bongo-marked-track-line-markers nil)
-      (bongo-kill-line (car markers))
-      (dolist (marker (cdr markers))
-        (append-next-kill)
-        (bongo-kill-line marker)))))
+  (let ((marking (reverse bongo-marking)))
+    (bongo-kill-marking) 
+    (while (and marking (null (marker-position (caar marking))))
+      (setq marking (cdr marking)))
+    (when marking
+      (let ((line-move-ignore-invisible nil))
+        (bongo-kill-line (caar marking))
+        (dolist (reference-counted-marker (cdr marking))
+          (when (marker-position (car reference-counted-marker))
+            (append-next-kill)
+            (bongo-kill-line (car reference-counted-marker))))))))
 
 (defun bongo-kill (&optional n)
   "In Bongo, kill N objects, or the region, or the marked tracks.
@@ -7401,7 +7494,7 @@ Otherwise, just kill the track or section at point."
            (bongo-kill-line)))
         ((bongo-region-active-p)
          (bongo-kill-region (region-beginning) (region-end)))
-        (bongo-marked-track-line-markers
+        (bongo-marking
          (bongo-kill-marked))
         (t
          (bongo-kill-line))))
@@ -7420,9 +7513,14 @@ Return the character position of the end of the copied text."
       (let ((buffer-substring-filters
              (cons (lambda (string)
                      (prog1 (setq string (copy-sequence string))
-                       (remove-text-properties 0 (length string)
-                                               '(invisible nil)
-                                               string)))
+                       (remove-text-properties
+                        0 (length string)
+                        ;; When modifying this list, consider also
+                        ;; modifying the one in `bongo-enqueue-text'.
+                        (list 'invisible nil
+                              'bongo-marker nil
+                              'bongo-reference-counted-marker nil)
+                        string)))
                    buffer-substring-filters)))
         (copy-region-as-kill (bongo-point-before-line point) end)))))
 
@@ -7474,14 +7572,19 @@ otherwise, just move to the previous line of text."
 (defalias 'bongo-copy-region 'kill-ring-save)
 
 (defun bongo-copy-marked ()
-  "In Bongo, copy all marked track lines."
+  "In Bongo, copy all marked track lines and kill the marking."
   (interactive)
-  (when bongo-marked-track-line-markers
-    (let ((line-move-ignore-invisible nil))
-      (dolist (marker (reverse bongo-marked-track-line-markers))
-        (bongo-copy-line marker)
-        (append-next-kill)))
-    (bongo-toggle-marking)))
+  (let ((marking (reverse bongo-marking)))
+    (bongo-kill-marking)
+    (while (and marking (null (marker-position (caar marking))))
+      (setq marking (cdr marking)))
+    (when marking
+      (let ((line-move-ignore-invisible nil))
+        (bongo-copy-line (caar marking))
+        (dolist (reference-counted-marker (cdr marking))
+          (when (marker-position (car reference-counted-marker))
+            (append-next-kill)
+            (bongo-copy-line (car reference-counted-marker))))))))
 
 (defun bongo-copy-forward (&optional n)
   "In Bongo, copy N objects, or the region, or the marked tracks.
@@ -7495,7 +7598,7 @@ Leave point after the copied text."
          (bongo-copy-line-forward (prefix-numeric-value n)))
         ((bongo-region-active-p)
          (bongo-copy-region (region-beginning) (region-end)))
-        (bongo-marked-track-line-markers
+        (bongo-marking
          (bongo-copy-marked))
         (t
          (bongo-copy-line-forward))))
@@ -7524,8 +7627,18 @@ Leave point before the copied text."
                        (null (bongo-point-at-current-track-line)))
                   (bongo-set-current-track-position (point-at-bol))
                 (bongo-line-remove-property 'bongo-player))))
-          (when (bongo-marked-track-line-p)
-            (bongo-unmark-line))
+          (let ((marker (bongo-line-reference-counted-marker)))
+            (when marker
+              (if (marker-position (car marker))
+                  (bongo-line-remove-property
+                   'bongo-reference-counted-marker)
+                (move-marker (car marker) (bongo-point-at-bol))
+                (let ((marked-flag (memq marker bongo-marking))
+                      (marked-property-flag
+                       (bongo-line-get-property 'bongo-marked)))
+                  (when (not (eq marked-flag marked-property-flag))
+                    (bongo-line-set-property 'bongo-marked marked-flag)
+                    (bongo-redisplay-line))))))
           (unless (bongo-point-at-queued-track-line)
             ;; See `bongo-kill-line' for the origin of these
             ;; temporary-text-property messages.
@@ -7614,11 +7727,15 @@ If MODE is `append', append TEXT to the end of the playlist."
                          (goto-char (point-min))))
                (append (goto-char (point-max))))
              (prog1 (point)
-               (remove-text-properties 0 (length text)
-                                       (list 'invisible nil
-                                             'bongo-collapsed nil
-                                             'bongo-marked nil)
-                                       text)
+               (remove-text-properties
+                0 (length text)
+                ;; When modifying this list, consider also
+                ;; modifying the one in `bongo-copy-line'.
+                (list 'invisible nil
+                      'bongo-collapsed nil
+                      'bongo-marked nil
+                      'bongo-reference-counted-marker nil)
+                text)
                (let ((beg (point))
                      (inhibit-read-only t))
                  (insert text)
@@ -7733,20 +7850,23 @@ CALLED-INTERACTIVELY-P is non-nil when called interactively."
 ;;; The following functions operate on the marked tracks.
 
 (defun bongo-enqueue-marked (mode)
-  "Insert the marked tracks into the Bongo playlist.
+  "Insert the marked tracks into the playlist and kill the marking.
 If MODE is `insert', insert just below the current track.
 If MODE is `append', append to the end of the playlist.
 Return the playlist position of the newly-inserted text."
-  (when bongo-marked-track-line-markers
-    (save-excursion
-      (let ((markers (reverse bongo-marked-track-line-markers))
-            (line-move-ignore-invisible nil))
-        (goto-char (car markers))
-        (prog1 (bongo-enqueue-line mode)
-          (dolist (marker (cdr markers))
-            (goto-char marker)
-            (bongo-enqueue-line mode)))))
-    (bongo-toggle-marking)))
+  (save-excursion
+    (let ((marking (reverse bongo-marking)))
+      (bongo-kill-marking)
+      (while (and marking (null (marker-position (caar marking))))
+        (setq marking (cdr marking)))
+      (when marking
+        (let ((line-move-ignore-invisible nil))
+          (goto-char (caar marking))
+          (prog1 (bongo-enqueue-line mode)
+            (dolist (reference-counted-marker (cdr marking))
+              (when (marker-position (car reference-counted-marker))
+                (goto-char (car reference-counted-marker))
+                (bongo-enqueue-line mode)))))))))
 
 (defun bongo-insert-enqueue-marked ()
   "Insert the marked tracks just below the current track."
@@ -7774,7 +7894,7 @@ If MODE is `append', append to the end of the playlist."
          (bongo-enqueue-line mode n 'skip))
         ((bongo-region-active-p)
          (bongo-enqueue-region mode (region-beginning) (region-end)))
-        (bongo-marked-track-line-markers
+        (bongo-marking
          (bongo-enqueue-marked mode))
         (t
          (bongo-enqueue-line mode n 'skip))))
