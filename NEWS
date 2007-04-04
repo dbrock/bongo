@@ -3,6 +3,11 @@ This file is in the public domain.
 
 April 4, 2007
 
+ * The new Bongo Sprinkle mode is an alternative to random
+   playback, based on the idea of automatically _enqueuing_
+   random tracks instead of playing tracks in random order.
+   To try it, run `M-x bongo-sprinkle-mode' in a playlist.
+
  * The various commands beginning with `i' are no longer
    bound to any keys.  Instead, there is a general `i'
    command for inserting files and directories, and another

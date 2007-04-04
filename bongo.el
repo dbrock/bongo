@@ -2244,6 +2244,11 @@ If there are no lines that satisfy PREDICATE, loop forever."
                   (not (funcall predicate))))
     (point)))
 
+(defun bongo-point-at-random-track-line ()
+  "Return the position of a random track line.
+If there are no track lines, loop forever."
+  (bongo-point-at-random-line-satisfying 'bongo-track-line-p))
+
 (defun bongo-point-before-previous-object-line (&optional point)
   "Return the character position of the previous object line.
 If POINT is non-nil, start before that line; otherwise,
@@ -2778,6 +2783,11 @@ See `bongo-line-proposed-external-fields'."
   (and (bongo-track-line-p point)
        (bongo-line-get-property 'bongo-played point)))
 
+(defun bongo-unplayed-track-line-p (&optional point)
+  "Return non-nil if the line at POINT is an unplayed track line."
+  (and (bongo-track-line-p point)
+       (null (bongo-line-get-property 'bongo-played point))))
+
 (defun bongo-track-lines-exist-p ()
   "Return non-nil if the buffer contains any track lines.
 This function does not care about the visibility of the lines."
@@ -2988,6 +2998,17 @@ If they are distinct but on the same line, return 1."
         (setq result (1+ result))
         (forward-line))
       result)))
+
+(defun bongo-count-lines-satisfying (predicate)
+  "Return the total number of lines that satisfy PREDICATE."
+  (let ((result 0))
+    (save-excursion
+      (goto-char (point-min))
+      (while (not (eobp))
+        (when (funcall predicate)
+          (setq result (+ result 1)))
+        (forward-line 1)))
+    result))
 
 
 ;;;; Text properties
@@ -4058,6 +4079,56 @@ See `bongo-lastfm-submit'."
   (bongo-start-lastfm-timer player))
 
 
+;;;; Sprinkling
+
+(defcustom bongo-sprinkle-amount 5
+  "Minimum number of unplayed tracks in Bongo Sprinkle mode."
+  :type 'integer
+  :group 'bongo)
+
+(defun bongo-sprinkle-until-saturated ()
+  "Make sure the playlist has some minimum number of unplayed tracks.
+Specifically, enqueue random tracks using `bongo-sprinkle' until the
+playlist contains at least `bongo-sprinkle-amount' unplayed tracks."
+  (interactive)
+  (with-bongo-playlist-buffer
+    (bongo-sprinkle (- bongo-sprinkle-amount
+                       (bongo-count-lines-satisfying
+                        'bongo-unplayed-track-line-p)))))
+
+(defun bongo-sprinkle (&optional n)
+  "Enqueue some random tracks to the end of the playlist.
+With prefix argument N, enqueue that many random tracks.
+
+The random tracks are taken from the library buffer named
+  by the variable `bongo-library-buffer'.
+If `bongo-library-buffer' is nil, the tracks are taken from
+  the nearest library buffer.
+If there are no library buffers, the tracks are taken from
+  the nearest playlist buffer other than the current one.
+If there are no other playlist buffers, as a last resort,
+  the tracks are taken from the current playlist buffer.
+
+If the buffer found by the algorithm described above does
+not contain any track lines, just signal an error."
+  (interactive "p")
+  (with-bongo-playlist-buffer
+    (dotimes (dummy n)
+      (let ((bongo-playlist-buffer (current-buffer)))
+        (with-current-buffer
+            (or bongo-library-buffer
+                (bongo-recent-library-buffer)
+                (bongo-recent-playlist-buffer)
+                (current-buffer))
+          (if (bongo-track-lines-exist-p)
+              (save-excursion
+                (goto-char (bongo-point-at-random-track-line))
+                (let ((bongo-inhibit-recenter-after-enqueue t))
+                  (bongo-append-enqueue-line)))
+            (error (concat "Recently selected library or playlist "
+                           "buffer contains no track lines"))))))))
+
+
 ;;;; Players
 
 (defcustom bongo-player-started-hook '(bongo-show)
@@ -4270,7 +4341,9 @@ This hook is only run for players started in Bongo buffers."
             (goto-char (or (bongo-point-at-current-track-line)
                            (throw 'abort nil)))
             (bongo-line-set-property 'bongo-played t)
-            (bongo-redisplay-line))))
+            (bongo-redisplay-line))) 
+        (when bongo-sprinkle-mode
+          (bongo-sprinkle-until-saturated)))
       (bongo-set-current-track-marker bongo-stopped-track-marker)
       (when bongo-header-line-mode
         (bongo-update-header-line-string))
@@ -7514,7 +7587,9 @@ Otherwise, just kill the line as `kill-line' would."
                (bongo-unset-queued-track-position)
                (bongo-line-remove-property 'bongo-queued-track-flag))
              (kill-region (bongo-point-before-line)
-                          (bongo-point-after-line)))
+                          (bongo-point-after-line))
+             (when bongo-sprinkle-mode
+               (bongo-sprinkle-until-saturated)))
             ((bongo-header-line-p)
              (save-excursion
                (beginning-of-line)
@@ -7778,6 +7853,9 @@ See `undo' for the meaning of ARGUMENT."
 
 ;;;; Enqueuing commands
 
+(defvar bongo-inhibit-recenter-after-enqueue nil
+  "If non-nil, do not recenter the playlist after enqueueing.")
+
 (defun bongo-enqueue-text (mode text)
   "Insert TEXT into the Bongo playlist.
 If MODE is `insert', insert TEXT just below the current track.
@@ -7813,8 +7891,9 @@ If MODE is `append', append TEXT to the end of the playlist."
                      bongo-display-playlist-after-enqueue))
         (let ((original-window (selected-window)))
           (select-window (display-buffer (bongo-playlist-buffer)))
-          (goto-char insertion-point)
-          (recenter)
+          (unless bongo-inhibit-recenter-after-enqueue
+            (goto-char insertion-point)
+            (recenter))
           (select-window original-window))))))
 
 ;;; The following functions ignore point and operate on all
@@ -8369,6 +8448,7 @@ However, setting it through Custom does this automatically."
     (define-key map "T" 'bongo-transpose-backward)
     (define-key map "f" 'bongo-flush-playlist)
     (define-key map "F" 'bongo-reset-playlist)
+    (define-key map "S" 'bongo-sprinkle)
     (define-key map "m" 'bongo-mark-forward)
     (define-key map "u" 'bongo-unmark-forward)
     (define-key map "\177" 'bongo-unmark-backward)
@@ -8586,6 +8666,35 @@ if `bongo-prefer-library-buffers' is nil.
     (add-to-list 'overlay-arrow-variable-list
       'bongo-queued-track-arrow-marker)))
 
+(define-minor-mode bongo-sprinkle-mode
+  "Minor mode for automatic sprinkling of Bongo playlists.
+This mode can only be enabled in Bongo playlist buffers.
+When it is enabled, Bongo automatically adds random tracks
+to the playlist to keep it populated with unplayed tracks.
+
+In Bongo Sprinkle mode, whenever a track is played or one or
+more unplayed tracks are killed, Bongo appends enough random
+tracks to the playlist to ensure that `bongo-sprinkle-amount'
+unplayed tracks are present at any time.\\<bongo-mode-map>
+
+To move unplayed tracks around without causing any sprinkling,
+use the `\\[bongo-transpose-forward]' and \
+`\\[bongo-transpose-backward]' commands.
+
+To manually sprinkle the buffer, use the \
+`\\[bongo-sprinkle]' command.
+For example, `5 \\[bongo-sprinkle]' will append five random tracks,
+and `\\[universal-argument] \\[universal-argument] \\[bongo-sprinkle]' \
+will append 16 random tracks.
+
+The documentation for `bongo-sprinkle' describes from which
+buffer the random tracks are taken."
+  :lighter " Sprinkle"
+  (when bongo-sprinkle-mode
+    (unless (bongo-playlist-buffer-p)
+      (error "Bongo Sprinkle mode can only be used in playlist buffers"))
+    (bongo-sprinkle-until-saturated)))
+
 (defvar bongo-library-buffer nil
   "The default Bongo library buffer, or nil.
 Bongo library commands will operate on this buffer when
@@ -8781,36 +8890,46 @@ This function respects the value of `bongo-prefer-library-buffers'."
           (bongo-default-library-buffer)
         (bongo-default-playlist-buffer))))
 
+(defun bongo-recent-playlist-buffer ()
+  "Return the most recently selected Bongo playlist buffer, if any.
+The current buffer is excluded from consideration."
+  (catch 'return
+    (dolist (buffer (buffer-list))
+      (when (and (bongo-playlist-buffer-p buffer)
+                 (not (eq buffer (current-buffer))))
+        (throw 'return buffer)))))
+
 (defun bongo-playlist-buffer ()
   "Return a Bongo playlist buffer.
-
 If the variable `bongo-playlist-buffer' is non-nil, return that.
 Otherwise, return the most recently selected Bongo playlist buffer.
 If there is no buffer in Bongo Playlist mode, create one.  The name of
 the new buffer will be the value of `bongo-default-playlist-buffer-name'."
   (or bongo-playlist-buffer
-      (let (result (list (buffer-list)))
-        (while (and list (not result))
-          (when (bongo-playlist-buffer-p (car list))
-            (setq result (car list)))
-          (setq list (cdr list)))
-        result)
+      (and (bongo-playlist-buffer-p)
+           (current-buffer))
+      (bongo-recent-playlist-buffer)
       (bongo-default-playlist-buffer)))
+
+(defun bongo-recent-library-buffer ()
+  "Return the most recently selected Bongo library buffer, if any.
+The current buffer is excluded from consideration."
+  (catch 'return
+    (dolist (buffer (buffer-list))
+      (when (and (bongo-library-buffer-p buffer)
+                 (not (eq buffer (current-buffer))))
+        (throw 'return buffer)))))
 
 (defun bongo-library-buffer ()
   "Return a Bongo library buffer.
-
 If the variable `bongo-library-buffer' is non-nil, return that.
 Otherwise, return the most recently selected Bongo library buffer.
 If there is no buffer in Bongo Library mode, create one.  The name of
 the new buffer will be the value of `bongo-default-library-buffer-name'."
   (or bongo-library-buffer
-      (let (result (list (buffer-list)))
-        (while (and list (not result))
-          (when (bongo-library-buffer-p (car list))
-            (setq result (car list)))
-          (setq list (cdr list)))
-        result)
+      (and (bongo-library-buffer-p)
+           (current-buffer))
+      (bongo-recent-library-buffer)
       (bongo-default-library-buffer)))
 
 (defun bongo-playlist ()
