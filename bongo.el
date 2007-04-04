@@ -513,8 +513,6 @@ This is used by the function `bongo-default-format-field'."
 
 (defcustom bongo-insert-album-covers (and window-system t)
   "Whether to put album cover images into Bongo buffers.
-This is done by `bongo-insert-directory', `bongo-insert-directory-tree',
-`bongo-insert-m3u-playlist-contents', and `bongo-insert-pls-playlist-contents'.
 See also `bongo-album-cover-file-names'."
   :type 'boolean
   :link '(custom-group-link bongo-file-names)
@@ -6807,25 +6805,27 @@ TYPE defaults to `PRIMARY'.  Use `CLIPBOARD' on Microsoft Windows."
         (w32-get-clipboard-data)
       (x-get-selection type))))
 
+(defun bongo-get-x-selection-uri ()
+  "Return the URI in the X Windows selection, if any.
+See `bongo-get-x-selection'."
+  (or (let ((primary (bongo-get-x-selection)))
+        (and (bongo-uri-p primary) primary))
+      (let ((clipboard (bongo-get-x-selection 'CLIPBOARD)))
+        (and (bongo-uri-p clipboard) clipboard))))
+
 (defun bongo-insert-uri (uri &optional title)
   "Insert a new track line corresponding to URI.
 Optional argument TITLE specifies a custom title for the URI."
   (interactive
-   (let* ((default-uri
-            (or (let ((primary (bongo-get-x-selection)))
-                  (and (bongo-uri-p primary) primary))
-                (let ((clipboard (bongo-get-x-selection 'CLIPBOARD)))
-                  (and (bongo-uri-p clipboard) clipboard))))
-          (uri
-           (read-string (concat "Insert URI"
-                                (when default-uri
-                                  (format " (default `%s')"
-                                          default-uri))
-                                ": ")
-                        nil nil default-uri))
-          (title
-           (read-string (format "Title (default `%s'): " uri)
-                        nil nil uri)))
+   (let* ((default-uri (bongo-get-x-selection-uri))
+          (uri (read-string (concat "Insert URI"
+                                    (when default-uri
+                                      (format " (default `%s')"
+                                              default-uri))
+                                    ": ")
+                            nil nil default-uri))
+          (title (read-string (format "Title (default `%s'): " uri)
+                              nil nil uri)))
      (list uri title)))
   (with-bongo-buffer
     (apply 'bongo-insert-line 'bongo-file-name uri
@@ -6892,6 +6892,19 @@ Optional argument TITLE specifies a custom title for the URI."
     (with-bongo-buffer
       (bongo-maybe-join-inserted-tracks beginning (point)))))
 
+(defvar bongo-playlist-file-name-extensions
+  '("pls" "playlist" "m3u" "m3u8")
+  "List of file name extensions of playlist files.")
+
+(defun bongo-playlist-file-p (file-name)
+  "Return non-nil if FILE-NAME appears to be a playlist file.
+Currently, only PLS and M3U playlists are supported."
+  (let ((extension (file-name-extension file-name))
+        (case-fold-search t)) 
+    (and extension
+         (string-match extension
+                       (regexp-opt bongo-playlist-file-name-extensions)))))
+
 (defun bongo-insert-playlist-contents (file-name)
   "Insert the contents of playlist FILE-NAME.
 If the first line in the file is `[playlist]', then it is
@@ -6910,6 +6923,42 @@ Otherwise, it is assumed to be an M3U playlist."
   (interactive "xInsert action: ")
   (with-bongo-buffer
     (bongo-insert-line 'bongo-action action)))
+
+(defcustom bongo-insert-whole-directory-trees 'ask
+  "Whether to insert directory trees recursively.
+This controls how the `\\[bongo-insert]' command inserts directories.
+If nil, only insert files immediately contained in the top directory.
+If t, recursively insert all files in the whole directory tree.
+If `ask' or any other value, prompt the user."
+  :type '(choice (const :tag "No" nil)
+                 (const :tag "Yes" t)
+                 (other :tag "Ask" ask))
+  :group 'bongo)
+
+(defun bongo-insert (file-name)
+  "Insert FILE-NAME into the current Bongo buffer.
+If FILE-NAME is the name of a local directory, insert its contents;
+  see `bongo-insert-whole-directory-trees'.
+If FILE-NAME is the name of a playlist file, insert its contents.
+If FILE-NAME is the name of a local file, insert a file track.
+Otherwise just treat FILE-NAME as the name of a local file."
+  ;; It would be good if this function could insert URIs,
+  ;; but then `read-file-name' cannot be used for completion
+  ;; since it interprets double slash as special syntax for
+  ;; discarding whatever comes before.
+  (interactive "fInsert file or directory: ")
+  (cond ((file-directory-p file-name)
+         (let ((recursive
+                (if (memq bongo-insert-whole-directory-trees '(nil t))
+                    bongo-insert-whole-directory-trees
+                  (y-or-n-p "Insert whole directory tree? "))))
+           (if recursive
+               (bongo-insert-directory-tree file-name)
+             (bongo-insert-directory file-name))))
+        ((bongo-playlist-file-p file-name)
+         (bongo-insert-playlist-contents file-name))
+        (t
+         (bongo-insert-file file-name))))
 
 (defvar bongo-insertion-command-alist
   '(("Action" . bongo-insert-action)
@@ -8312,14 +8361,7 @@ However, setting it through Custom does this automatically."
     (define-key map "P" 'bongo-previous)
     (define-key map "N" 'bongo-next)
     (define-key map "s" 'bongo-seek)
-    (define-key map "i" nil)            ; For Emacs 21.
-    (define-key map "ia" 'bongo-insert-action)
-    (define-key map "if" 'bongo-insert-file)
-    (define-key map "id" 'bongo-insert-directory)
-    (define-key map "it" 'bongo-insert-directory-tree)
-    (define-key map "iu" 'bongo-insert-uri)
-    (define-key map "il" 'bongo-insert-playlist-contents)
-    (define-key map "iC" 'bongo-insert-cd)
+    (define-key map "i" 'bongo-insert)
     (define-key map "I" 'bongo-insert-special)
     (define-key map "e" 'bongo-append-enqueue)
     (define-key map "E" 'bongo-insert-enqueue)
