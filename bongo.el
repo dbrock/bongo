@@ -7695,10 +7695,6 @@ Leave point before the copied text."
         (bongo-insert-header))
       (move-marker end nil))))
 
-(make-obsolete 'bongo-insert "\
-use `insert' and manually call `bongo-redisplay' and
-`bongo-clean-up-after-insertion' instead" "2006-12-08")
-
 (defun bongo-yank (&optional argument)
   "In Bongo, reinsert the last sequence of killed lines.
 See `yank' for the meaning of ARGUMENT."
