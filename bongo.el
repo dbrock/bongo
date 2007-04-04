@@ -8332,8 +8332,11 @@ However, setting it through Custom does this automatically."
     (define-key map "\177" 'bongo-unmark-backward)
     (substitute-key-definition
      'backward-delete-char 'bongo-unmark-backward map global-map)
-    (define-key map "U" 'bongo-unmark-all)
+    (define-key map "*" nil)            ; For Emacs 21.
     (define-key map "**" 'bongo-toggle-marking)
+    (define-key map "*k" 'bongo-kill-marking)
+    (define-key map "U" 'bongo-kill-marking)
+    (define-key map "*y" 'bongo-yank-marking)
     (define-key map "%" nil)            ; For Emacs 21.
     (define-key map "%m" 'bongo-mark-by-formatted-infoset-regexp)
     (define-key map "%u" 'bongo-unmark-by-formatted-infoset-regexp)
