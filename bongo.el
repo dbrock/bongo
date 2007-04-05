@@ -8824,9 +8824,9 @@ If BUFFER is neither nil nor a buffer, return nil."
   few moments it could hold your entire media collection ---
   or just the parts that you are currently interested in.
 
-  To insert a single local media file, use `i f'.
-  To insert a whole directory tree, use `i t'.
-  To insert the URL of a media file or stream, use `i u'.
+  To insert local media files or directories, use `i'.
+  To insert the URL of a media file or stream, use `I u RET'.
+  To insert other things, use `I TAB' to list possibilities.
 
   To enqueue tracks in the nearest playlist buffer, use `e'.
   To hop to the nearest playlist buffer, use `h'.\n\n"))
@@ -8856,9 +8856,9 @@ If BUFFER is neither nil nor a buffer, return nil."
   To play the previous or next track, use `C-c C-p' or `C-c C-n'.
   To pause or resume, use `SPC', and to seek, use `s'.
 
-  You can use `i f', `i t' and `i u' to insert things directly
-  into playlist buffers, but enqueuing (using `e') from library
-  buffers is often more convenient.  Use `h' to hop to one.\n\n"))
+  You can use `i', and `I' to insert things directly into playlists,
+  but enqueuing (using `e') from libraries is often more convenient.
+  Use `h' to hop to a library buffer (creating one if necessary).\n\n"))
             (when (not bongo-prefer-library-buffers)
               (bongo-insert-enabled-backends-comment)))))))
 
