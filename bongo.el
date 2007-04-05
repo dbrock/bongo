@@ -3607,7 +3607,7 @@ Otherwise, just unmark the previous track."
   "Killed marking that can be restored with `bongo-yank-marking'.")
 (make-variable-buffer-local 'bongo-killed-marking)
 
-(define-obsolete-variable-alias
+(bongo-define-obsolete-variable-alias
   'bongo-stored-marking
   'bongo-killed-marking "2007-04-04")
 
