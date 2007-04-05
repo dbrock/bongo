@@ -1,4 +1,4 @@
-;;; bongo.el --- buffer-oriented media player for Emacs
+;;; bongo.el --- flexible and usable media player for Emacs
 
 ;; Copyright (C) 2005, 2006, 2007  Daniel Brockman
 ;; Copyright (C) 2006, 2007  Daniel Jensen
@@ -482,7 +482,7 @@ See also `bongo-insert-album-covers'."
 (defcustom bongo-update-references-to-renamed-files 'ask
   "Whether to search all Bongo buffers after renaming a file.
 If nil, never search through any buffers after renaming a file.
-If `ask', ask the user every time.
+If `ask', prompt the user every time.
 If any other value, always perform the search.
 
 You can rename a file from Bongo using `bongo-rename-line'."
@@ -814,7 +814,7 @@ If nil, use the same icon as for unplayed tracks."
   :group 'bongo-display)
 
 (defcustom bongo-header-line-mode t
-  "Display header lines in Bongo playlist buffers."
+  "Whether to display header lines in Bongo playlist buffers."
   :type 'boolean
   :initialize 'custom-initialize-default
   :set 'bongo-custom-set-minor-mode
@@ -2912,6 +2912,7 @@ If ALIST is a symbol, operate on the vaule of that symbol instead."
       (if entry (prog1 alist (setcdr entry value))
         (cons (cons key value) alist)))))
 
+;; This function is used by `define-bongo-backend'.
 (eval-and-compile
 (defun bongo-plist-get-all (plist property)
   "Return a list of all values in PLIST corresponding to PROPERTY."
@@ -7001,11 +7002,11 @@ Otherwise, it is assumed to be an M3U playlist."
   "Whether to insert directory trees recursively.
 This controls how the `\\[bongo-insert]' command inserts directories.
 If nil, only insert files immediately contained in the top directory.
-If t, recursively insert all files in the whole directory tree.
-If `ask' or any other value, prompt the user."
+If `ask', prompt the user every time.
+If any other value, insert all files in the whole directory tree."
   :type '(choice (const :tag "No" nil)
-                 (const :tag "Yes" t)
-                 (other :tag "Ask" ask))
+                 (const :tag "Ask" ask)
+                 (other :tag "Yes" t))
   :group 'bongo)
 
 (defun bongo-insert (file-name)
@@ -7021,13 +7022,11 @@ Otherwise just treat FILE-NAME as the name of a local file."
   ;; discarding whatever comes before.
   (interactive "fInsert file or directory: ")
   (cond ((file-directory-p file-name)
-         (let ((recursive
-                (if (memq bongo-insert-whole-directory-trees '(nil t))
-                    bongo-insert-whole-directory-trees
-                  (y-or-n-p "Insert whole directory tree? "))))
-           (if recursive
-               (bongo-insert-directory-tree file-name)
-             (bongo-insert-directory file-name))))
+         (if (or (and (eq bongo-insert-whole-directory-trees 'ask)
+                      (y-or-n-p "Insert whole directory tree? "))
+                 bongo-insert-whole-directory-trees)
+             (bongo-insert-directory-tree file-name)
+           (bongo-insert-directory file-name)))
         ((bongo-playlist-file-p file-name)
          (bongo-insert-playlist-contents file-name))
         (t
