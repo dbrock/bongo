@@ -3533,10 +3533,8 @@ Unmarking a section unmarks all tracks in that section."
                               (bongo-point-after-object point)))
         ((bongo-marked-track-line-p point)
          (let ((buffer-undo-list t))
-           (bongo-unreference-line-marker point)
-           (setq bongo-marking
-                 (delq (bongo-line-reference-counted-marker point)
-                       bongo-marking))
+           (let ((marker (bongo-unreference-line-marker point)))
+             (setq bongo-marking (delq marker bongo-marking)))
            (bongo-line-remove-property 'bongo-marked point)
            (bongo-redisplay-line point))
          (when (listp buffer-undo-list)
