@@ -8185,11 +8185,10 @@ This function uses `bongo-update-references-to-renamed-files'."
       (error "No local file track at point"))
     (let ((old-name (bongo-line-file-name)))
       (rename-file old-name new-name)
-      (if (or (and (eq bongo-update-references-to-renamed-files 'ask)
-                   (y-or-n-p
-                    (concat "Search all Bongo buffers and update "
-                            "references to the renamed file? ")))
-              bongo-update-references-to-renamed-files)
+      (if (if (eq bongo-update-references-to-renamed-files 'ask)
+              (y-or-n-p (concat "Search all Bongo buffers and update "
+                                "references to the renamed file? "))
+            bongo-update-references-to-renamed-files)
           (dolist (buffer (buffer-list))
             (when (bongo-buffer-p buffer)
               (set-buffer buffer)
