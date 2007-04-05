@@ -7005,8 +7005,8 @@ Currently, only PLS and M3U playlists are supported."
   (let ((extension (file-name-extension file-name))
         (case-fold-search t))
     (and extension
-         (string-match extension
-                       (regexp-opt bongo-playlist-file-name-extensions)))))
+         (string-match (regexp-opt bongo-playlist-file-name-extensions)
+                       extension))))
 
 (defun bongo-insert-playlist-contents (file-name)
   "Insert the contents of playlist FILE-NAME.
