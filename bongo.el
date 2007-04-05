@@ -8589,6 +8589,7 @@ Do not use this mode directly.  Instead, use Bongo Playlist mode (see
   (kill-all-local-variables)
   (set (make-local-variable 'forward-sexp-function)
        'bongo-forward-section)
+  (set (make-local-variable 'line-move-ignore-invisible) t)
   (use-local-map bongo-mode-map)
   (setq buffer-read-only t)
   (setq major-mode 'bongo-mode)
