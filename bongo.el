@@ -6696,25 +6696,48 @@ FIELDS defaults to the external fields of the current line."
   (bongo-insert-line 'bongo-header t 'bongo-fields
                      (or fields (bongo-line-external-fields))))
 
+(defcustom bongo-insert-whole-directory-trees 'ask
+  "Whether to insert directory trees recursively.
+This controls how `\\[bongo-insert-file]' inserts directories.
+If nil, only insert files immediately contained in the top directory.
+If `ask', prompt the user every time.
+If any other value, insert the whole directory tree."
+  :type '(choice (const :tag "No" nil)
+                 (const :tag "Ask" ask)
+                 (other :tag "Yes" t))
+  :group 'bongo)
+
 (defun bongo-insert-file (file-name)
-  "Insert a new track line corresponding to FILE-NAME.
-If FILE-NAME names a directory, call `bongo-insert-directory-tree'.
+  "Insert FILE-NAME into the current Bongo buffer.
+If FILE-NAME is the name of a directory, insert its contents;
+  if `bongo-insert-whole-directory-trees' is `ask', prompt the
+  user interactively about whether to insert subdirectories.
+If FILE-NAME is the name of a playlist file, insert its contents.
+Otherwise, just insert a file track corresponding to FILE-NAME.
+
 Interactively, expand wildcards and insert all matching files
 unless `find-file-wildcards' is set to nil."
+  ;; It would be good if this function could insert URIs,
+  ;; but then `read-file-name' could not be used to do the
+  ;; completion since it interprets double slash as special
+  ;; syntax for discarding whatever comes before.
   (interactive
    (list (let ((file-string
-                (read-file-name "Insert file or directory tree: "
-                                default-directory nil nil
-                                (when (eq major-mode 'dired-mode)
-                                  (dired-get-filename t)))))
+                (read-file-name
+                 (case bongo-insert-whole-directory-trees
+                   ((nil ask) "Insert file or directory: ")
+                   (otherwise "Insert file or directory tree: "))
+                 default-directory nil nil
+                 (when (eq major-mode 'dired-mode)
+                   (dired-get-filename t)))))
            (cond ((string-match "\\`/:" file-string)
                   (expand-file-name (substring file-string 2)))
                  ((null find-file-wildcards)
                   (expand-file-name file-string))
                  (t
                   (or (file-expand-wildcards file-string t)
-                      (when (file-exists-p file-string)
-                        (expand-file-name file-string))))))))
+                      (and (file-exists-p file-string)
+                           (expand-file-name file-string))))))))
   (cond ((null file-name)
          (error "No matching files found"))
         ((consp file-name)
@@ -6725,7 +6748,14 @@ unless `find-file-wildcards' is set to nil."
                (mapc 'bongo-insert-file file-name)
                (bongo-maybe-join-inserted-tracks beginning (point))))))
         ((file-directory-p file-name)
-         (bongo-insert-directory-tree file-name))
+         (if (if (eq bongo-insert-whole-directory-trees 'ask)
+                 (y-or-n-p (format "Insert whole directory tree (`%s')? "
+                                   file-name))
+               bongo-insert-whole-directory-trees)
+             (bongo-insert-directory-tree file-name)
+           (bongo-insert-directory file-name)))
+        ((bongo-playlist-file-p file-name)
+         (bongo-insert-playlist-contents file-name))
         (t
          (with-bongo-buffer
            (bongo-insert-line 'bongo-file-name file-name))
@@ -6771,9 +6801,9 @@ Only do it if `bongo-join-inserted-tracks' is non-nil."
         (bongo-join 'skip)))))
 
 (defun bongo-insert-directory (directory-name)
-  "Insert a new track line for each file in DIRECTORY-NAME.
-Only insert files that can be played by some backend, as determined by
-the matchers returned by the function `bongo-backend-matchers'.
+  "Insert a new track line for each playable file in DIRECTORY-NAME.
+Only insert files that can be played by some backend, as determined
+by the matchers returned by the function `bongo-backend-matchers'.
 
 If `bongo-insert-album-covers' is non-nil, then for each directory
 that contains a file whose name is in `bongo-album-cover-file-names',
@@ -6973,7 +7003,7 @@ Optional argument TITLE specifies a custom title for the URI."
   "Return non-nil if FILE-NAME appears to be a playlist file.
 Currently, only PLS and M3U playlists are supported."
   (let ((extension (file-name-extension file-name))
-        (case-fold-search t)) 
+        (case-fold-search t))
     (and extension
          (string-match extension
                        (regexp-opt bongo-playlist-file-name-extensions)))))
@@ -6996,40 +7026,6 @@ Otherwise, it is assumed to be an M3U playlist."
   (interactive "xInsert action: ")
   (with-bongo-buffer
     (bongo-insert-line 'bongo-action action)))
-
-(defcustom bongo-insert-whole-directory-trees 'ask
-  "Whether to insert directory trees recursively.
-This controls how the `\\[bongo-insert]' command inserts directories.
-If nil, only insert files immediately contained in the top directory.
-If `ask', prompt the user every time.
-If any other value, insert all files in the whole directory tree."
-  :type '(choice (const :tag "No" nil)
-                 (const :tag "Ask" ask)
-                 (other :tag "Yes" t))
-  :group 'bongo)
-
-(defun bongo-insert (file-name)
-  "Insert FILE-NAME into the current Bongo buffer.
-If FILE-NAME is the name of a local directory, insert its contents;
-  see `bongo-insert-whole-directory-trees'.
-If FILE-NAME is the name of a playlist file, insert its contents.
-If FILE-NAME is the name of a local file, insert a file track.
-Otherwise just treat FILE-NAME as the name of a local file."
-  ;; It would be good if this function could insert URIs,
-  ;; but then `read-file-name' cannot be used for completion
-  ;; since it interprets double slash as special syntax for
-  ;; discarding whatever comes before.
-  (interactive "fInsert file or directory: ")
-  (cond ((file-directory-p file-name)
-         (if (or (and (eq bongo-insert-whole-directory-trees 'ask)
-                      (y-or-n-p "Insert whole directory tree? "))
-                 bongo-insert-whole-directory-trees)
-             (bongo-insert-directory-tree file-name)
-           (bongo-insert-directory file-name)))
-        ((bongo-playlist-file-p file-name)
-         (bongo-insert-playlist-contents file-name))
-        (t
-         (bongo-insert-file file-name))))
 
 (defvar bongo-insertion-command-alist
   '(("Action" . bongo-insert-action)
@@ -8438,7 +8434,7 @@ However, setting it through Custom does this automatically."
     (define-key map "P" 'bongo-previous)
     (define-key map "N" 'bongo-next)
     (define-key map "s" 'bongo-seek)
-    (define-key map "i" 'bongo-insert)
+    (define-key map "i" 'bongo-insert-file)
     (define-key map "I" 'bongo-insert-special)
     (define-key map "e" 'bongo-append-enqueue)
     (define-key map "E" 'bongo-insert-enqueue)
