@@ -3023,11 +3023,12 @@ Actually only look at the terminating newline."
 (defvar bongo-line-semantic-properties
   ;; When changing this, consider also changing
   ;; `bongo-line-serializable-properties'.
-  (list 'bongo-file-name 'bongo-action 'bongo-infoset
+  (list 'bongo-file-name 'bongo-action
+        'bongo-infoset 'bongo-backend
         'bongo-fields 'bongo-external-fields
         'bongo-header 'bongo-collapsed
         'bongo-marked 'bongo-reference-counted-marker
-        'bongo-player 'bongo-backend 'bongo-played)
+        'bongo-player 'bongo-played)
   "List of semantic text properties used in Bongo buffers.
 When redisplaying lines, semantic text properties are preserved,
 whereas all other text properties (e.g., `face') are discarded.")
@@ -3957,15 +3958,27 @@ Otherwise, signal an error."
   'bongo-backend-for-file)
 
 (defun bongo-set-backend-for-track (backend &optional point)
-  "Change to using BACKEND for the track at POINT."
+  "Specify that BACKEND is to be used for playing the track at POINT."
   (interactive
-   (list (intern (completing-read "Backend: "
-                                  (mapcar (lambda (x) (list (symbol-name x)))
-                                          bongo-enabled-backends)
-                                  nil t))))
-  (save-excursion
-    (bongo-goto-point point)
-    (bongo-line-set-property 'bongo-backend backend)))
+   (let* ((backends
+           (cons (cons "(auto)" nil)
+                 (mapcar (lambda (backend)
+                           (cons (bongo-backend-pretty-name backend)
+                                 backend))
+                         bongo-backends)))
+          (current-backend
+           (car (rassoc (bongo-line-get-property 'bongo-backend)
+                        backends)))
+          (completion-ignore-case t))
+     (list (cdr (assoc (completing-read
+                        (format (concat "Backend for playing this "
+                                        "track (default `%s'): ")
+                                current-backend)
+                        backends nil t nil nil current-backend)
+                       backends)))))
+  (if backend
+      (bongo-line-set-property 'bongo-backend backend point)
+    (bongo-line-remove-property 'bongo-backend point)))
 
 
 ;;;; Last.fm
@@ -5591,15 +5604,18 @@ If point is on a header, collapse or expand the section below.
 If point is on a playlist track, just start playing the track.
 If point is on a library track, enqueue the track in the playlist
   and then immediately start playing it.
-If point is neither on a track nor on a header, do nothing.
 With numerical prefix argument N, play or enqueue the next N tracks.
-With \\[universal-argument] as prefix argument in a playlist buffer,
-  intra-playlist-enqueue the track instead of playing it."
+With \\[universal-argument] as prefix argument, play or enqueue-play
+  the track at point after explicitily specifying the backend to use.
+If point is neither on a track nor on a header, do nothing."
   (interactive "P")
-  (cond ((bongo-track-line-p)
-         (bongo-play-lines n))
-        ((bongo-header-line-p)
-         (bongo-toggle-collapsed))))
+  (cond ((bongo-header-line-p)
+         (bongo-toggle-collapsed))
+        ((bongo-track-line-p)
+         (if (not (consp n))
+             (bongo-play-lines (prefix-numeric-value n))
+           (call-interactively 'bongo-set-backend-for-track)
+           (bongo-play-lines 1)))))
 
 (defun bongo-mouse-dwim (event)
   "In Bongo, do what the user means to the object that was clicked on.
@@ -8326,7 +8342,8 @@ instead, use high-level functions such as `find-file'."
 (defvar bongo-line-serializable-properties
   ;; When changing this, consider also changing
   ;; `bongo-line-semantic-properties'.
-  (list 'bongo-file-name 'bongo-action 'bongo-infoset
+  (list 'bongo-file-name 'bongo-action
+        'bongo-infoset 'bongo-backend
         'bongo-fields 'bongo-external-fields
         'bongo-header 'bongo-collapsed)
   "List of serializable text properties used in Bongo buffers.
