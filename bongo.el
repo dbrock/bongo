@@ -2437,32 +2437,38 @@ This function is a suitable value for `forward-sexp-function'."
 With prefix argument N, do it that many times.
 With negative prefix argument -N, move forward instead.
 If there is no previous object, signal `bongo-no-previous-object'.
-If NO-ERROR is non-nil, move to the beginning of the buffer instead."
+If NO-ERROR is non-nil, move to the beginning of the buffer instead.
+Return non-nil only if the move was successful."
   (interactive "p")
   (or n (setq n 1))
   (if (< n 0)
       (bongo-next-object no-error (- n))
-    (dotimes (dummy n)
-      (goto-char (or (bongo-point-at-previous-object)
-                     (if no-error
-                         (point-min)
-                       (signal 'bongo-no-previous-object nil)))))))
+    (let ((result t))
+      (dotimes (dummy n result)
+        (goto-char (or (bongo-point-at-previous-object)
+                       (if no-error
+                           (prog1 (point-min)
+                             (setq result nil))
+                         (signal 'bongo-no-previous-object nil))))))))
 
 (defun bongo-next-object (&optional no-error n)
   "Move to the next object (either section or track).
 With prefix argument N, do it that many times.
 With negative prefix argument -N, move backward instead.
 If there is no next object, signal `bongo-no-next-object'.
-If NO-ERROR is non-nil, move to end of the buffer instead."
+If NO-ERROR is non-nil, move to end of the buffer instead.
+Return non-nil only if the move was successful."
   (interactive (list nil (prefix-numeric-value current-prefix-arg)))
   (or n (setq n 1))
   (if (< n 0)
       (bongo-previous-object no-error (- n))
-    (dotimes (dummy n)
-      (goto-char (or (bongo-point-at-next-object)
-                     (if no-error
-                         (point-max)
-                       (signal 'bongo-no-next-object nil)))))))
+    (let ((result t))
+      (dotimes (dummy n result)
+        (goto-char (or (bongo-point-at-next-object)
+                       (if no-error
+                           (prog1 (point-max)
+                             (setq result nil))
+                         (signal 'bongo-no-next-object nil))))))))
 
 (defun bongo-point-before-next-track-line (&optional point)
   "Return the character position of the next track line.
@@ -7171,79 +7177,90 @@ ACTION is ignored."
 (defun bongo-collapse (&optional skip)
   "Collapse the section below the header line at point.
 If point is not on a header line, collapse the section at point.
+If there is no section at point, do nothing.
 
 If SKIP is nil, leave point at the header line.
-If SKIP is non-nil, leave point at the first object line after the section.
-If point is neither on a header line nor in a section,
-  and SKIP is nil, signal an error.
+If SKIP is non-nil, leave point at the first object line
+  after the section.
 If called interactively, SKIP is always non-nil."
   (interactive "p")
   (when line-move-ignore-invisible
     (bongo-skip-invisible))
+  (bongo-snap-to-object-line)
   (unless (bongo-header-line-p)
-    (bongo-backward-up-section))
-  (let ((line-move-ignore-invisible nil)
-        (inhibit-read-only t))
-    (bongo-line-set-property 'bongo-collapsed t)
-    (bongo-redisplay-line)
-    (save-excursion
-      (forward-line 1)
-      ;; There is a bug in Emacs that causes invisible text
-      ;; with a `display' property to become visible, but
-      ;; only if it is right next to visible text.
-      ;; Therefore, we have to make sure that the invisible
-      ;; block of text starts with a character that does not
-      ;; have a `display' property.  This character is later
-      ;; removed by `bongo-expand'.
-      (unless (get-text-property (point) 'bongo-invisibility-padding)
-        (insert (propertize " " 'invisible t
-                            'bongo-invisibility-padding t))))
-    (let ((end (bongo-point-after-object)))
-      (forward-line 1)
-      (put-text-property (point) end 'invisible t)
-      (if (not skip)
-          (forward-line -1)
-        (goto-char end)
-        (bongo-snap-to-object-line 'no-error)))))
+    (when (bongo-line-indented-p)
+      (bongo-backward-up-section)))
+  (if (not (bongo-header-line-p))
+      (when skip
+        (or (bongo-next-object 'no-error)
+            (goto-char (bongo-point-after-object))))
+    (let ((line-move-ignore-invisible nil)
+          (inhibit-read-only t))
+      (bongo-line-set-property 'bongo-collapsed t)
+      (bongo-redisplay-line)
+      (save-excursion
+        (forward-line 1)
+        ;; There is a bug in Emacs that causes invisible text
+        ;; with a `display' property to become visible, but
+        ;; only if it is right next to visible text.
+        ;; Therefore, we have to make sure that the invisible
+        ;; block of text starts with a character that does not
+        ;; have a `display' property.  This character is later
+        ;; removed by `bongo-expand'.
+        (unless (get-text-property (point) 'bongo-invisibility-padding)
+          (insert (propertize " " 'invisible t
+                              'bongo-invisibility-padding t))))
+      (let ((end (bongo-point-after-object)))
+        (forward-line 1)
+        (put-text-property (point) end 'invisible t)
+        (if (not skip)
+            (forward-line -1)
+          (goto-char end)
+          (bongo-snap-to-object-line 'no-error))))))
 
 (defun bongo-expand (&optional skip)
   "Expand the section below the header line at point.
+If point is not on a header line, expand the section at point.
+If there is no section at point, do nothing.
 
 If SKIP is nil, leave point at the header line.
-If SKIP is non-nil, leave point at the first object line after the section.
-If point is not on a header line or the section below the header line
-  is not collapsed, and SKIP is nil, signal an error.
+If SKIP is non-nil, leave point at the first object line
+  after the section.
 If called interactively, SKIP is always non-nil."
   (interactive "p")
   (when line-move-ignore-invisible
     (bongo-skip-invisible))
+  (bongo-snap-to-object-line)
   (unless (bongo-header-line-p)
-    (error "Not on a header line"))
-  (unless (bongo-collapsed-header-line-p)
-    (error "This section is not collapsed"))
-  (let ((start (point))
-        (inhibit-read-only t)
-        (line-move-ignore-invisible nil))
-    (bongo-line-remove-property 'bongo-collapsed)
-    (bongo-redisplay-line)
-    (put-text-property (bongo-point-after-line)
-                       (bongo-point-after-object)
-                       'invisible nil)
-    (save-excursion
-      ;; See the comment in `bongo-collapse'.
-      (forward-line 1)
-      (when (get-text-property (point) 'bongo-invisibility-padding)
-        (delete-char 1)))
-    (let ((indentation (bongo-line-indentation)))
-      (bongo-ignore-movement-errors
-        (bongo-next-object-line)
-        (while (> (bongo-line-indentation) indentation)
-          (if (not (bongo-collapsed-header-line-p))
-              (bongo-next-object-line)
-            (bongo-collapse 'skip)
-            (bongo-snap-to-object-line)))))
-    (when (not skip)
-      (goto-char start))))
+    (when (bongo-line-indented-p)
+      (bongo-backward-up-section)))
+  (if (not (bongo-header-line-p))
+      (when skip
+        (or (bongo-next-object 'no-error)
+            (goto-char (bongo-point-after-object))))
+    (let ((header-line-position (point))
+          (inhibit-read-only t)
+          (line-move-ignore-invisible nil))
+      (bongo-line-remove-property 'bongo-collapsed)
+      (bongo-redisplay-line)
+      (put-text-property (bongo-point-after-line)
+                         (bongo-point-after-object)
+                         'invisible nil)
+      (save-excursion
+        ;; See the comment in `bongo-collapse'.
+        (forward-line 1)
+        (when (get-text-property (point) 'bongo-invisibility-padding)
+          (delete-char 1)))
+      (let ((indentation (bongo-line-indentation)))
+        (bongo-ignore-movement-errors
+          (bongo-next-object-line)
+          (while (> (bongo-line-indentation) indentation)
+            (if (not (bongo-collapsed-header-line-p))
+                (bongo-next-object-line)
+              (bongo-collapse 'skip)
+              (bongo-snap-to-object-line 'no-error)))))
+      (when (not skip)
+        (goto-char header-line-position)))))
 
 (defun bongo-toggle-collapsed ()
   "Collapse or expand the section at point.
