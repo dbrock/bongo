@@ -7670,7 +7670,11 @@ Otherwise, just kill the line as `kill-line' would."
                (let ((line-move-ignore-invisible nil))
                  (kill-region (point) (bongo-point-after-object)))))
             (t
-             (kill-line))))))
+             (kill-line)))
+      (while (and (bongo-previous-object-line 'no-error)
+                  (bongo-empty-section-p))
+        (delete-region (bongo-point-before-line)
+                       (bongo-point-after-line))))))
 
 (defun bongo-kill-region (&optional beg end)
   "In Bongo, kill all lines in the region between BEG and END.
