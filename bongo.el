@@ -8,7 +8,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://www.brockman.se/software/bongo/
 ;; Created: September 3, 2005
-;; Updated: April 5, 2007
+;; Updated: April 6, 2007
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
