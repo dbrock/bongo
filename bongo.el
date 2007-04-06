@@ -386,12 +386,15 @@ seeing a library buffer (unless you create one yourself, of course)."
   :type 'boolean
   :group 'bongo)
 
-(defcustom bongo-mark-played-tracks t
-  "If non-nil, mark played tracks and display them in a special face.
+(defcustom bongo-mark-played-tracks nil
+  "Whether to mark all tracks that have been played.
 Tracks marked as played are not selected for random playback.
-To mark all tracks as unplayed, use the command `\\[bongo-reset-playlist]'.
-To delete all played tracks, use the command `\\[bongo-flush-playlist]'.
-Played tracks are displayed with the face `bongo-played-track'."
+Enabling Bongo Sprinkle mode sets this variable locally;
+  see `bongo-sprinkle-mode' for more about that.
+Played tracks are displayed in the face `bongo-played-track'.
+
+To delete all played tracks, use `\\[bongo-flush-playlist]'.
+To clear the mark for all tracks, use `\\[bongo-reset-playlist]'."
   :type 'boolean
   :group 'bongo)
 
@@ -2799,6 +2802,21 @@ See `bongo-line-proposed-external-fields'."
   (and (bongo-track-line-p point)
        (null (bongo-line-get-property 'bongo-played point))))
 
+(defun bongo-mark-line-as-played (&optional point)
+  "Mark the track line at POINT as played."
+  (bongo-line-set-property 'bongo-played t point)
+  (bongo-redisplay-line point)
+  (when bongo-sprinkle-mode
+    (bongo-sprinkle-until-saturated)))
+
+(defun bongo-mark-current-track-line-as-played ()
+  "Mark the current track line as played.
+If there is no current track line, do nothing."
+  (catch 'abort
+    (bongo-mark-line-as-played
+     (or (bongo-point-at-current-track-line)
+         (throw 'abort nil)))))
+
 (defun bongo-track-lines-exist-p ()
   "Return non-nil if the buffer contains any track lines.
 This function does not care about the visibility of the lines."
@@ -4358,6 +4376,8 @@ You should not call this function directly."
       (set-buffer (bongo-player-buffer player)))
     (run-hook-with-args 'bongo-player-finished-functions player)
     (when (bongo-buffer-p)
+      (when bongo-mark-played-tracks
+        (bongo-mark-current-track-line-as-played))
       (run-hooks 'bongo-player-finished-hook))
     (bongo-player-stopped player)
     (when (bongo-buffer-p)
@@ -4399,16 +4419,10 @@ This hook is only run for players started in Bongo buffers."
     (bongo-cancel-lastfm-timer player)
     (run-hook-with-args 'bongo-player-stopped-functions player)
     (when (bongo-buffer-p)
-      (when bongo-mark-played-tracks
-        (save-excursion
-          (catch 'abort
-            (goto-char (or (bongo-point-at-current-track-line)
-                           (throw 'abort nil)))
-            (bongo-line-set-property 'bongo-played t)
-            (bongo-redisplay-line))) 
-        (when bongo-sprinkle-mode
-          (bongo-sprinkle-until-saturated)))
       (bongo-set-current-track-marker bongo-stopped-track-marker)
+      (catch 'abort
+        (bongo-redisplay-line (or (bongo-point-at-current-track-line)
+                                  (throw 'abort nil))))
       (when bongo-header-line-mode
         (bongo-update-header-line-string))
       (when bongo-mode-line-indicator-mode
@@ -6135,6 +6149,8 @@ insert an action track at point."
         (bongo-play-previous (- (prefix-numeric-value n)))
       (with-imminent-bongo-player-start
         (bongo-stop)
+        (when bongo-mark-played-tracks
+          (bongo-mark-current-track-line-as-played))
         (bongo-next n)
         (bongo-start)))))
 
@@ -6208,6 +6224,8 @@ insert an action track at point."
         (bongo-play-next (- (prefix-numeric-value n)))
       (with-imminent-bongo-player-start
         (bongo-stop)
+        (when bongo-mark-played-tracks
+          (bongo-mark-current-track-line-as-played))
         (bongo-previous n)
         (bongo-start)))))
 
@@ -8758,18 +8776,23 @@ To move unplayed tracks around without causing any sprinkling,
 use the `\\[bongo-transpose-forward]' and \
 `\\[bongo-transpose-backward]' commands.
 
-To manually sprinkle the buffer, use the \
-`\\[bongo-sprinkle]' command.
+To manually sprinkle the buffer, use the `\\[bongo-sprinkle]' command.
 For example, `5 \\[bongo-sprinkle]' will append five random tracks,
 and `\\[universal-argument] \\[universal-argument] \\[bongo-sprinkle]' \
 will append 16 random tracks.
 
-The documentation for `bongo-sprinkle' describes from which
-buffer the random tracks are taken."
+The documentation for `bongo-sprinkle' describes how Bongo
+decides on the buffer from which to take the random tracks."
   :lighter " Sprinkle"
-  (when bongo-sprinkle-mode
+  (if (not bongo-sprinkle-mode)
+      ;; Ideally, deactivating Sprinkle mode would restore
+      ;; the previous state of this variable, but doing that
+      ;; right is surprisingly difficult, so just screw it;
+      ;; we can do that when we actually need it done.
+      (kill-local-variable 'bongo-mark-played-tracks)
     (unless (bongo-playlist-buffer-p)
       (error "Bongo Sprinkle mode can only be used in playlist buffers"))
+    (set (make-local-variable 'bongo-mark-played-tracks) t)
     (bongo-sprinkle-until-saturated)))
 
 (defvar bongo-library-buffer nil
@@ -8885,7 +8908,7 @@ If BUFFER is neither nil nor a buffer, return nil."
                           'bongo-enabled-backends))))
   (bongo-insert-comment-text "\
   Bongo is free software licensed under the GNU GPL.
-  Report bugs to Bongo's amigos <bongo-devel@nongnu.org>.\n\n"))
+  Report bugs to <bongo-devel@nongnu.org>.\n\n"))
 
 (defun bongo-default-library-buffer ()
   (or (get-buffer bongo-default-library-buffer-name)
@@ -8939,7 +8962,7 @@ If BUFFER is neither nil nor a buffer, return nil."
   To play the previous or next track, use `C-c C-p' or `C-c C-n'.
   To pause or resume, use `SPC', and to seek, use `s'.
 
-  You can use `i', and `I' to insert things directly into playlists,
+  You can use `i' and `I' to insert things directly into playlists,
   but enqueuing (using `e') from libraries is often more convenient.
   Use `h' to hop to a library buffer (creating one if necessary).\n\n"))
             (when (not bongo-prefer-library-buffers)

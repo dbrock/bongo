@@ -1,6 +1,15 @@
 Bongo NEWS file listing user-visible changes.
 This file is in the public domain.
 
+April 5, 2007
+
+ * Bongo Sprinkle mode now sets `bongo-mark-played-tracks',
+   and the default value is now `nil' (it used to be `t').
+   Enabling Sprinkle mode sets it to `t' buffer-locally.
+
+ * Stopping a track being played using `C-c C-s' will now
+   not mark it as played; but `C-c C-n' and `C-c C-p' will.
+
 April 4, 2007
 
  * The new Bongo Sprinkle mode is an alternative to random
