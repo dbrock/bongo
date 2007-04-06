@@ -1791,7 +1791,8 @@ separated by `bongo-field-separator'."
                  (mapcar (lambda (field)
                            (unless (or (memq (car field) processed-fields)
                                        (null (cdr field))
-                                       (eq (cdr field) 'unknown))
+                                       (eq (cdr field) 'unknown)
+                                       (eq (cdr field) 'unbound))
                              (push (car field) processed-fields)
                              (list (bongo-format-field field))))
                          infoset))))
@@ -2591,9 +2592,12 @@ You should use `bongo-line-infoset' most of the time."
                   (> (bongo-line-indentation) indentation)
                   (or (not (bongo-track-line-p))
                       (bongo-action-track-line-p))))
-      (when (and (> (bongo-line-indentation) indentation)
-                 (bongo-track-line-p))
-        (bongo-filter-alist fields (bongo-track-infoset))))))
+      (if (and (> (bongo-line-indentation) indentation)
+               (bongo-track-line-p))
+          (bongo-filter-alist fields (bongo-track-infoset))
+        (mapcar (lambda (field)
+                  (cons field 'unbound))
+                fields)))))
 
 (defun bongo-line-infoset (&optional point)
   "Return the infoset for the line at POINT.
@@ -3083,11 +3087,24 @@ Remove any property that is not in KEYS."
 
 ;;;; Sectioning
 
+(defvar bongo-bind-field-values nil
+  "If non-nil, `unbound' field values are joinable.
+This variable should only be bound environmentally.
+See `bongo-joinable-field-values-p'.")
+
 (defun bongo-joinable-field-values-p (a b)
   "Return non-nil if A and B are joinable field values.
-Field values are joinable if they are `equal', except that nil is
-joinable with everything and `unknown' is not joinable with anything."
+Field values are joinable if they are `equal', except that
+ - `unknown' is not joinable with anything (including itself),
+ - `unbound' is joinable with anything non-`unknown' if and
+     only if `bongo-bind-field-values' is non-nil, and
+ - nil is joinable with everything."
   (or (null a) (null b)
+      (and bongo-bind-field-values
+           (or (and (eq a 'unbound)
+                    (not (eq b 'unknown)))
+               (and (eq b 'unbound)
+                    (not (eq a 'unknown)))))
       (and (not (eq a 'unknown))
            (equal a b))))
 
@@ -3284,7 +3301,8 @@ If the first outer header is too specific, split it in two."
             ;; on the new header.
             (let ((header-line-position (point)))
               (bongo-insert-header current)
-              (bongo-externalize-fields)
+              (let ((bongo-bind-field-values t))
+                (bongo-externalize-fields))
               (bongo-redisplay-line header-line-position))))))))
 
 (defun bongo-externalize-fields ()
@@ -6707,7 +6725,7 @@ Point is left immediately after the new line."
       (bongo-insert-header))))
 
 (defun bongo-insert-header (&optional fields)
-  "Insert a new header line with internal FIELDS.
+  "Insert a new header line with internal fields FIELDS.
 FIELDS defaults to the external fields of the current line."
   (bongo-insert-line 'bongo-header t 'bongo-fields
                      (or fields (bongo-line-external-fields))))
