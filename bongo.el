@@ -5645,7 +5645,7 @@ If point is neither on a track nor on a header, do nothing."
          (bongo-toggle-collapsed))
         ((bongo-track-line-p)
          (if (not (consp n))
-             (bongo-play-lines (prefix-numeric-value n))
+             (bongo-play-lines n)
            (call-interactively 'bongo-set-backend-for-track)
            (bongo-play-lines)))))
 
