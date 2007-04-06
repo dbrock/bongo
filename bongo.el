@@ -3753,10 +3753,18 @@ Return the number of newly-unmarked tracks."
                  (if (= count 1) "" "s")))
       count)))
 
+(defvar bongo-regexp-history nil
+  "History list for `bongo-read-regexp'.")
+
+(defun bongo-read-regexp (prompt &optional default-value)
+  "Read a regexp from the minibuffer, prompting with string PROMPT.
+See `read-string' for the meaning of DEFAULT-VALUE."
+  (read-string prompt nil 'bongo-regexp-history default-value))
+
 (defun bongo-mark-by-formatted-infoset-regexp (regexp)
   "Mark all lines whose formatted infoset matches REGEXP.
 Return the number of newly-marked tracks."
-  (interactive "sMark by regexp: ")
+  (interactive (list (bongo-read-regexp "Mark by regexp: ")))
   (bongo-mark-by-regexp regexp (lambda ()
                                  (bongo-format-infoset
                                   (bongo-line-infoset)))))
@@ -3764,7 +3772,8 @@ Return the number of newly-marked tracks."
 (defun bongo-mark-by-artist-name-regexp (regexp)
   "Mark all lines whose artist name matches REGEXP.
 Return the number of newly-marked tracks."
-  (interactive "sMark by artist name (regexp): ")
+  (interactive
+   (list (bongo-read-regexp "Mark by artist name (regexp): ")))
   (bongo-mark-by-regexp regexp (lambda ()
                                  (bongo-infoset-artist-name
                                   (bongo-line-infoset)))))
@@ -3772,7 +3781,8 @@ Return the number of newly-marked tracks."
 (defun bongo-mark-by-album-title-regexp (regexp)
   "Mark all lines whose album title matches REGEXP.
 Return the number of newly-marked tracks."
-  (interactive "sMark by album title (regexp): ")
+  (interactive
+   (list (bongo-read-regexp "Mark by album title (regexp): ")))
   (bongo-mark-by-regexp regexp (lambda ()
                                  (bongo-infoset-album-title
                                   (bongo-line-infoset)))))
@@ -3780,7 +3790,8 @@ Return the number of newly-marked tracks."
 (defun bongo-mark-by-album-year-regexp (regexp)
   "Mark all lines whose album year matches REGEXP.
 Return the number of newly-marked tracks."
-  (interactive "sMark by album year (regexp): ")
+  (interactive
+   (list (bongo-read-regexp "Mark by album year (regexp): ")))
   (bongo-mark-by-regexp regexp (lambda ()
                                  (bongo-infoset-album-year
                                   (bongo-line-infoset)))))
@@ -3788,7 +3799,8 @@ Return the number of newly-marked tracks."
 (defun bongo-mark-by-track-index-regexp (regexp)
   "Mark all lines whose track index matches REGEXP.
 Return the number of newly-marked tracks."
-  (interactive "sMark by track index (regexp): ")
+  (interactive
+   (list (bongo-read-regexp "Mark by track index (regexp): ")))
   (bongo-mark-by-regexp regexp (lambda ()
                                  (bongo-infoset-track-index
                                   (bongo-line-infoset)))))
@@ -3796,7 +3808,8 @@ Return the number of newly-marked tracks."
 (defun bongo-mark-by-track-title-regexp (regexp)
   "Mark all lines whose track title matches REGEXP.
 Return the number of newly-marked tracks."
-  (interactive "sMark by track title (regexp): ")
+  (interactive
+   (list (bongo-read-regexp "Mark by track title (regexp): ")))
   (bongo-mark-by-regexp regexp (lambda ()
                                  (bongo-infoset-track-title
                                   (bongo-line-infoset)))))
@@ -3804,7 +3817,7 @@ Return the number of newly-marked tracks."
 (defun bongo-unmark-by-formatted-infoset-regexp (regexp)
   "Unmark all lines whose formatted infoset matches REGEXP.
 Return the number of newly-unmarked tracks."
-  (interactive "sUnmark by regexp: ")
+  (interactive (list (bongo-read-regexp "Unmark by regexp: ")))
   (bongo-unmark-by-regexp regexp (lambda ()
                                    (bongo-format-infoset
                                     (bongo-line-infoset)))))
@@ -3812,7 +3825,8 @@ Return the number of newly-unmarked tracks."
 (defun bongo-unmark-by-artist-name-regexp (regexp)
   "Unmark all lines whose artist name matches REGEXP.
 Return the number of newly-unmarked tracks."
-  (interactive "sUnmark by artist name (regexp): ")
+  (interactive
+   (list (bongo-read-regexp "Unmark by artist name (regexp): ")))
   (bongo-unmark-by-regexp regexp (lambda ()
                                    (bongo-infoset-artist-name
                                     (bongo-line-infoset)))))
@@ -3820,7 +3834,8 @@ Return the number of newly-unmarked tracks."
 (defun bongo-unmark-by-album-title-regexp (regexp)
   "Unmark all lines whose album title matches REGEXP.
 Return the number of newly-unmarked tracks."
-  (interactive "sUnmark by album title (regexp): ")
+  (interactive
+   (list (bongo-read-regexp "Unmark by album title (regexp): ")))
   (bongo-unmark-by-regexp regexp (lambda ()
                                    (bongo-infoset-album-title
                                     (bongo-line-infoset)))))
@@ -3828,7 +3843,8 @@ Return the number of newly-unmarked tracks."
 (defun bongo-unmark-by-album-year-regexp (regexp)
   "Unmark all lines whose album year matches REGEXP.
 Return the number of newly-unmarked tracks."
-  (interactive "sUnmark by album year (regexp): ")
+  (interactive
+   (list (bongo-read-regexp "Unmark by album year (regexp): ")))
   (bongo-unmark-by-regexp regexp (lambda ()
                                    (bongo-infoset-album-year
                                     (bongo-line-infoset)))))
@@ -3836,7 +3852,8 @@ Return the number of newly-unmarked tracks."
 (defun bongo-unmark-by-track-index-regexp (regexp)
   "Unmark all lines whose track index matches REGEXP.
 Return the number of newly-unmarked tracks."
-  (interactive "sUnmark by track index (regexp): ")
+  (interactive
+   (list (bongo-read-regexp "Unmark by track index (regexp): ")))
   (bongo-unmark-by-regexp regexp (lambda ()
                                    (bongo-infoset-track-index
                                     (bongo-line-infoset)))))
@@ -3844,7 +3861,8 @@ Return the number of newly-unmarked tracks."
 (defun bongo-unmark-by-track-title-regexp (regexp)
   "Unmark all lines whose track title matches REGEXP.
 Return the number of newly-unmarked track lines."
-  (interactive "sUnmark by track title (regexp): ")
+  (interactive
+   (list (bongo-read-regexp "Unmark by track title (regexp): ")))
   (bongo-unmark-by-regexp regexp (lambda ()
                                    (bongo-infoset-track-title
                                     (bongo-line-infoset)))))
