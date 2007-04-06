@@ -2839,10 +2839,11 @@ Collapsed header lines are header lines whose sections are collapsed."
 That is, the header line of a section that has no content."
   (and (bongo-header-line-p point)
        (catch 'return
-         (not (> (bongo-line-indentation
-                  (or (bongo-point-at-next-object-line point)
-                      (throw 'return t)))
-                 (bongo-line-indentation point))))))
+         (let ((line-move-ignore-invisible nil))
+           (not (> (bongo-line-indentation
+                    (or (bongo-point-at-next-object-line point)
+                        (throw 'return t)))
+                   (bongo-line-indentation point)))))))
 
 
 ;;;; General convenience routines
