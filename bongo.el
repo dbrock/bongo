@@ -5641,7 +5641,7 @@ If point is neither on a track nor on a header, do nothing."
          (if (not (consp n))
              (bongo-play-lines (prefix-numeric-value n))
            (call-interactively 'bongo-set-backend-for-track)
-           (bongo-play-lines 1)))))
+           (bongo-play-lines)))))
 
 (defun bongo-mouse-dwim (event)
   "In Bongo, do what the user means to the object that was clicked on.
