@@ -3488,7 +3488,14 @@ Marking a section just marks all tracks in that section."
          (when (listp buffer-undo-list)
            (push (list 'apply 'bongo-unmark-line
                        (bongo-point-at-bol point))
-                 buffer-undo-list)))))
+                 buffer-undo-list))
+         (let ((line-move-ignore-invisible nil))
+           (when (get-text-property (bongo-point-at-eol point) 'invisible)
+             (save-excursion
+               (bongo-goto-point point)
+               (while (bongo-line-indented-p)
+                 (bongo-backward-up-section)
+                 (bongo-expand))))))))
 
 (defun bongo-mark-line-forward (&optional n)
   "Mark the next N tracks or sections.
@@ -3677,7 +3684,8 @@ See `bongo-kill-marking' and `bongo-yank-marking'."
 (defun bongo-mark-track-lines-satisfying (predicate)
   "Mark all track lines satisfying PREDICATE.
 Return the number of newly-marked tracks."
-  (let ((count 0))
+  (let ((count 0)
+        (line-move-ignore-invisible nil))
     (save-excursion
       (goto-char (point-min))
       (while (and (not (eobp))
