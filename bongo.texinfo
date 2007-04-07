@@ -4,7 +4,7 @@
 @settitle Bongo Manual
 @c %**end of header
 
-@set LAST-UPDATED  April 3, 2007
+@set LAST-UPDATED  April 7, 2007
 
 @copying
 Copyright @copyright{} 2007  Daniel Brockman
@@ -52,15 +52,16 @@ Using Bongo
 * Playing Tracks::      Listening to audio and watching video.
 * Library Buffers::     Organizing your media collection.
 * Saving and Loading::  Storing Bongo buffers in files.
+* Marking Tracks::      Choosing sets of tracks to operate on.
 
-Advanced Topics
+Hacking Bongo
 
 * Internals::           How Bongo works and how to hack it.
 * Writing Backends::    Telling Bongo how to use other players.
 
-Legal Matters
+Copying Bongo
 
-* Copying::	        Your rights and freedoms regarding Bongo.
+* GNU GPL::             Conditions for copying and changing Bongo.
 * GNU FDL::             The license for this documentation.
 
 @detailmenu
@@ -71,22 +72,24 @@ Basics
 
 * Tracks::              Media files, URIs, audio CDs, DVDs, etc.
 * Backends::            External applications used to play tracks.
-* Buffers::             Playlists and libraries, which hold tracks.
+* Playlists::           Buffers holding tracks to be played.
+* Libraries::           Buffers used to organize media collections.
 
 Tracks
 
 * File Tracks::         Tracks for media files on your local file system.
 * URI Tracks::          Tracks for remote media such as Internet radio.
-* CD Tracks::           Audio tracks representing your local CD player.
-* VCD Tracks::          Video tracks representing your local CD player.
-* DVD Tracks::          Tracks representing your local DVD player.
+* CD Tracks::           Tracks representing audio CDs.
+* DVD Tracks::          Tracks representing DVDs.
 * Action Tracks::       Special tracks for performing actions.
 
 Playback
 
 * Pausing::             Temporarily stopping playback.
 * Seeking::             Rewinding or fast-forwarding tracks.
-* Volume Control::      Changing the volume of your sound card.
+* Playback Modes::      Choosing the order in which tracks are played.
+* Sprinkle Mode::       Keeping playlists populated with random tracks.
+* Volume Control::      Controlling the volume of your sound card.
 * Last.fm::             Submitting song information to Last.fm.
 @end detailmenu
 @end menu
@@ -100,33 +103,62 @@ it lets you use its tools however you want without getting in the way.
 It is usable because it has good bindings and works well by default.
 
 Four nouns central to Bongo are @dfn{tracks}, which represent media
-resources; @dfn{backends}, which control applications used to play
-media; and @dfn{playlists} and @dfn{libraries}, which are used to
+resources; @dfn{backends}, which are applications used to play media;
+and @dfn{playlists} and @dfn{libraries}, which are used to
 organize tracks.
 
-One simple and common way to use Bongo is to create a playlist, insert
-some tracks, and then play those tracks --- manually, randomly, or in
-order.  Another common way is to create a library, insert a large number
-of tracks, and then pick out a few of them into a playlist.
+One simple way to use Bongo is to create a playlist, insert some tracks,
+and then play those tracks --- manually, randomly, or from top to bottom
+(@pxref{Playback Modes}).  Another common way is to create a library,
+insert a large number of tracks, and then either manually pick out some
+of them into a playlist or let Bongo keep the playlist populated with
+random tracks from the library (@pxref{Sprinkle Mode}).
 
-The following sections describe these basic concepts in turn.
+The following sections explain these basic concepts in turn.
 
 @menu
 * Tracks::              Media files, URIs, audio CDs, DVDs, etc.
 * Backends::            External applications used to play tracks.
-* Buffers::             Playlists and libraries, which hold tracks.
+* Playlists::           Buffers holding tracks to be played.
+* Libraries::           Buffers holding entire media collections.
 @end menu
 
 @node Tracks
 @section Tracks
 
+Bongo is a media player; its job is to play things.  The things that it
+plays are called @dfn{tracks}.  You can have tracks for local audio and
+video files, remote media streams (e.g., radio), and for CDs and DVDs.
+
+There are even tracks that perform arbitrary actions when played
+(@pxref{Action Tracks}).  For example, such tracks are commonly used to
+stop playback at certain points in a playlist.
+
+To insert a local file track into a playlist or library, use @kbd{i}.
+Other kinds can be inserted using @kbd{I} (@pxref{Inserting Tracks}).
 
 @node Backends
 @section Backends
 
+Instead of actually attempting to decode media files to produce sound
+and display video, Bongo relies on external applications to do this.
+The applications it uses for this purpose are called @dfn{backends}.
 
-@node Buffers
-@section Buffers
+The term ``backend'' is used loosely to refer to either an external
+application, or to the glue code in Bongo specific to that application,
+or even to both the application and the glue code seen as a whole.
+This usage is quite natural and does not seem to cause any confusion.
+
+Instances of backends are called @dfn{players}: there may be multiple
+VLC @emph{players} at any given time --- each probably playing a
+different track --- but there is still only one VLC @emph{backend}.
+
+@node Playlists
+@section Playlists
+
+
+@node Libraries
+@section Libraries
 
 
 @node Inserting Tracks
@@ -136,9 +168,8 @@ The following sections describe these basic concepts in turn.
 @menu
 * File Tracks::         Tracks for media files on your local file system.
 * URI Tracks::          Tracks for remote media such as Internet radio.
-* CD Tracks::           Audio tracks representing your local CD player.
-* VCD Tracks::          Video tracks representing your local CD player.
-* DVD Tracks::          Tracks representing your local DVD player.
+* CD Tracks::           Tracks representing audio CDs.
+* DVD Tracks::          Tracks representing DVDs.
 * Action Tracks::       Special tracks for performing actions.
 @end menu
 
@@ -152,10 +183,6 @@ The following sections describe these basic concepts in turn.
 
 @node CD Tracks
 @section CD Tracks
-
-
-@node VCD Tracks
-@section VCD Tracks
 
 
 @node DVD Tracks
@@ -172,8 +199,10 @@ The following sections describe these basic concepts in turn.
 
 @menu
 * Pausing::             Temporarily stopping playback.
-* Seeking::             Rewinding or fast-forwarding within tracks.
-* Volume Control::      Changing the volume of your sound card.
+* Seeking::             Rewinding or fast-forwarding tracks.
+* Playback Modes::      Choosing the order in which tracks are played.
+* Sprinkle Mode::       Keeping playlists populated with random tracks.
+* Volume Control::      Controlling the volume of your sound card.
 * Last.fm::             Submitting song information to Last.fm.
 @end menu
 
@@ -183,6 +212,14 @@ The following sections describe these basic concepts in turn.
 
 @node Seeking
 @section Seeking
+
+
+@node Playback Modes
+@section Playback Modes
+
+
+@node Sprinkle Mode
+@section Sprinkle Mode
 
 
 @node Volume Control
@@ -201,6 +238,10 @@ The following sections describe these basic concepts in turn.
 @chapter Saving and Loading
 
 
+@node Marking Tracks
+@chapter Marking Tracks
+
+
 @node Internals
 @chapter Internals
 
@@ -209,7 +250,7 @@ The following sections describe these basic concepts in turn.
 @chapter Writing Backends
 
 
-@node Copying
+@node GNU GPL
 @appendix GNU General Public License
 @center Version 2, June 1991
 
