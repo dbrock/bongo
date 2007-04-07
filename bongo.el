@@ -659,20 +659,21 @@ When the expressions are evaluated,
  - `bongo-action-description' is bound to the action description;
  - `bongo-action-expression' is bound to the action expression;
  - `bongo-target' is short for `bongo-infoset-formattnig-target';
- - `bongo-line' is short for `bongo-infoset-formattnig-target-line'."
+ - `bongo-line' is short for `bongo-infoset-formatting-target-line'."
   :type '(repeat sexp)
   :group 'bongo-display)
 
-(defcustom bongo-expanded-header-format "[%s]"
-  "Template for displaying header lines for expanded sections.
-%s means the header line content."
-  :type 'string
-  :group 'bongo-display)
-
-(defcustom bongo-collapsed-header-format "[%s ...]"
-  "Template for displaying header lines for collapsed sections.
-%s means the header line content."
-  :type 'string
+(defcustom bongo-track-line-format
+  '((bongo-format-infoset bongo-internal-infoset))
+  "Template for displaying track lines in Bongo.
+Value is a list of expressions, each evaluating to a string or nil.
+The values of the expressions are concatenated.
+When the expressions are evaluated,
+ - `bongo-internal-infoset' is bound to the internal infoset;
+ - `bongo-infoset' is bound to the whole infoset;
+ - `bongo-target' is short for `bongo-infoset-formatting-target';
+ - `bongo-line' is short for `bongo-infoset-formatting-target-line'."
+  :type '(repeat sexp)
   :group 'bongo-display)
 
 (defcustom bongo-display-header-icons t
@@ -680,16 +681,50 @@ When the expressions are evaluated,
   :type 'boolean
   :group 'bongo-display)
 
-(defcustom bongo-expanded-header-icon nil
+(defcustom bongo-expanded-header-icon "expanded-header-icon.png"
   "File name of icon to use for header lines of expanded sections.
 If nil, do not use any icon."
   :type '(choice file (const :tag "None" nil))
   :group 'bongo-display)
 
-(defcustom bongo-collapsed-header-icon nil
+(defcustom bongo-collapsed-header-icon "collapsed-header-icon.png"
   "File name of icon to use for header lines of collapsed sections.
 If nil, do not use any icon."
   :type '(choice file (const :tag "None" nil))
+  :group 'bongo-display)
+
+(defcustom bongo-expanded-header-format "[%s]"
+  "Template for displaying header lines for expanded sections.
+%s means the header line content.
+This variable is only used when not displaying header icons."
+  :type 'string
+  :group 'bongo-display)
+
+(defcustom bongo-collapsed-header-format "[%s ...]"
+  "Template for displaying header lines for collapsed sections.
+%s means the header line content.
+This variable is only used when not displaying header icons."
+  :type 'string
+  :group 'bongo-display)
+
+(defcustom bongo-header-line-format
+  '((if (and bongo-display-header-icons (display-images-p))
+        (bongo-format-infoset bongo-internal-infoset)
+      (format (if bongo-collapsed
+                  bongo-collapsed-header-format
+                bongo-expanded-header-format)
+              (bongo-format-infoset bongo-internal-infoset))))
+  "Template for displaying header lines in Bongo.
+Value is a list of expressions, each evaluating to a string or nil.
+The values of the expressions are concatenated.
+When the expressions are evaluated,
+ - `bongo-internal-infoset' is bound to the internal infoset;
+ - `bongo-infoset' is bound to the whole infoset;
+ - `bongo-collapsed' is non-nil if the section is collapsed;
+ - `bongo-target' is short for `bongo-infoset-formatting-target';
+ - `bongo-line' is short for `bongo-infoset-formatting-target-line'.
+The values of the expressions are concatenated."
+  :type '(repeat sexp)
   :group 'bongo-display)
 
 (defcustom bongo-indentation-string "  "
@@ -781,13 +816,7 @@ If nil, use the same icon as for unplayed tracks."
 (defun bongo-line-icon-string ()
   "Return the string to use as an icon for the current line."
   (let ((file-name
-         (cond ((and (bongo-header-line-p)
-                     bongo-display-header-icons)
-                (if (bongo-collapsed-header-line-p)
-                    bongo-collapsed-header-icon
-                  bongo-expanded-header-icon))
-               ((and (bongo-track-line-p)
-                     bongo-display-track-icons)
+         (cond ((and (bongo-track-line-p) bongo-display-track-icons)
                 (cond ((and (bongo-currently-playing-track-line-p)
                             bongo-currently-playing-track-icon)
                        bongo-currently-playing-track-icon)
@@ -807,7 +836,11 @@ If nil, use the same icon as for unplayed tracks."
                        (or bongo-local-video-file-track-icon
                            bongo-unknown-local-file-track-icon))
                       ((bongo-local-file-track-line-p)
-                       bongo-unknown-local-file-track-icon))))))
+                       bongo-unknown-local-file-track-icon)))
+               ((and (bongo-header-line-p) bongo-display-header-icons)
+                (if (bongo-collapsed-header-line-p)
+                    bongo-collapsed-header-icon
+                  bongo-expanded-header-icon)))))
     (when file-name
       (bongo-make-image-string (bongo-find-image file-name)))))
 
@@ -1748,16 +1781,6 @@ This is used by `bongo-default-format-infoset'."
 
 
 ;;;; Infoset- and field-related functions
-
-(defun bongo-format-header (content collapsed-flag)
-  "Decorate CONTENT so as to make it look like a header.
-If COLLAPSED-FLAG is non-nil, assume the section is collapsed.
-
-This function uses `bongo-expanded-header-format'
-and `bongo-collapsed-header-format'."
-  (format (if collapsed-flag
-              bongo-collapsed-header-format
-            bongo-expanded-header-format) content))
 
 (defun bongo-format-infoset (infoset)
   "Represent INFOSET as a user-friendly string.
@@ -7497,19 +7520,12 @@ including the terminating newline character."
       (bongo-skip-invisible))
     (let ((inhibit-read-only t)
           (line-move-ignore-invisible nil)
-          (indentation (bongo-line-indentation))
-          (infoset (bongo-line-internal-infoset))
-          (header (bongo-header-line-p))
-          (collapsed (bongo-collapsed-header-line-p))
-          (invisible (bongo-line-get-property 'invisible))
-          (currently-playing (bongo-currently-playing-track-line-p))
-          (played (bongo-played-track-line-p))
-          (marked (bongo-marked-track-line-p))
-          (properties (bongo-line-get-semantic-properties)))
-      (bongo-clear-line)
-      (bongo-line-set-properties properties)
+          (invisible (bongo-line-get-property 'invisible)))
+      (let ((properties (bongo-line-get-semantic-properties)))
+        (bongo-clear-line)
+        (bongo-line-set-properties properties))
       (insert (bongo-format-string bongo-track-mark-format))
-      (dotimes (dummy indentation)
+      (dotimes (dummy (bongo-line-indentation))
         (insert bongo-indentation-string))
       (let ((icon-string (bongo-line-icon-string)))
         (when icon-string
@@ -7518,19 +7534,29 @@ including the terminating newline character."
               (current-buffer))
              (bongo-infoset-formatting-target-line
               (bongo-point-before-line))
+             (bongo-infoset
+              (bongo-line-infoset))
+             (bongo-internal-infoset
+              (bongo-filter-alist (bongo-line-internal-fields)
+                                  bongo-infoset))
+             (header (bongo-header-line-p))
              (content
-              (propertize (bongo-format-infoset infoset)
-                          'follow-link t 'mouse-face 'highlight)))
-        (if header
-            (setq content (bongo-format-header content collapsed))
-          (cond (currently-playing
+              (propertize
+               (if header
+                   (let ((bongo-collapsed
+                          (bongo-collapsed-header-line-p)))
+                     (bongo-format-string bongo-header-line-format))
+                 (bongo-format-string bongo-track-line-format))
+               'follow-link t 'mouse-face 'highlight)))
+        (when (not header)
+          (cond ((bongo-currently-playing-track-line-p)
                  (bongo-facify content 'bongo-currently-playing-track))
-                (played
+                ((bongo-played-track-line-p)
                  (bongo-facify content 'bongo-played-track)))
-          (cond (marked
+          (cond ((bongo-marked-track-line-p)
                  (bongo-facify content 'bongo-marked-track))))
         (insert content))
-      (when marked
+      (when (bongo-marked-track-line-p)
         (let ((bongo-facify-below-existing-faces t))
           (bongo-facify-current-line 'bongo-marked-track-line)))
       (when invisible
