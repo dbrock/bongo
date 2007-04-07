@@ -707,7 +707,7 @@ This variable is only used when not displaying header icons."
   :type 'string
   :group 'bongo-display)
 
-(defcustom bongo-header-line-format
+(defcustom bongo-section-header-line-format
   '((if (and bongo-display-header-icons (display-images-p))
         (bongo-format-infoset bongo-internal-infoset)
       (format (if bongo-collapsed
@@ -7545,7 +7545,7 @@ including the terminating newline character."
                (if header
                    (let ((bongo-collapsed
                           (bongo-collapsed-header-line-p)))
-                     (bongo-format-string bongo-header-line-format))
+                     (bongo-format-string bongo-section-header-line-format))
                  (bongo-format-string bongo-track-line-format))
                'follow-link t 'mouse-face 'highlight)))
         (when (not header)
