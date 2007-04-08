@@ -51,9 +51,6 @@
 ;; Customizing `bongo-header-line-mode' should have
 ;; immediate effect on existing Bongo playlist buffers.
 
-;; Fix bug related to collapsing the section containing the
-;; currently playing track.
-
 ;; Implement scrolling for the header line.
 
 ;; Better error messages when players fail.
