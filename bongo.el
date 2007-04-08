@@ -4279,7 +4279,10 @@ point to nowhere, and another marker assumes its role instead.")
 As soon as another track starts playing, this marker is set to
 point to nowhere.")
 (make-variable-buffer-local 'bongo-stopped-track-marker)
-(put 'bongo-stopped-track-marker 'overlay-arrow-bitmap 'filled-square)
+(put 'bongo-stopped-track-marker 'overlay-arrow-bitmap
+     (ecase (bongo-fringe-icon-size)
+       (11 'bongo-stopped-11)
+       (18 'bongo-stopped-18)))
 
 (defcustom bongo-player-process-priority nil
   "The desired scheduling priority of Bongo player processes.
@@ -5899,7 +5902,41 @@ or that of the last played track if no track is currently playing.")
        "..####....####.."
        "................"
        "................"))
-    18 16))
+    18 16)
+
+  (define-fringe-bitmap 'bongo-stopped-18
+    (bongo-fringe-bitmap-from-strings
+     '("................"
+       "................"
+       "................"
+       "..############.."
+       "..############.."
+       "..############.."
+       "..############.."
+       "..############.."
+       "..############.."
+       "..############.."
+       "..############.."
+       "..############.."
+       "..############.."
+       "..############.."
+       "..############.."
+       "................"
+       "................"
+       "................"))
+    18 16)
+
+  (define-fringe-bitmap 'bongo-stopped-11
+    (bongo-fringe-bitmap-from-strings
+     '("........"
+       ".######."
+       ".######."
+       ".######."
+       ".######."
+       ".######."
+       ".######."
+       ".######."
+       "........"))))
 
 (defvar bongo-queued-track-marker nil
   "Marker pointing at the queued track, if any.
