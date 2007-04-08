@@ -46,8 +46,6 @@
 ;; Implement `bongo-file-name-roots' so that forcer can try
 ;; out Bongo. :-)
 
-;; Fix `E' when the playing song is not in the playlist.
-
 ;; Customizing `bongo-header-line-mode' should have
 ;; immediate effect on existing Bongo playlist buffers.
 
@@ -8018,13 +8016,14 @@ If MODE is `append', append TEXT to the end of the playlist."
   (let ((insertion-point
          (with-current-buffer (bongo-playlist-buffer)
            (save-excursion
-             (ecase mode
-               (insert (if (bongo-point-at-current-track-line)
-                           (bongo-goto-point
-                            (bongo-point-after-line
-                             (bongo-point-at-current-track-line)))
-                         (goto-char (point-min))))
-               (append (goto-char (point-max))))
+             (goto-char
+              (ecase mode
+                (insert (or (and (bongo-point-at-current-track-line)
+                                 (bongo-point-after-line
+                                  (bongo-point-at-current-track-line)))
+                            (bongo-point-at-first-track-line)
+                            (point-max)))
+                (append (point-max))))
              (prog1 (point)
                (remove-text-properties
                 0 (length text)
