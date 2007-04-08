@@ -2836,9 +2836,10 @@ See `bongo-line-proposed-external-fields'."
   "Mark the current track line as played.
 If there is no current track line, do nothing."
   (catch 'abort
-    (bongo-mark-line-as-played
-     (or (bongo-point-at-current-track-line)
-         (throw 'abort nil)))))
+    (let ((line-move-ignore-invisible nil))
+      (bongo-mark-line-as-played
+       (or (bongo-point-at-current-track-line)
+           (throw 'abort nil))))))
 
 (defun bongo-track-lines-exist-p ()
   "Return non-nil if the buffer contains any track lines.
@@ -5787,7 +5788,8 @@ or that of the last played track if no track is currently playing.")
 
 (defun bongo-point-at-current-track-line ()
   (when bongo-current-track-marker
-    (let ((position (marker-position bongo-current-track-marker)))
+    (let ((position (marker-position bongo-current-track-marker))
+          (line-move-ignore-invisible nil))
       (and (bongo-track-line-p position) position))))
 
 (bongo-define-obsolete-function-alias
@@ -6414,7 +6416,8 @@ CALLED-INTERACTIVELY-P is non-nil when called interactively."
   (interactive (list 'called-interactively-p))
   (with-bongo-playlist-buffer
     (unless (bongo-playing-p)
-      (let ((position (bongo-point-at-current-track-line)))
+      (let ((position (bongo-point-at-current-track-line))
+            (line-move-ignore-invisible nil))
         (cond ((null position)
                (case bongo-next-action
                  ((bongo-play-next bongo-play-next-or-stop)
@@ -7553,11 +7556,9 @@ including the terminating newline character."
   "Redisplay the line at POINT, preserving semantic text properties."
   (save-excursion
     (bongo-goto-point point)
-    (when line-move-ignore-invisible
-      (bongo-skip-invisible))
-    (let ((inhibit-read-only t)
-          (line-move-ignore-invisible nil)
-          (invisible (bongo-line-get-property 'invisible)))
+    (let* ((inhibit-read-only t)
+           (line-move-ignore-invisible nil)
+           (invisible (bongo-line-get-property 'invisible)))
       (let ((properties (bongo-line-get-semantic-properties)))
         (bongo-clear-line)
         (bongo-line-set-properties properties))
