@@ -1,6 +1,12 @@
 Bongo NEWS file listing user-visible changes.
 This file is in the public domain.
 
+April 9, 2007
+
+ * Bongo now displays any metadata provided by streaming
+   media servers (such as what's currently being played).
+   This is enabled by default but only available for VLC.
+
 April 5, 2007
 
  * Bongo Sprinkle mode now sets `bongo-mark-played-tracks',
