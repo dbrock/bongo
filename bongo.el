@@ -34,9 +34,6 @@
 
 ;;; TODO:
 
-;; Better support for streaming media.  Bongo should be able
-;; to parse metadata provided by streaming media servers.
-
 ;; Shuffle operations.  It would be nice to have both a
 ;; random shuffle operation and an interleaving
 ;; enqueue operation.
@@ -653,7 +650,27 @@ The values of the expressions are concatenated.
 When the expressions are evaluated,
  - `bongo-action-description' is bound to the action description;
  - `bongo-action-expression' is bound to the action expression;
- - `bongo-target' is short for `bongo-infoset-formattnig-target';
+ - `bongo-target' is short for `bongo-infoset-formatting-target';
+ - `bongo-line' is short for `bongo-infoset-formatting-target-line'."
+  :type '(repeat sexp)
+  :group 'bongo-display)
+
+(defcustom bongo-stream-format
+  '((or bongo-uri-title bongo-stream-name bongo-uri)
+    (when bongo-stream-genre
+      (concat " (" bongo-stream-genre ")"))
+    (when bongo-stream-part-title
+      (concat ": " bongo-stream-part-title)))
+  "Template for displaying stream tracks in Bongo.
+Value is a list of expressions, each evaluating to a string or nil.
+The values of the expressions are concatenated.
+When the expressions are evaluated,
+ - `bongo-uri' is bound to the URI of the stream;
+ - `bongo-uri-title' is bound to the URI title or nil;
+ - `bongo-stream-name' is bound to the stream name or nil;
+ - `bongo-stream-genre' is bound to the stream genre or nil;
+ - `bongo-stream-part-title' is bound to the stream part title;
+ - `bongo-target' is short for `bongo-infoset-formatting-target';
  - `bongo-line' is short for `bongo-infoset-formatting-target-line'."
   :type '(repeat sexp)
   :group 'bongo-display)
@@ -1853,11 +1870,13 @@ each field and separates the obtained field values using
      ((album)
       ;; These variables are used in `bongo-album-format',
       ;; so their names are significant.
-      (let* ((bongo-title (propertize (bongo-alist-get data 'title)
-                                      'face 'bongo-album-title))
-             (bongo-year (when (bongo-alist-get data 'year)
-                           (propertize (bongo-alist-get data 'year)
-                                       'face 'bongo-album-year)))
+      (let* ((bongo-title
+              (propertize (bongo-alist-get data 'title)
+                          'face 'bongo-album-title))
+             (bongo-year
+              (when (bongo-alist-get data 'year)
+                (propertize (bongo-alist-get data 'year)
+                            'face 'bongo-album-year)))
              (bongo-artist data))
         (if (listp bongo-album-format)
             (bongo-format-string bongo-album-format)
@@ -1870,13 +1889,16 @@ each field and separates the obtained field values using
      ((track)
       ;; These variables are used in `bongo-track-format',
       ;; so their names are significant.
-      (let* ((bongo-title (propertize (bongo-alist-get data 'title)
-                                      'face 'bongo-track-title))
-             (bongo-index (when (bongo-alist-get data 'index)
-                            (propertize (bongo-alist-get data 'index)
-                                        'face 'bongo-track-index)))
+      (let* ((bongo-title
+              (propertize (bongo-alist-get data 'title)
+                          'face 'bongo-track-title))
+             (bongo-index
+              (when (bongo-alist-get data 'index)
+                (propertize (bongo-alist-get data 'index)
+                            'face 'bongo-track-index)))
              (bongo-track data)
-             (bongo-length (bongo-alist-get data 'length))
+             (bongo-length
+              (bongo-alist-get data 'length))
              (length-string
               (when bongo-length
                 (bongo-format-string bongo-track-length-format)))
@@ -1891,7 +1913,31 @@ each field and separates the obtained field values using
             (require 'format-spec)
             (format-spec bongo-track-format `((?t . ,bongo-title)
                                               (?i . ,bongo-index)))))))
+     ((stream)
+      ;; These variables are used in `bongo-stream-format',
+      ;; so their names are significant.
+      (let ((bongo-uri
+             (propertize (bongo-alist-get data 'uri)
+                         'face 'bongo-album-title))
+            (bongo-uri-title
+             (when (bongo-alist-get data 'uri-title)
+               (propertize (bongo-alist-get data 'uri-title)
+                           'face 'bongo-album-title)))
+            (bongo-stream-name
+             (when (bongo-alist-get data 'name)
+               (propertize (bongo-alist-get data 'name)
+                           'face 'bongo-album-title)))
+            (bongo-stream-genre
+             (when (bongo-alist-get data 'genre)
+               (bongo-alist-get data 'genre)))
+            (bongo-stream-part-title
+             (when (bongo-alist-get data 'part-title)
+               (propertize (bongo-alist-get data 'part-title)
+                           'face 'bongo-track-title))))
+        (bongo-format-string bongo-stream-format)))
      ((action)
+      ;; These variables are used in `bongo-action-format',
+      ;; so their names are significant.
       (let ((bongo-action-expression data)
             (bongo-action-description
              (let ((description-specifier
@@ -2591,8 +2637,40 @@ If there are no sections or tracks before POINT, return nil."
         (bongo-point-at-bol)
       (bongo-point-at-previous-track-line))))
 
-(defun bongo-infoset-from-action (action)
-  `((action . ,action)))
+(defun bongo-uri-track-infoset (&optional point)
+  "Return the infoset for the URI track at POINT.
+You should use `bongo-line-infoset' most of the time."
+  (let ((file-name
+         (bongo-line-file-name point))
+        (uri-title
+         (bongo-line-get-property 'bongo-uri-title point))
+        (stream-name
+         (bongo-line-get-property 'bongo-stream-name point))
+        (stream-genre
+         (bongo-line-get-property 'bongo-stream-genre point))
+        (stream-part-title
+         (let ((player (bongo-line-get-property 'bongo-player point)))
+           (and player (bongo-player-running-p player)
+                (bongo-player-get player 'stream-part-title)))))
+    (cond ((or stream-name stream-genre stream-part-title)
+           `((artist . unknown)
+             (album . unknown)
+             (stream (uri . ,file-name)
+                     (uri-title . ,uri-title)
+                     (name . ,stream-name)
+                     (genre . ,stream-genre)
+                     (part-title . ,stream-part-title))))
+          (uri-title
+           `((artist . unknown)
+             (album . unknown)
+             (track (title . ,uri-title))))
+          (t
+           (bongo-infoset-from-file-name file-name)))))
+
+(defun bongo-action-track-infoset (&optional point)
+  "Return the infoset for the action track at POINT.
+You should use `bongo-line-infoset' most of the time."
+  `((action . ,(bongo-line-action point))))
 
 (defun bongo-track-infoset (&optional point)
   "Return the infoset for the track at POINT.
@@ -2600,10 +2678,13 @@ You should use `bongo-line-infoset' most of the time."
   (unless (bongo-track-line-p point)
     (error "Point is not on a track line"))
   (or (bongo-line-get-property 'bongo-infoset point)
-      (cond ((bongo-line-file-name point)
-             (bongo-infoset-from-file-name (bongo-line-file-name point)))
-            ((bongo-line-action point)
-             (bongo-infoset-from-action (bongo-line-action point))))))
+      (let (file-name)
+        (cond ((setq file-name (bongo-line-file-name point))
+               (if (bongo-uri-p file-name)
+                   (bongo-uri-track-infoset point)
+                 (bongo-infoset-from-file-name file-name)))
+              ((bongo-line-action point)
+               (bongo-action-track-infoset))))))
 
 (defun bongo-header-infoset (&optional point)
   "Return the infoset for the header at POINT.
@@ -3071,8 +3152,9 @@ Actually only look at the terminating newline."
 (defvar bongo-line-semantic-properties
   ;; When changing this, consider also changing
   ;; `bongo-line-serializable-properties'.
-  (list 'bongo-file-name 'bongo-action
-        'bongo-infoset 'bongo-backend
+  (list 'bongo-file-name 'bongo-action 'bongo-backend
+        'bongo-infoset 'bongo-uri-title
+        'bongo-stream-name 'bongo-stream-genre
         'bongo-fields 'bongo-external-fields
         'bongo-header 'bongo-collapsed
         'bongo-marked 'bongo-reference-counted-marker
@@ -3097,6 +3179,7 @@ The text property will only be set for the terminating newline."
         (position (bongo-point-at-eol point)))
     (bongo-ensure-final-newline)
     (put-text-property position (1+ position) name value)))
+(put 'bongo-line-set-property 'lisp-indent-function 1)
 
 (defun bongo-line-set-properties (properties &optional point)
   "Set the text properties PROPERTIES on the line at POINT.
@@ -3503,7 +3586,7 @@ The reference-counted marker is a pair (MARKER . REFERENCE-COUNT)."
              (reference-counted-marker (cons marker 1)))
         (prog1 reference-counted-marker
           (bongo-line-set-property 'bongo-reference-counted-marker
-                                   reference-counted-marker point))))))
+            reference-counted-marker point))))))
 
 (defun bongo-unreference-line-marker (&optional point)
   "Decrease the reference count of the marker for line at POINT.
@@ -4523,6 +4606,44 @@ By ``one of the times'' is meant elapsed time or total time.")
     (when (bufferp bongo-seek-buffer)
       (bongo-seek-redisplay))))
 
+(defcustom bongo-player-metadata-changed-hook '(bongo-show)
+  "Normal hook run when a Bongo player receives new metadata."
+  :options '(bongo-show)
+  :type 'hook
+  :group 'bongo)
+
+(defvar bongo-player-metadata-changed-functions nil
+  "Abnormal hook run when a Bongo player receives new metadata.")
+
+(defun bongo-player-metadata-changed (player)
+  "Take actions appropriate for when PLAYER's metadata changed.
+Changing metadata is provided by some Internet radio streams.
+This function runs the hooks `bongo-player-metadata-changed-hook'
+  and `bongo-player-metadata-changed-functions'.
+The following metadata properties are currently used:
+  `stream-name'        - The name of the stream.
+  `stream-genre'       - The genre of the stream.
+  `stream-part-title'  - The title of the part that is
+                         currently being streamed."
+  (save-current-buffer
+    (when (buffer-live-p (bongo-player-buffer player))
+      (set-buffer (bongo-player-buffer player)))
+    (run-hook-with-args 'bongo-player-metadata-changed-functions player)
+    (when (bongo-buffer-p)
+      (save-excursion
+        (goto-char (bongo-point-at-current-track-line))
+        (bongo-line-set-property 'bongo-stream-name
+          (bongo-player-get player 'stream-name))
+        (bongo-line-set-property 'bongo-stream-genre
+          (bongo-player-get player 'stream-genre))
+        (bongo-player-put player 'infoset (bongo-line-infoset))
+        (when bongo-header-line-mode
+          (bongo-update-header-line-string))
+        (when bongo-mode-line-indicator-mode
+          (bongo-update-mode-line-indicator-string))
+        (bongo-redisplay-line))
+      (run-hooks 'bongo-player-metadata-changed-hook))))
+
 (defun bongo-player-backend-name (player)
   "Return the name of PLAYER's backend."
   (car player))
@@ -5243,49 +5364,99 @@ These will come at the end or right before the file name, if any."
         (with-temp-buffer
           (insert string)
           (goto-char (point-min))
-          (while (not (eobp))
-            (cond
-             ((looking-at (eval-when-compile
-                            (rx (and line-start
-                                     "status change:"
-                                     (zero-or-more (or space "("))
-                                     "play state:"
-                                     (zero-or-more space)
-                                     (submatch (one-or-more digit))
-                                     (zero-or-more (or space ")"))
-                                     line-end))))
-              (case (string-to-number (match-string 1))
-                ((1 3)
-                 (bongo-player-put player 'paused nil)
-                 (bongo-player-paused/resumed player)
-                 (when (null (bongo-player-get player 'timer))
-                   (bongo-vlc-player-start-timer player)))
-                ((2 4)
-                 (bongo-player-put player 'paused t)
-                 (bongo-player-paused/resumed player))))
-             ((looking-at (eval-when-compile
-                            (rx (and line-start
-                                     (optional
-                                      (and "[" (zero-or-more digit) "]"))
-                                     (zero-or-more space)
-                                     "main playlist: nothing to play"
-                                     line-end))))
-              (process-send-string process "quit\n"))
-             ((looking-at (eval-when-compile
-                            (rx (and line-start
-                                     (submatch (one-or-more digit))
-                                     (zero-or-more space)
-                                     line-end))))
-              (when (bongo-player-get player 'pending-queries)
-                (let ((value (string-to-number (match-string 1))))
-                  (ecase (bongo-player-shift player 'pending-queries)
-                    (time
-                     (bongo-player-update-elapsed-time player value)
-                     (bongo-player-times-changed player))
-                    (length
-                     (bongo-player-update-total-time player value)
-                     (bongo-player-times-changed player)))))))
-            (forward-line))))
+          (let (stream-name stream-genre stream-part-title)
+            (while (not (eobp))
+              (cond ((looking-at
+                      (eval-when-compile
+                        (rx (and line-start
+                                 "status change:"
+                                 (zero-or-more (or space "("))
+                                 "play state:"
+                                 (zero-or-more space)
+                                 (submatch (one-or-more digit))
+                                 (zero-or-more (or space ")"))
+                                 line-end))))
+                     (case (string-to-number (match-string 1))
+                       ((1 3)
+                        (bongo-player-put player 'paused nil)
+                        (bongo-player-paused/resumed player)
+                        (when (null (bongo-player-get player 'timer))
+                          (bongo-vlc-player-start-timer player)))
+                       ((2 4)
+                        (bongo-player-put player 'paused t)
+                        (bongo-player-paused/resumed player))))
+                    ((looking-at
+                      (eval-when-compile
+                        (rx (and line-start
+                                 (optional
+                                  (and "[" (zero-or-more digit) "]"))
+                                 (zero-or-more space)
+                                 "main input debug:"
+                                 (zero-or-more space)
+                                 "- 'Title' = '"
+                                 (submatch (zero-or-more not-newline))
+                                 "'"
+                                 line-end))))
+                     (setq stream-name (match-string 1)))
+                    ((looking-at
+                      (eval-when-compile
+                        (rx (and line-start
+                                 (optional
+                                  (and "[" (zero-or-more digit) "]"))
+                                 (zero-or-more space)
+                                 "main input debug:"
+                                 (zero-or-more space)
+                                 "- 'Genre' = '"
+                                 (submatch (zero-or-more not-newline))
+                                 "'"
+                                 line-end))))
+                     (setq stream-genre (match-string 1)))
+                    ((looking-at
+                      (eval-when-compile
+                        (rx (and line-start
+                                 (optional
+                                  (and "[" (zero-or-more digit) "]"))
+                                 (zero-or-more space)
+                                 "main input debug:"
+                                 (zero-or-more space)
+                                 "- 'Now Playing' = '"
+                                 (submatch (zero-or-more not-newline))
+                                 "'"
+                                 line-end))))
+                     (setq stream-part-title (match-string 1)))
+                    ((looking-at
+                      (eval-when-compile
+                        (rx (and line-start
+                                 (optional
+                                  (and "[" (zero-or-more digit) "]"))
+                                 (zero-or-more space)
+                                 "main playlist: nothing to play"
+                                 line-end))))
+                     (process-send-string process "quit\n"))
+                    ((looking-at
+                      (eval-when-compile
+                        (rx (and line-start
+                                 (submatch (one-or-more digit))
+                                 (zero-or-more space)
+                                 line-end))))
+                     (when (bongo-player-get player 'pending-queries)
+                       (let ((value (string-to-number (match-string 1))))
+                         (ecase (bongo-player-shift player 'pending-queries)
+                           (time
+                            (bongo-player-update-elapsed-time player value)
+                            (bongo-player-times-changed player))
+                           (length
+                            (bongo-player-update-total-time player value)
+                            (bongo-player-times-changed player)))))))
+              (forward-line))
+            (when stream-name
+              (bongo-player-put player 'stream-name stream-name))
+            (when stream-genre
+              (bongo-player-put player 'stream-genre stream-genre))
+            (when stream-part-title
+              (bongo-player-put player 'stream-part-title stream-part-title))
+            (when (or stream-name stream-genre stream-part-title)
+              (bongo-player-metadata-changed player)))))
     ;; Getting errors in process filters is not fun, so stop.
     (error (bongo-stop)
            (signal (car condition) (cdr condition)))))
@@ -5295,6 +5466,8 @@ These will come at the end or right before the file name, if any."
          (arguments (append
                      (when bongo-vlc-interactive
                        (append (list "-I" "rc" "--rc-fake-tty")
+                               (when (bongo-uri-p file-name)
+                                 (list "-vv"))
                                (when (eq window-system 'w32)
                                  (list "--rc-quiet"))))
                      (bongo-evaluate-program-arguments
@@ -7075,10 +7248,8 @@ Optional argument TITLE specifies a custom title for the URI."
      (list uri title)))
   (with-bongo-buffer
     (apply 'bongo-insert-line 'bongo-file-name uri
-           (when title
-             (list 'bongo-infoset `((artist . unknown)
-                                    (album . unknown)
-                                    (track (title . ,title)))))))
+           (when (and title (not (equal title "")))
+             (list 'bongo-uri-title title))))
   (when (and (interactive-p) (not (bongo-buffer-p)))
     (message "Inserted URI: %s"
              (bongo-format-infoset
@@ -8367,21 +8538,20 @@ This function uses `bongo-update-references-to-renamed-files'."
 NEW-URI is the new URI; NEW-TITLE, if non-nil, is the new title."
   (interactive
    (when (bongo-uri-track-line-p)
-     (list (read-from-minibuffer "Change URI to: " (bongo-line-file-name))
-           (let ((old-title
-                  (cdr (assq 'title
-                             (cdr (assq 'track
-                                        (bongo-line-infoset)))))))
-             (read-from-minibuffer "Change URI title to: " old-title)))))
+     (list (read-from-minibuffer
+            "Change URI to: " (bongo-line-file-name))
+           (read-from-minibuffer
+            "Change URI title to: "
+            (or (bongo-line-get-property 'bongo-uri-title)
+                (bongo-line-get-property 'bongo-stream-name))))))
   (with-point-at-bongo-track point
     (when (not (bongo-uri-track-line-p))
       (error "No URI track at point"))
     (bongo-line-set-property 'bongo-file-name new-uri)
     (when new-title
-      (bongo-line-set-property 'bongo-infoset
-                               `((artist . unknown)
-                                 (album . unknown)
-                                 (track (title . ,new-title)))))
+      (if (equal new-title "")
+          (bongo-line-remove-property 'bongo-uri-title)
+        (bongo-line-set-property 'bongo-uri-title new-title)))
     (bongo-redisplay-line)))
 
 (defun bongo-rename-action-track (new-action &optional point)
@@ -8486,8 +8656,9 @@ instead, use high-level functions such as `find-file'."
 (defvar bongo-line-serializable-properties
   ;; When changing this, consider also changing
   ;; `bongo-line-semantic-properties'.
-  (list 'bongo-file-name 'bongo-action
-        'bongo-infoset 'bongo-backend
+  (list 'bongo-file-name 'bongo-action 'bongo-backend
+        'bongo-infoset 'bongo-uri-title
+        'bongo-stream-name 'bongo-stream-genre
         'bongo-fields 'bongo-external-fields
         'bongo-header 'bongo-collapsed)
   "List of serializable text properties used in Bongo buffers.
