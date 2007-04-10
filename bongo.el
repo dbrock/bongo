@@ -6217,28 +6217,32 @@ of `bongo-next-action' and set the latter to `bongo-play-queued'."
 If there is no track at POINT, play the first track after POINT or
 signal an error if there is no track after POINT."
   (interactive "d")
-  (unless (bongo-playlist-buffer-p)
-    (error "Not a Bongo playlist buffer"))
-  (with-imminent-bongo-player-start
-    (with-point-at-bongo-track point
-      (when bongo-player
-        (bongo-player-stop bongo-player))
-      (bongo-set-current-track-position)
-      (let ((player (if (bongo-action-track-line-p)
-                        (bongo-start-action-player (bongo-line-action))
-                      (bongo-play-file
-                       (bongo-line-file-name)
-                       (bongo-line-get-property 'bongo-backend)))))
-        (bongo-player-put player 'infoset (bongo-line-infoset))
-        (setq bongo-player player)
-        (bongo-line-set-property 'bongo-player player)
-        (bongo-set-current-track-marker bongo-playing-track-marker)
-        (when bongo-header-line-mode
-          (bongo-update-header-line-string))
-        (when bongo-mode-line-indicator-mode
-          (bongo-update-mode-line-indicator-string))
-        (run-hooks 'bongo-player-started-hook)
-        (bongo-redisplay-line)))))
+  (save-excursion
+    (bongo-goto-point point)
+    (cond ((bongo-playlist-buffer-p)
+           (with-imminent-bongo-player-start
+             (when bongo-player
+               (bongo-player-stop bongo-player))
+             (bongo-set-current-track-position)
+             (let ((player (if (bongo-action-track-line-p)
+                               (bongo-start-action-player
+                                (bongo-line-action))
+                             (bongo-play-file
+                              (bongo-line-file-name)
+                              (bongo-line-get-property 'bongo-backend)))))
+               (bongo-player-put player 'infoset (bongo-line-infoset))
+               (setq bongo-player player)
+               (bongo-line-set-property 'bongo-player player)
+               (bongo-set-current-track-marker bongo-playing-track-marker)
+               (when bongo-header-line-mode
+                 (bongo-update-header-line-string))
+               (when bongo-mode-line-indicator-mode
+                 (bongo-update-mode-line-indicator-string))
+               (run-hooks 'bongo-player-started-hook)
+               (bongo-redisplay-line))))
+          ((bongo-library-buffer-p)
+           (bongo-play-lines))
+          (t (error "Not a Bongo buffer")))))
 
 (defun bongo-play-lines (&optional n)
   "Start playing the next N tracks or sections.
@@ -6246,7 +6250,11 @@ If N is nil, just start playing the track at point.
 Otherwise, start playing the track at point and stop after N tracks.
 In Bongo Library mode, enqueue and play in the nearest playlist."
   (interactive "P")
-  (cond ((bongo-library-buffer-p)
+  (cond ((bongo-playlist-buffer-p)
+         (when (not (null n))
+           (bongo-stop (prefix-numeric-value n)))
+         (bongo-play-line))
+        ((bongo-library-buffer-p)
          (let ((position (if (bongo-playing-p)
                              (bongo-insert-enqueue-line
                               (prefix-numeric-value n))
@@ -6254,10 +6262,6 @@ In Bongo Library mode, enqueue and play in the nearest playlist."
                             (prefix-numeric-value n)))))
            (with-bongo-playlist-buffer
              (bongo-play-line position))))
-        ((bongo-playlist-buffer-p)
-         (when (not (null n))
-           (bongo-stop (prefix-numeric-value n)))
-         (bongo-play-line))
         (t (error "Not a Bongo buffer"))))
 
 (defun bongo-play-region (beg end)
