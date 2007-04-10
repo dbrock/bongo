@@ -1,6 +1,17 @@
 Bongo NEWS file listing user-visible changes.
 This file is in the public domain.
 
+April 11, 2007
+
+ * There is a new binding for playing stuff: `g'.  It plays
+   the next N tracks, given a prefix argument N, or the
+   tracks in the region, if the region is active, or the
+   marked tracks, if any, or the track at point otherwise.
+
+   The `RET' command is unchanged; it still plays the track
+   under point, or the next N tracks with a prefix argument.
+   (Note that `RET' never plays, e.g., all marked tracks.)
+
 April 10, 2007
 
  * You may now bring up a context menu of useful commands by
