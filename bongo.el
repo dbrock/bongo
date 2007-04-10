@@ -8221,8 +8221,7 @@ If MODE is `append', append TEXT to the end of the playlist."
             (recenter))
           (select-window original-window))))))
 
-;;; The following functions ignore point and operate on all
-;;; tracks in a given region.
+;;; These functions operate on all tracks in a given region.
 
 (defun bongo-enqueue-region (mode beg end)
   "Insert the tracks between BEG and END into the Bongo playlist.
@@ -8276,10 +8275,31 @@ The region is all track lines between BEG and END."
   (interactive "r")
   (bongo-enqueue-region 'append beg end))
 
-;;; The following functions operate on a given number of
-;;; tracks or sections right after point.
+;;; These functions operate on an explicitly specified line.
 
-(defun bongo-enqueue-line (mode &optional n skip)
+(defun bongo-enqueue-line (mode &optional point)
+  "Insert the track or section at POINT into the Bongo playlist.
+If MODE is `insert', insert just below the current track.
+If MODE is `append', append to the end of the playlist.
+Return the playlist position of the newly-inserted text."
+  (save-excursion
+    (bongo-goto-point point)
+    (bongo-enqueue-lines mode)))
+
+(defun bongo-insert-enqueue-line (&optional point)
+  "Insert the track or section at POINT just below the current track.
+Return the playlist position of the newly-inserted text."
+  (bongo-enqueue-line 'insert point))
+
+(defun bongo-append-enqueue-line (&optional point)
+  "Append the track or section at POINT to the Bongo playlist buffer.
+Return the playlist position of the newly-inserted text."
+  (bongo-enqueue-line 'append point))
+
+;;; These functions operate on a given number of tracks or
+;;; sections right after point.
+
+(defun bongo-enqueue-lines (mode &optional n skip)
   "Insert the next N tracks or sections into the Bongo playlist.
 Afterwards, if SKIP is non-nil, move point past the enqueued objects.
 If MODE is `insert', insert just below the current track.
@@ -8299,25 +8319,25 @@ Return the playlist position of the newly-inserted text."
         (goto-char beg))
       (bongo-enqueue-region mode (min beg end) (max beg end)))))
 
-(defun bongo-insert-enqueue-line (&optional n called-interactively-p)
+(defun bongo-insert-enqueue-lines (&optional n called-interactively-p)
   "Insert the next N tracks or sections just below the current track.
 When called interactively, leave point after the enqueued tracks or sections.
 Return the playlist position of the newly-inserted text.
 CALLED-INTERACTIVELY-P is non-nil when called interactively."
   (interactive (list (prefix-numeric-value current-prefix-arg)
                      'called-interactively-p))
-  (bongo-enqueue-line 'insert n called-interactively-p))
+  (bongo-enqueue-lines 'insert n called-interactively-p))
 
-(defun bongo-append-enqueue-line (&optional n called-interactively-p)
+(defun bongo-append-enqueue-lines (&optional n called-interactively-p)
   "Append the next N tracks or sections to the Bongo playlist buffer.
 When called interactively, leave point after the enqueued tracks or sections.
 Return the playlist position of the newly-inserted text.
 CALLED-INTERACTIVELY-P is non-nil when called interactively."
   (interactive (list (prefix-numeric-value current-prefix-arg)
                      'called-interactively-p))
-  (bongo-enqueue-line 'append n called-interactively-p))
+  (bongo-enqueue-lines 'append n called-interactively-p))
 
-;;; The following functions operate on the marked tracks.
+;;; These functions operate on the marked tracks.
 
 (defun bongo-enqueue-marked (mode)
   "Insert the marked tracks into the playlist and kill the marking.
@@ -8331,12 +8351,11 @@ Return the playlist position of the newly-inserted text."
         (setq marking (cdr marking)))
       (when marking
         (let ((line-move-ignore-invisible nil))
-          (goto-char (caar marking))
-          (prog1 (bongo-enqueue-line mode)
+          (prog1 (bongo-enqueue-line mode (caar marking))
             (dolist (reference-counted-marker (cdr marking))
               (when (marker-position (car reference-counted-marker))
-                (goto-char (car reference-counted-marker))
-                (bongo-enqueue-line mode)))))))))
+                (bongo-enqueue-line
+                 mode (car reference-counted-marker))))))))))
 
 (defun bongo-insert-enqueue-marked ()
   "Insert the marked tracks just below the current track."
@@ -8348,34 +8367,35 @@ Return the playlist position of the newly-inserted text."
   (interactive)
   (bongo-enqueue-marked 'append))
 
-;;; The following functions operate on the marked tracks, if
-;;; any, or the region, if active, or else the current line.
+;;; These functions follow the p/r/m convention.
 
 (defun bongo-enqueue (mode &optional n)
   "In Bongo, enqueue N objects, or the region, or the marked tracks.
 Enqueuing a track or section copies it into the nearest playlist.
-If N is non-nil, enqueue the next N tracks or sections.
-Otherwise, if the region is active, enqueue the region.
-Otherwise, if there are any marked tracks, enqueue those.
-Otherwise, just enqueue the track or section at point.
+This command follows the prefix/region/marking (p/r/m) convention:
+  If N is non-nil, enqueue the next N tracks or sections.
+  Otherwise, if the region is active, enqueue the region.
+  Otherwise, if there are any marked tracks, enqueue those.
+  Otherwise, just enqueue the track or section at point.
 If MODE is `insert', insert just below the current track.
 If MODE is `append', append to the end of the playlist."
-  (cond ((not (null n))
-         (bongo-enqueue-line mode n 'skip))
+  (cond (n
+         (bongo-enqueue-lines mode n 'skip))
         ((bongo-region-active-p)
          (bongo-enqueue-region mode (region-beginning) (region-end)))
         (bongo-marking
          (bongo-enqueue-marked mode))
         (t
-         (bongo-enqueue-line mode n 'skip))))
+         (bongo-enqueue-lines mode 1 'skip))))
 
 (defun bongo-append-enqueue (&optional n)
   "Append-enqueue N objects, or the region, or the marked tracks.
 Append-enqueuing something copies it to the end of the nearest playlist.
-If N is non-nil, enqueue the next N tracks or sections.
-Otherwise, if the region is active, enqueue the region.
-Otherwise, if there are any marked tracks, enqueue those.
-Otherwise, just enqueue the track or section at point."
+This command follows the prefix/region/marking (p/r/m) convention:
+  If N is non-nil, enqueue the next N tracks or sections.
+  Otherwise, if the region is active, enqueue the region.
+  Otherwise, if there are any marked tracks, enqueue those.
+  Otherwise, just enqueue the track or section at point."
   (interactive "P")
   (bongo-enqueue 'append (and n (prefix-numeric-value n))))
 
@@ -8383,10 +8403,11 @@ Otherwise, just enqueue the track or section at point."
   "Insert-enqueue N objects, or the region, or the marked tracks.
 Insert-enqueuing something copies it into the nearest playlist
   just below the current track.
-If N is non-nil, enqueue the next N tracks or sections.
-Otherwise, if the region is active, enqueue the region.
-Otherwise, if there are any marked tracks, enqueue those.
-Otherwise, just enqueue the track or section at point."
+This command follows the prefix/region/marking (p/r/m) convention:
+  If N is non-nil, enqueue the next N tracks or sections.
+  Otherwise, if the region is active, enqueue the region.
+  Otherwise, if there are any marked tracks, enqueue those.
+  Otherwise, just enqueue the track or section at point."
   (interactive "P")
   (bongo-enqueue 'insert (and n (prefix-numeric-value n))))
 
