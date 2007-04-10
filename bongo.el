@@ -8863,6 +8863,7 @@ However, setting it through Custom does this automatically."
                                    (customize-group 'bongo))))
       (define-key menu-map [bongo-menu-separator-5]
         '("----" . nil))
+      ;; Remember that these are listed in reverse order.
       (define-key menu-map [bongo-flush-playlist]
         '("Flush Playlist" . bongo-flush-playlist))
       (define-key menu-map [bongo-insert-action]
@@ -8870,6 +8871,8 @@ However, setting it through Custom does this automatically."
       (define-key menu-map [bongo-insert-playlist-contents]
         '("Insert Contents of M3U/PLS Playlist..."
           . bongo-insert-playlist-contents))
+      (define-key menu-map [bongo-insert-cd]
+        '("Insert CD Tracks..." . bongo-insert-cd))
       (define-key menu-map [bongo-insert-uri]
         '("Insert URI..." . bongo-insert-uri))
       (define-key menu-map [bongo-insert-directory-tree]
