@@ -6222,31 +6222,28 @@ If there is no track at POINT, play the first track after POINT or
 signal an error if there is no track after POINT."
   (interactive "d")
   (cond ((bongo-playlist-buffer-p)
-         (when line-move-ignore-invisible
-           (bongo-skip-invisible))
-         (let ((line-move-ignore-invisible nil))
-           (with-point-at-bongo-track point
-             (with-imminent-bongo-player-start
-               (when bongo-player
-                 (bongo-player-stop bongo-player))
-               (bongo-set-current-track-position)
-               (let ((player
-                      (if (bongo-action-track-line-p)
-                          (bongo-start-action-player
-                           (bongo-line-action))
-                        (bongo-play-file
-                         (bongo-line-file-name)
-                         (bongo-line-get-property 'bongo-backend)))))
-                 (bongo-player-put player 'infoset (bongo-line-infoset))
-                 (setq bongo-player player)
-                 (bongo-line-set-property 'bongo-player player)
-                 (bongo-set-current-track-marker bongo-playing-track-marker)
-                 (when bongo-header-line-mode
-                   (bongo-update-header-line-string))
-                 (when bongo-mode-line-indicator-mode
-                   (bongo-update-mode-line-indicator-string))
-                 (run-hooks 'bongo-player-started-hook)
-                 (bongo-redisplay-line))))))
+         (with-point-at-bongo-track point
+           (with-imminent-bongo-player-start
+             (when bongo-player
+               (bongo-player-stop bongo-player))
+             (bongo-set-current-track-position)
+             (let ((player
+                    (if (bongo-action-track-line-p)
+                        (bongo-start-action-player
+                         (bongo-line-action))
+                      (bongo-play-file
+                       (bongo-line-file-name)
+                       (bongo-line-get-property 'bongo-backend)))))
+               (bongo-player-put player 'infoset (bongo-line-infoset))
+               (setq bongo-player player)
+               (bongo-line-set-property 'bongo-player player)
+               (bongo-set-current-track-marker bongo-playing-track-marker)
+               (when bongo-header-line-mode
+                 (bongo-update-header-line-string))
+               (when bongo-mode-line-indicator-mode
+                 (bongo-update-mode-line-indicator-string))
+               (run-hooks 'bongo-player-started-hook)
+               (bongo-redisplay-line)))))
         ((bongo-library-buffer-p)
          (save-excursion
            (bongo-goto-point point)
