@@ -9091,17 +9091,32 @@ However, setting it through Custom does this automatically."
     (let ((menu-map (make-sparse-keymap "Bongo")))
       (define-key menu-map [bongo-quit]
         '("Quit Bongo" . bongo-quit))
-      (define-key menu-map [bongo-menu-separator-6]
+      (define-key menu-map [bongo-menu-separator-7]
         '("----" . nil))
       (define-key menu-map [bongo-customize]
         '("Customize Bongo..." . (lambda ()
                                    (interactive)
                                    (customize-group 'bongo))))
+      (define-key menu-map [bongo-menu-separator-6]
+        '("----" . nil))
+      (define-key menu-map [bongo-change-volume]
+        '(menu-item "Change the Audio Volume..." volume
+          :enable (require 'volume nil t)))
       (define-key menu-map [bongo-menu-separator-5]
         '("----" . nil))
-      ;; Remember that these are listed in reverse order.
       (define-key menu-map [bongo-flush-playlist]
-        '("Flush Playlist" . bongo-flush-playlist))
+        '(menu-item "Flush Played Tracks" bongo-flush-playlist
+          :visible (and (bongo-recent-playlist-buffer)
+                        (with-bongo-playlist-buffer
+                          bongo-mark-played-tracks))))
+      (define-key menu-map [bongo-menu-separator-4]
+        '(menu-item "----" nil
+          :visible (and (bongo-recent-playlist-buffer)
+                        (with-bongo-playlist-buffer
+                          bongo-mark-played-tracks))))
+      ;; Remember that these are listed in reverse order.
+      (define-key menu-map [bongo-insert-other]
+        '("Insert Other..." . bongo-insert-special))
       (define-key menu-map [bongo-insert-action]
         '("Insert Action Track..." . bongo-insert-action))
       (define-key menu-map [bongo-insert-playlist-contents]
@@ -9116,70 +9131,43 @@ However, setting it through Custom does this automatically."
       (define-key menu-map [bongo-insert-directory]
         '("Insert Directory..." . bongo-insert-directory))
       (define-key menu-map [bongo-insert-file]
-        '("Insert File..." . bongo-insert-file))
-      (define-key menu-map [bongo-menu-separator-4]
+        '("Insert File or Directory..." . bongo-insert-file))
+      (define-key menu-map [bongo-menu-separator-3]
         '("----" . nil))
-      (define-key menu-map [bongo-start]
-        '("Start Playback" . bongo-start))
+      (define-key menu-map [bongo-play-random-track]
+        '("Play Random Track" . bongo-play-random))
       (define-key menu-map [bongo-play-previous-track]
         '("Play Previous Track" . bongo-play-previous))
       (define-key menu-map [bongo-play-next-track]
         '("Play Next Track" . bongo-play-next))
-      (define-key menu-map [bongo-play-random-track]
-        '("Play Random Track" . bongo-play-random))
       (define-key menu-map [bongo-replay-current-track]
-        '("Replay Current Track" . bongo-replay-current))
-      (define-key menu-map [bongo-menu-separator-3]
-        '("----" . nil))
-      (when (require 'volume nil t)
-        (define-key menu-map [bongo-change-volume]
-          '("Change the Audio Volume..." . volume)))
-      (define-key menu-map [bongo-stop]
-        '(menu-item "Stop Playback" bongo-stop
-                    :enable (bongo-playing-p)))
-      (define-key menu-map [bongo-seek-interactively]
-        '(menu-item "Seek Interactively..." bongo-seek
-                    :enable (bongo-seeking-supported-p)))
-      (define-key menu-map [bongo-seek-backward]
-        '(menu-item "Seek Backward" bongo-seek-backward
-                    :enable (bongo-seeking-supported-p)))
-      (define-key menu-map [bongo-seek-forward]
-        '(menu-item "Seek Forward" bongo-seek-forward
-                    :enable (bongo-seeking-supported-p)))
-      (define-key menu-map [bongo-pause/resume]
-        '(menu-item "Pause Playback" bongo-pause/resume
-                    :enable (bongo-pausing-supported-p)
-                    :button (:toggle . (bongo-paused-p))))
+        '("Play Current Track from Start" . bongo-replay-current))
       (define-key menu-map [bongo-menu-separator-2]
         '("----" . nil))
-      (define-key menu-map [bongo-rename-track]
-        '("Rename Track..." . bongo-rename-line))
-      (define-key menu-map [bongo-move-track-downwards]
-        '("Move Track Downwards" . bongo-transpose-forward))
-      (define-key menu-map [bongo-move-track-upwards]
-        '("Move Track Upwards" . bongo-transpose-backward))
-      (define-key menu-map [bongo-track-at-point]
-        '(menu-item "Track at Point"))
-      (define-key menu-map [bongo-kill-track]
-        '("Cut Track(s)" . bongo-kill))
-      (define-key menu-map [bongo-copy-track]
-        '("Copy Track(s)" . bongo-copy-forward))
-      (define-key menu-map [bongo-insert-enqueue]
-        '("Enqueue Track(s) Urgently" . bongo-insert-enqueue))
-      (define-key menu-map [bongo-append-enqueue]
-        '("Enqueue Track(s)" . bongo-append-enqueue))
-      (define-key menu-map [bongo-play]
-        '("Play Track(s)" . bongo-play))
-      (define-key menu-map [bongo-selected-tracks]
-        '(menu-item "Tracks in Region or Marking or at Point"))
+      (define-key menu-map [bongo-stop]
+        '(menu-item "Stop Playback" bongo-start/stop
+          :enable (bongo-playing-p)
+          :visible (bongo-playing-p)))
+      (define-key menu-map [bongo-seek-interactively]
+        '(menu-item "Seek Forward or Backward..." bongo-seek
+          :enable (bongo-seeking-supported-p)
+          :visible (bongo-playing-p)))
+      (define-key menu-map [bongo-pause/resume]
+        '(menu-item "Pause Playback" bongo-pause/resume
+          :enable (bongo-pausing-supported-p)
+          :button (:toggle . (bongo-paused-p))
+          :visible (bongo-playing-p)))
+      (define-key menu-map [bongo-start]
+        '(menu-item "Start Playback" bongo-start/stop
+          :visible (not (bongo-playing-p))))
       (define-key menu-map [bongo-menu-separator-1]
         '("----" . nil))
       (define-key menu-map [bongo-switch-to-library]
         '(menu-item "Switch to Library" bongo-switch-buffers
-                    :visible (bongo-playlist-buffer-p)))
+          :visible (bongo-playlist-buffer-p)))
       (define-key menu-map [bongo-switch-to-playlist]
         '(menu-item "Switch to Playlist" bongo-switch-buffers
-                    :visible (bongo-library-buffer-p)))
+          :visible (bongo-library-buffer-p)))
       (define-key map [menu-bar bongo]
         (cons "Bongo" menu-map)))))
 
