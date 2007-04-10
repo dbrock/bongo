@@ -2685,7 +2685,7 @@ You should use `bongo-line-infoset' most of the time."
                    (bongo-uri-track-infoset point)
                  (bongo-infoset-from-file-name file-name)))
               ((bongo-line-action point)
-               (bongo-action-track-infoset))))))
+               (bongo-action-track-infoset point))))))
 
 (defun bongo-header-infoset (&optional point)
   "Return the infoset for the header at POINT.
