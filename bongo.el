@@ -6292,6 +6292,22 @@ In Bongo Library mode, enqueue and play in the nearest playlist."
          (bongo-play-line beg))
         (t (error "Not a Bongo buffer"))))
 
+(defun bongo-play-marked ()
+  "Start playing the marked tracks.
+In Bongo Library mode, enqueue and play in the nearest playlist.
+In Bongo Playlist mode, this is not implemented, so signal an error."
+  (interactive)
+  (cond ((bongo-library-buffer-p)
+         (let ((position (if (bongo-playing-p)
+                             (bongo-insert-enqueue-marked)
+                           (bongo-append-enqueue-marked))))
+           (with-bongo-playlist-buffer
+             (bongo-play-line position))))
+        ((bongo-playlist-buffer-p)
+         (error "Intra-playlist enqueuing is not yet supported"))
+        (t
+         (error "Not a Bongo buffer"))))
+
 (defun bongo-play (&optional n)
   "Start playing the marked tracks, or the region, or N objects.
 In Bongo Library mode, enqueue and play in the nearest playlist."
@@ -7732,7 +7748,7 @@ including the terminating newline character."
          new-faces))
 
 (defun bongo-pop-up-context-menu (event)
-  "Pop up a menu at position EVENT for the object there."
+  "Pop up a context menu at position EVENT for the object there."
   (interactive "@e")
   (let* ((line-move-ignore-invisible nil)
          (posn (event-end event))
@@ -7780,7 +7796,13 @@ including the terminating newline character."
                  `(["----" bongo-marking-tracks-separator]
                    ("Marked Tracks"
                     ,@(when (bongo-library-buffer-p)
-                        `([,(format "Enqueue %d Track%s"
+                        `([,(format "Enqueue and Play %d Track%s"
+                                    n-marked-tracks
+                                    (if (= n-marked-tracks 1) "" "s"))
+                           ,(if (bongo-region-active-p)
+                                'bongo-play-marked
+                              'bongo-play)]
+                          [,(format "Enqueue %d Track%s"
                                     n-marked-tracks
                                     (if (= n-marked-tracks 1) "" "s"))
                            ,(if (bongo-region-active-p)
