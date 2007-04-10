@@ -1,6 +1,11 @@
 Bongo NEWS file listing user-visible changes.
 This file is in the public domain.
 
+April 10, 2007
+
+ * You may now bring up a context menu of useful commands by
+   right-clicking a track line or section header.  Try it!
+
 April 9, 2007
 
  * Bongo now displays any metadata provided by streaming

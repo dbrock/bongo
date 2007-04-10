@@ -7731,6 +7731,218 @@ including the terminating newline character."
          (bongo-point-after-line)
          new-faces))
 
+(defun bongo-pop-up-context-menu (event)
+  "Pop up a menu at position EVENT for the object there."
+  (interactive "@e")
+  (let* ((line-move-ignore-invisible nil)
+         (posn (event-end event))
+         (region/marking (or (bongo-region-active-p) bongo-marking))
+         (n-tracks-in-region
+          (if (not (bongo-region-active-p)) 0
+            (bongo-count-lines-satisfying
+             'bongo-track-line-p (region-beginning) (region-end))))
+         (region-menu
+          (when (>= n-tracks-in-region 1)
+            `(["----" bongo-region-tracks-separator]
+              ("Tracks in Region"
+               ,@(when (bongo-library-buffer-p)
+                   `([,(format "Enqueue and Play %d Track%s"
+                               n-tracks-in-region
+                               (if (= n-tracks-in-region 1) "" "s"))
+                      bongo-play]
+                     [,(format "Enqueue %d Track%s"
+                               n-tracks-in-region
+                               (if (= n-tracks-in-region 1) "" "s"))
+                      bongo-insert-enqueue]
+                     [,(format "Enqueue %d Track%s at End"
+                               n-tracks-in-region
+                               (if (= n-tracks-in-region 1) "" "s"))
+                      bongo-append-enqueue]
+                     ["----" bongo-region-tracks-separator-1]))
+               [,(format "Copy %d Track%s" n-tracks-in-region
+                         (if (= n-tracks-in-region 1) "" "s"))
+                bongo-copy-forward]
+               [,(format "Cut %d Track%s" n-tracks-in-region
+                         (if (= n-tracks-in-region 1) "" "s"))
+                bongo-kill]))))
+         (n-tracks-in-killed-marking
+          (let ((result 0))
+            (dolist (marker bongo-killed-marking result)
+              (when (marker-position (car marker))
+                (setq result (+ result 1))))))
+         (n-marked-tracks
+          (let ((result 0))
+            (dolist (marker bongo-marking result)
+              (when (marker-position (car marker))
+                (setq result (+ result 1))))))
+         (marking-menu
+          (cond ((>= n-marked-tracks 1)
+                 `(["----" bongo-marking-tracks-separator]
+                   ("Marked Tracks"
+                    ,@(when (bongo-library-buffer-p)
+                        `([,(format "Enqueue %d Track%s"
+                                    n-marked-tracks
+                                    (if (= n-marked-tracks 1) "" "s"))
+                           ,(if (bongo-region-active-p)
+                                'bongo-insert-enqueue-marked
+                              'bongo-insert-enqueue)]
+                          [,(format "Enqueue %d Track%s at End"
+                                    n-marked-tracks
+                                    (if (= n-marked-tracks 1) "" "s"))
+                           ,(if (bongo-region-active-p)
+                                'bongo-append-enqueue-marked
+                              'bongo-append-enqueue)]
+                          ["----" bongo-marking-tracks-separator-1]))
+                    [,(format "Copy %d Track%s" n-marked-tracks
+                              (if (= n-marked-tracks 1) "" "s"))
+                     ,(if (bongo-region-active-p)
+                          'bongo-copy-marked
+                        'bongo-copy-forward)]
+                    [,(format "Cut %d Track%s" n-marked-tracks
+                              (if (= n-marked-tracks 1) "" "s"))
+                     ,(if (bongo-region-active-p)
+                          'bongo-kill-marked
+                        'bongo-kill)]
+                    ["----" bongo-marking-tracks-separator-2]
+                    ["Unmark All Tracks" bongo-kill-marking]
+                    ,@(when (and (>= n-tracks-in-killed-marking 1)
+                                 (not (equal (reverse bongo-marking)
+                                             bongo-killed-marking)))
+                        `([,(format "Restore Earlier Marking of %d Track%s"
+                                    n-tracks-in-killed-marking
+                                    (if (= n-tracks-in-killed-marking 1)
+                                        "" "s"))
+                           bongo-yank-marking])))))
+                ((>= n-tracks-in-killed-marking 1)
+                 `(["----" bongo-marking-tracks-separator]
+                   [,(format "Remark %d Track%s"
+                               n-tracks-in-killed-marking
+                               (if (= n-tracks-in-killed-marking 1) "" "s"))
+                      bongo-toggle-marking]))))
+         (playback-menu
+          (when (bongo-playing-p)
+            `(["Pause" bongo-pause/resume
+               :style toggle
+               :selected (bongo-paused-p)
+               :help "\
+Temporarily stop playback (this does not kill the backend player)."]
+              ["Stop Playback" bongo-stop
+               :help "\
+Permanently stop playback (this kills the backend player)"]
+              ["Play Track Again" bongo-replay-current
+               :help "\
+Play the current track from the beginning."]
+              ["Seek in Track..." bongo-seek
+               :help "\
+Fast-forward or rewind the track."]
+              ["----" bongo-playback-separator-1]
+              ["Play Next Track" bongo-play-next
+               :active (with-bongo-playlist-buffer
+                         (bongo-point-at-next-track-line
+                          (bongo-point-at-current-track-line)))]
+              ["Play Previous Track" bongo-play-next
+               :active (with-bongo-playlist-buffer
+                         (bongo-point-at-previous-track-line
+                          (bongo-point-at-current-track-line)))]
+              ["Play Random Track" bongo-play-random
+               :active (with-bongo-playlist-buffer
+                         (bongo-track-lines-exist-p))]))))
+    (with-current-buffer (window-buffer (posn-window posn))
+      (save-excursion
+        (goto-char (posn-point posn))
+        (popup-menu
+         (if (bongo-currently-playing-track-line-p)
+             `("Playing Bongo Track"
+               ,@playback-menu
+               ["----" bongo-separator-1]
+               ["Copy Track"
+                ,(if region/marking
+                     'bongo-copy-line
+                   'bongo-copy-forward)]
+               ["Cut Track"
+                ,(if region/marking
+                     'bongo-kill-line
+                   'bongo-kill)]
+               ,@region-menu
+               ,@marking-menu) 
+           `(,(cond ((bongo-local-file-track-line-p)
+                     "Bongo File Track")
+                    ((bongo-uri-track-line-p)
+                     "Bongo URI Track")
+                    ((bongo-action-track-line-p)
+                     "Bongo Action Track")
+                    ((bongo-header-line-p)
+                     "Bongo Section"))
+             [,(if (bongo-library-buffer-p)
+                   (if (bongo-action-track-line-p)
+                       "Enqueue and Perform Action"
+                     "Enqueue and Play")
+                 (if (bongo-action-track-line-p)
+                     "Perform Action"
+                   "Play"))
+              ,(if (bongo-header-line-p)
+                   'bongo-play-lines
+                 'bongo-dwim)]
+             ,@(when (bongo-library-buffer-p)
+                 `(["Enqueue"
+                    ,(if region/marking
+                         'bongo-insert-enqueue-line
+                       'bongo-insert-enqueue)]
+                   ["Enqueue at End"
+                    ,(if region/marking
+                         'bongo-append-enqueue-line
+                       'bongo-append-enqueue)]))
+             ,@(when (and (bongo-track-line-p)
+                          (bongo-playlist-buffer-p)
+                          bongo-mark-played-tracks)
+                 `(["Played" bongo-mark-line-as-played]))
+             ["----" bongo-separator-1]
+             ["Copy"
+              ,(if region/marking
+                   'bongo-copy-line
+                 'bongo-copy-forward)]
+             ["Cut"
+              ,(if region/marking
+                   'bongo-kill-line
+                 'bongo-kill)]
+             ,@(when (bongo-track-line-p)
+                 `(["Marked" ,(if (bongo-marked-track-line-p)
+                                  'bongo-unmark-forward
+                                'bongo-mark-forward)
+                    :style toggle
+                    :selected (bongo-marked-track-line-p)]))
+             ,@(when (bongo-header-line-p)
+                 `(["Collapsed" bongo-dwim
+                    :style toggle
+                    :selected (bongo-collapsed-header-line-p)]))
+             ["----" bongo-separator-2]
+             ,@(when (bongo-track-line-p)
+                 `([,(cond ((bongo-local-file-track-line-p)
+                            "Rename File...")
+                           ((bongo-uri-track-line-p)
+                            "Change URI or Title...")
+                           ((bongo-action-track-line-p)
+                            "Edit Action...")
+                           (t
+                            "Rename Track..."))
+                    bongo-rename-line]))
+             ,@(when (save-excursion
+                       (while (bongo-header-line-p)
+                         (bongo-down-section))
+                       (bongo-local-file-track-line-p))
+                 `(["Open Dired" bongo-dired-line]))
+             ,@region-menu
+             ,@marking-menu
+             ,@(when playback-menu
+                 `(["----" bongo-playback-separator]
+                   ("Current Playback" ,@playback-menu)))))
+         event)))))
+
+(defvar bongo-object-map
+  (let ((map (make-sparse-keymap)))
+    (prog1 map
+      (define-key map [mouse-3] 'bongo-pop-up-context-menu))))
+
 (defun bongo-redisplay-line (&optional point)
   "Redisplay the line at POINT, preserving semantic text properties."
   (save-excursion
@@ -7758,13 +7970,14 @@ including the terminating newline character."
                                   bongo-infoset))
              (header (bongo-header-line-p))
              (content
-              (propertize
-               (if header
-                   (let ((bongo-collapsed
-                          (bongo-collapsed-header-line-p)))
-                     (bongo-format-string bongo-section-header-line-format))
-                 (bongo-format-string bongo-track-line-format))
-               'follow-link t 'mouse-face 'highlight)))
+              (propertize (if header
+                              (let ((bongo-collapsed
+                                     (bongo-collapsed-header-line-p)))
+                                (bongo-format-string
+                                 bongo-section-header-line-format))
+                            (bongo-format-string bongo-track-line-format))
+                          'follow-link t 'mouse-face 'highlight
+                          'keymap bongo-object-map)))
         (when (not header)
           (cond ((bongo-currently-playing-track-line-p)
                  (bongo-facify content 'bongo-currently-playing-track))
