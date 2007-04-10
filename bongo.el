@@ -9036,6 +9036,7 @@ However, setting it through Custom does this automatically."
     (define-key map "s" 'bongo-seek)
     (define-key map "i" 'bongo-insert-file)
     (define-key map "I" 'bongo-insert-special)
+    (define-key map "g" 'bongo-play)
     (define-key map "e" 'bongo-append-enqueue)
     (define-key map "E" 'bongo-insert-enqueue)
     (define-key map "t" 'bongo-transpose-forward)
