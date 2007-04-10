@@ -1952,10 +1952,11 @@ each field and separates the obtained field values using
                                       (buffer-string))
                                     'bongo-action-track-expression))
                      ((stringp description-specifier)
-                      (bongo-facify description-specifier
+                      (bongo-facify (copy-sequence description-specifier)
                                     'bongo-action-track-description))
                      ((functionp description-specifier)
-                      (bongo-facify (apply description-specifier data)
+                      (bongo-facify (copy-sequence
+                                     (apply description-specifier data))
                                     'bongo-action-track-description))
                      (t (error (concat "Invalid action description "
                                        "specifier: `%S'")
