@@ -3447,7 +3447,7 @@ existing header into two (see `bongo-maybe-insert-intermediate-header')."
         (bongo-maybe-insert-intermediate-header)))))
 
 
-;;;; Marks
+;;;; Markings
 
 ;;; Each track line in Bongo is either marked or unmarked.
 ;;; The set of marked track lines is called the `marking'.
@@ -9088,29 +9088,28 @@ However, setting it through Custom does this automatically."
     (let ((menu-map (make-sparse-keymap "Bongo")))
       (define-key menu-map [bongo-quit]
         '("Quit Bongo" . bongo-quit))
-      (define-key menu-map [bongo-menu-separator-7]
+      (define-key menu-map [bongo-menu-separator-6]
         '("----" . nil))
       (define-key menu-map [bongo-customize]
         '("Customize Bongo..." . (lambda ()
                                    (interactive)
                                    (customize-group 'bongo))))
-      (define-key menu-map [bongo-menu-separator-6]
-        '("----" . nil))
-      (define-key menu-map [bongo-change-volume]
-        '(menu-item "Change the Audio Volume..." volume
-          :enable (require 'volume nil t)))
       (define-key menu-map [bongo-menu-separator-5]
         '("----" . nil))
       (define-key menu-map [bongo-flush-playlist]
         '(menu-item "Flush Played Tracks" bongo-flush-playlist
-          :visible (and (bongo-recent-playlist-buffer)
-                        (with-bongo-playlist-buffer
-                          bongo-mark-played-tracks))))
+          :visible (and (bongo-playlist-buffer-p)
+                        bongo-mark-played-tracks)))
+      (define-key menu-map [bongo-sprinkle-mode]
+        '(menu-item "Automatic Sprinkling" bongo-sprinkle-mode
+          :button (:toggle . bongo-sprinkle-mode) 
+          :visible (bongo-playlist-buffer-p)))
+      (define-key menu-map [bongo-sprinkle]
+        '(menu-item "Sprinkle a Random Track" bongo-sprinkle
+          :visible (bongo-playlist-buffer-p)))
       (define-key menu-map [bongo-menu-separator-4]
         '(menu-item "----" nil
-          :visible (and (bongo-recent-playlist-buffer)
-                        (with-bongo-playlist-buffer
-                          bongo-mark-played-tracks))))
+          :visible (bongo-playlist-buffer-p)))
       ;; Remember that these are listed in reverse order.
       (define-key menu-map [bongo-insert-other]
         '("Insert Other..." . bongo-insert-special))
@@ -9141,6 +9140,9 @@ However, setting it through Custom does this automatically."
         '("Play Current Track from Start" . bongo-replay-current))
       (define-key menu-map [bongo-menu-separator-2]
         '("----" . nil))
+      (define-key menu-map [bongo-change-volume]
+        '(menu-item "Change the Audio Volume..." volume
+          :enable (require 'volume nil t)))
       (define-key menu-map [bongo-stop]
         '(menu-item "Stop Playback" bongo-start/stop
           :enable (bongo-playing-p)
