@@ -6265,9 +6265,9 @@ In Bongo Library mode, enqueue and play in the nearest playlist."
          (bongo-play-line))
         ((bongo-library-buffer-p)
          (let ((position (if (bongo-playing-p)
-                             (bongo-insert-enqueue-line
+                             (bongo-insert-enqueue-lines
                               (prefix-numeric-value n))
-                           (bongo-append-enqueue-line
+                           (bongo-append-enqueue-lines
                             (prefix-numeric-value n)))))
            (with-bongo-playlist-buffer
              (bongo-play-line position))))
