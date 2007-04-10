@@ -3131,12 +3131,15 @@ If they are distinct but on the same line, return 1."
         (forward-line))
       result)))
 
-(defun bongo-count-lines-satisfying (predicate)
-  "Return the total number of lines that satisfy PREDICATE."
+(defun bongo-count-lines-satisfying (predicate &optional beg end)
+  "Return the total number of lines that satisfy PREDICATE.
+If BEG and END are non-nil, only count lines in that region."
+  (or beg (setq beg (point-min)))
+  (or end (setq end (point-max)))
   (let ((result 0))
     (save-excursion
-      (goto-char (point-min))
-      (while (not (eobp))
+      (goto-char beg)
+      (while (< (point) end)
         (when (funcall predicate)
           (setq result (+ result 1)))
         (forward-line 1)))
