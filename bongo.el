@@ -374,7 +374,7 @@ seeing a library buffer (unless you create one yourself, of course)."
                         "2006-12-03")
 
 (defcustom bongo-display-playlist-after-enqueue t
-  "If non-nil, display the playlist after enqueuing a track."
+  "Whether to display the playlist after enqueuing a track."
   :type 'boolean
   :group 'bongo)
 
@@ -6261,11 +6261,12 @@ In Bongo Library mode, enqueue and play in the nearest playlist."
            (bongo-stop (prefix-numeric-value n)))
          (bongo-play-line))
         ((bongo-library-buffer-p)
-         (let ((position (if (bongo-playing-p)
-                             (bongo-insert-enqueue-lines
-                              (prefix-numeric-value n))
-                           (bongo-append-enqueue-lines
-                            (prefix-numeric-value n)))))
+         (let ((position (save-excursion
+                           (if (bongo-playing-p)
+                               (bongo-insert-enqueue-lines
+                                (prefix-numeric-value n))
+                             (bongo-append-enqueue-lines
+                              (prefix-numeric-value n))))))
            (with-bongo-playlist-buffer
              (bongo-play-line position))))
         (t (error "Not a Bongo buffer"))))
@@ -8425,10 +8426,13 @@ See `undo' for the meaning of ARGUMENT."
 (defvar bongo-inhibit-recenter-after-enqueue nil
   "If non-nil, do not recenter the playlist after enqueueing.")
 
-(defun bongo-enqueue-text (mode text)
+(defun bongo-enqueue-text (mode text &optional maybe-display-playlist)
   "Insert TEXT into the Bongo playlist.
 If MODE is `insert', insert TEXT just below the current track.
-If MODE is `append', append TEXT to the end of the playlist."
+If MODE is `append', append TEXT to the end of the playlist.
+
+If MAYBE-DISPLAY-PLAYLIST is non-nil, maybe display the playlist;
+see `bongo-display-playlist-after-enqueue'."
   (let ((insertion-point
          (with-current-buffer (bongo-playlist-buffer)
            (save-excursion
@@ -8458,7 +8462,8 @@ If MODE is `append', append TEXT to the end of the playlist."
     (prog1 insertion-point
       (when (and (bongo-library-buffer-p)
                  (or (get-buffer-window (bongo-playlist-buffer))
-                     bongo-display-playlist-after-enqueue))
+                     (and maybe-display-playlist
+                          bongo-display-playlist-after-enqueue)))
         (let ((original-window (selected-window)))
           (select-window (display-buffer (bongo-playlist-buffer)))
           (unless bongo-inhibit-recenter-after-enqueue
@@ -8468,10 +8473,13 @@ If MODE is `append', append TEXT to the end of the playlist."
 
 ;;; These functions operate on all tracks in a given region.
 
-(defun bongo-enqueue-region (mode beg end)
+(defun bongo-enqueue-region (mode beg end &optional maybe-display-playlist)
   "Insert the tracks between BEG and END into the Bongo playlist.
 If MODE is `insert', insert the tracks just below the current track.
-If MODE is `append', append the tracks to the end of the playlist."
+If MODE is `append', append the tracks to the end of the playlist.
+
+If MAYBE-DISPLAY-PLAYLIST is non-nil, maybe display the playlist;
+see `bongo-display-playlist-after-enqueue'."
   (let* ((original-buffer (current-buffer))
          (text (with-temp-buffer
                  ;; This is complicated because we want to remove the
@@ -8506,50 +8514,68 @@ If MODE is `append', append the tracks to the end of the playlist."
                            (insert other-lines)))))
                    (with-current-buffer temp-buffer
                      (buffer-string))))))
-    (bongo-enqueue-text mode text)))
+    (bongo-enqueue-text mode text maybe-display-playlist)))
 
-(defun bongo-insert-enqueue-region (beg end)
-  "Insert the region just below the current Bongo track.
-The region is all track lines between BEG and END."
-  (interactive "r")
-  (bongo-enqueue-region 'insert beg end))
+(defun bongo-insert-enqueue-region (beg end &optional maybe-display-playlist)
+  "Insert the region between BEG and END just below the current track.
 
-(defun bongo-append-enqueue-region (beg end)
-  "Append the region to the end of the Bongo playlist.
-The region is all track lines between BEG and END."
-  (interactive "r")
-  (bongo-enqueue-region 'append beg end))
+If MAYBE-DISPLAY-PLAYLIST is non-nil, maybe display the playlist;
+see `bongo-display-playlist-after-enqueue'."
+  (interactive (list (region-beginning) (region-end)
+                     'maybe-display-playlist))
+  (bongo-enqueue-region 'insert beg end maybe-display-playlist))
+
+(defun bongo-append-enqueue-region (beg end &optional maybe-display-playlist)
+  "Append the region between BEG and END to the end of the playlist.
+
+If MAYBE-DISPLAY-PLAYLIST is non-nil, maybe display the playlist;
+see `bongo-display-playlist-after-enqueue'."
+  (interactive (list (region-beginning) (region-end)
+                     'maybe-display-playlist))
+  (bongo-enqueue-region 'append beg end maybe-display-playlist))
 
 ;;; These functions operate on an explicitly specified line.
 
-(defun bongo-enqueue-line (mode &optional point)
+(defun bongo-enqueue-line (mode &optional point maybe-display-playlist)
   "Insert the track or section at POINT into the Bongo playlist.
 If MODE is `insert', insert just below the current track.
 If MODE is `append', append to the end of the playlist.
-Return the playlist position of the newly-inserted text."
+Return the playlist position of the newly-inserted text.
+
+If MAYBE-DISPLAY-PLAYLIST is non-nil, maybe display the playlist;
+see `bongo-display-playlist-after-enqueue'."
   (save-excursion
     (bongo-goto-point point)
-    (bongo-enqueue-lines mode)))
+    (bongo-enqueue-lines mode 1 maybe-display-playlist)))
 
-(defun bongo-insert-enqueue-line (&optional point)
+(defun bongo-insert-enqueue-line (&optional point maybe-display-playlist)
   "Insert the track or section at POINT just below the current track.
-Return the playlist position of the newly-inserted text."
-  (bongo-enqueue-line 'insert point))
+Return the playlist position of the newly-inserted text.
 
-(defun bongo-append-enqueue-line (&optional point)
+If MAYBE-DISPLAY-PLAYLIST is non-nil, maybe display the playlist;
+see `bongo-display-playlist-after-enqueue'."
+  (bongo-enqueue-line 'insert point maybe-display-playlist))
+
+(defun bongo-append-enqueue-line (&optional point maybe-display-playlist)
   "Append the track or section at POINT to the Bongo playlist buffer.
-Return the playlist position of the newly-inserted text."
-  (bongo-enqueue-line 'append point))
+Return the playlist position of the newly-inserted text.
+
+If MAYBE-DISPLAY-PLAYLIST is non-nil, maybe display the playlist;
+see `bongo-display-playlist-after-enqueue'."
+  (bongo-enqueue-line 'append point maybe-display-playlist))
 
 ;;; These functions operate on a given number of tracks or
 ;;; sections right after point.
 
-(defun bongo-enqueue-lines (mode &optional n skip)
+(defun bongo-enqueue-lines (mode &optional n maybe-display-playlist)
   "Insert the next N tracks or sections into the Bongo playlist.
-Afterwards, if SKIP is non-nil, move point past the enqueued objects.
+Leave point immediately after the enqueued tracks and sections.
 If MODE is `insert', insert just below the current track.
 If MODE is `append', append to the end of the playlist.
-Return the playlist position of the newly-inserted text."
+Return the playlist position of the newly-inserted text.
+
+If MAYBE-DISPLAY-PLAYLIST is non-nil, maybe display the playlist;
+see `bongo-display-playlist-after-enqueue'."
   (or n (setq n 1))
   (when line-move-ignore-invisible
     (bongo-skip-invisible))
@@ -8560,35 +8586,41 @@ Return the playlist position of the newly-inserted text."
                   (if (> n 0)
                       (bongo-point-after-object)
                     (bongo-point-before-previous-object))))))
-      (when (not skip)
-        (goto-char beg))
-      (bongo-enqueue-region mode (min beg end) (max beg end)))))
+      (bongo-enqueue-region mode (min beg end) (max beg end)
+                            maybe-display-playlist))))
 
-(defun bongo-insert-enqueue-lines (&optional n called-interactively-p)
+(defun bongo-insert-enqueue-lines (&optional n maybe-display-playlist)
   "Insert the next N tracks or sections just below the current track.
-When called interactively, leave point after the enqueued tracks or sections.
+Leave point immediately after the enqueued tracks and sections.
 Return the playlist position of the newly-inserted text.
-CALLED-INTERACTIVELY-P is non-nil when called interactively."
-  (interactive (list (prefix-numeric-value current-prefix-arg)
-                     'called-interactively-p))
-  (bongo-enqueue-lines 'insert n called-interactively-p))
 
-(defun bongo-append-enqueue-lines (&optional n called-interactively-p)
-  "Append the next N tracks or sections to the Bongo playlist buffer.
-When called interactively, leave point after the enqueued tracks or sections.
-Return the playlist position of the newly-inserted text.
-CALLED-INTERACTIVELY-P is non-nil when called interactively."
+If MAYBE-DISPLAY-PLAYLIST is non-nil, maybe display the playlist;
+see `bongo-display-playlist-after-enqueue'."
   (interactive (list (prefix-numeric-value current-prefix-arg)
-                     'called-interactively-p))
-  (bongo-enqueue-lines 'append n called-interactively-p))
+                     'maybe-display-playlist))
+  (bongo-enqueue-lines 'insert n maybe-display-playlist))
+
+(defun bongo-append-enqueue-lines (&optional n maybe-display-playlist)
+  "Append the next N tracks or sections to the Bongo playlist buffer.
+Leave point immediately after the enqueued tracks and sections.
+Return the playlist position of the newly-inserted text.
+
+If MAYBE-DISPLAY-PLAYLIST is non-nil, maybe display the playlist;
+see `bongo-display-playlist-after-enqueue'."
+  (interactive (list (prefix-numeric-value current-prefix-arg)
+                     'maybe-display-playlist))
+  (bongo-enqueue-lines 'append n maybe-display-playlist))
 
 ;;; These functions operate on the marked tracks.
 
-(defun bongo-enqueue-marked (mode)
+(defun bongo-enqueue-marked (mode &optional maybe-display-playlist)
   "Insert the marked tracks into the playlist and kill the marking.
 If MODE is `insert', insert just below the current track.
 If MODE is `append', append to the end of the playlist.
-Return the playlist position of the newly-inserted text."
+Return the playlist position of the newly-inserted text.
+
+If MAYBE-DISPLAY-PLAYLIST is non-nil, maybe display the playlist;
+see `bongo-display-playlist-after-enqueue'."
   (save-excursion
     (let ((marking (reverse bongo-marking)))
       (bongo-kill-marking)
@@ -8596,65 +8628,87 @@ Return the playlist position of the newly-inserted text."
         (setq marking (cdr marking)))
       (when marking
         (let ((line-move-ignore-invisible nil))
-          (prog1 (bongo-enqueue-line mode (caar marking))
+          (prog1 (bongo-enqueue-line
+                  mode (caar marking) maybe-display-playlist)
             (dolist (reference-counted-marker (cdr marking))
               (when (marker-position (car reference-counted-marker))
                 (bongo-enqueue-line
                  mode (car reference-counted-marker))))))))))
 
-(defun bongo-insert-enqueue-marked ()
-  "Insert the marked tracks just below the current track."
-  (interactive)
-  (bongo-enqueue-marked 'insert))
+(defun bongo-insert-enqueue-marked (&optional maybe-display-playlist)
+  "Insert the marked tracks just below the current track.
 
-(defun bongo-append-enqueue-marked ()
-  "Insert the marked tracks just below the current track."
-  (interactive)
-  (bongo-enqueue-marked 'append))
+If MAYBE-DISPLAY-PLAYLIST is non-nil, maybe display the playlist;
+see `bongo-display-playlist-after-enqueue'."
+  (interactive (list 'maybe-display-playlist))
+  (bongo-enqueue-marked 'insert maybe-display-playlist))
+
+(defun bongo-append-enqueue-marked (&optional maybe-display-playlist)
+  "Insert the marked tracks just below the current track.
+
+If MAYBE-DISPLAY-PLAYLIST is non-nil, maybe display the playlist;
+see `bongo-display-playlist-after-enqueue'."
+  (interactive (list 'maybe-display-playlist))
+  (bongo-enqueue-marked 'append maybe-display-playlist))
 
 ;;; These functions follow the p/r/m convention.
 
-(defun bongo-enqueue (mode &optional n)
+(defun bongo-enqueue (mode &optional n maybe-display-playlist)
   "In Bongo, enqueue N objects, or the region, or the marked tracks.
 Enqueuing a track or section copies it into the nearest playlist.
-This command follows the prefix/region/marking (p/r/m) convention:
-  If N is non-nil, enqueue the next N tracks or sections.
-  Otherwise, if the region is active, enqueue the region.
-  Otherwise, if there are any marked tracks, enqueue those.
-  Otherwise, just enqueue the track or section at point.
 If MODE is `insert', insert just below the current track.
-If MODE is `append', append to the end of the playlist."
-  (cond (n
-         (bongo-enqueue-lines mode n 'skip))
-        ((bongo-region-active-p)
-         (bongo-enqueue-region mode (region-beginning) (region-end)))
-        (bongo-marking
-         (bongo-enqueue-marked mode))
-        (t
-         (bongo-enqueue-lines mode 1 'skip))))
+If MODE is `append', append to the end of the playlist.
 
-(defun bongo-append-enqueue (&optional n)
+This command follows the prefix/region/marking (p/r/m) convention:
+ - If N is non-nil, enqueue the next N tracks or sections.
+ - Otherwise, if the region is active, enqueue the region.
+ - Otherwise, if there are any marked tracks, enqueue those.
+ - Otherwise, just enqueue the track or section at point.
+
+If MAYBE-DISPLAY-PLAYLIST is non-nil, maybe display the playlist;
+see `bongo-display-playlist-after-enqueue'."
+  (cond (n
+         (bongo-enqueue-lines mode n maybe-display-playlist))
+        ((bongo-region-active-p)
+         (bongo-enqueue-region mode (region-beginning) (region-end)
+                               maybe-display-playlist))
+        (bongo-marking
+         (bongo-enqueue-marked mode maybe-display-playlist))
+        (t
+         (bongo-enqueue-lines mode 1 maybe-display-playlist))))
+
+(defun bongo-append-enqueue (&optional n maybe-display-playlist)
   "Append-enqueue N objects, or the region, or the marked tracks.
 Append-enqueuing something copies it to the end of the nearest playlist.
-This command follows the prefix/region/marking (p/r/m) convention:
-  If N is non-nil, enqueue the next N tracks or sections.
-  Otherwise, if the region is active, enqueue the region.
-  Otherwise, if there are any marked tracks, enqueue those.
-  Otherwise, just enqueue the track or section at point."
-  (interactive "P")
-  (bongo-enqueue 'append (and n (prefix-numeric-value n))))
 
-(defun bongo-insert-enqueue (&optional n)
+This command follows the prefix/region/marking (p/r/m) convention:
+ - If N is non-nil, enqueue the next N tracks or sections.
+ - Otherwise, if the region is active, enqueue the region.
+ - Otherwise, if there are any marked tracks, enqueue those.
+ - Otherwise, just enqueue the track or section at point.
+
+If MAYBE-DISPLAY-PLAYLIST is non-nil, maybe display the playlist;
+see `bongo-display-playlist-after-enqueue'."
+  (interactive (list current-prefix-arg 'maybe-display-playlist))
+  (bongo-enqueue 'append (and n (prefix-numeric-value n))
+                 maybe-display-playlist))
+
+(defun bongo-insert-enqueue (&optional n maybe-display-playlist)
   "Insert-enqueue N objects, or the region, or the marked tracks.
 Insert-enqueuing something copies it into the nearest playlist
-  just below the current track.
+just below the current track.
+
 This command follows the prefix/region/marking (p/r/m) convention:
-  If N is non-nil, enqueue the next N tracks or sections.
-  Otherwise, if the region is active, enqueue the region.
-  Otherwise, if there are any marked tracks, enqueue those.
-  Otherwise, just enqueue the track or section at point."
-  (interactive "P")
-  (bongo-enqueue 'insert (and n (prefix-numeric-value n))))
+ - If N is non-nil, enqueue the next N tracks or sections.
+ - Otherwise, if the region is active, enqueue the region.
+ - Otherwise, if there are any marked tracks, enqueue those.
+ - Otherwise, just enqueue the track or section at point.
+
+If MAYBE-DISPLAY-PLAYLIST is non-nil, maybe display the playlist;
+see `bongo-display-playlist-after-enqueue'."
+  (interactive (list current-prefix-arg 'maybe-display-playlist))
+  (bongo-enqueue 'insert (and n (prefix-numeric-value n))
+                 maybe-display-playlist))
 
 
 ;;;; Miscellaneous commands
