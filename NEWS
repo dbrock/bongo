@@ -1,6 +1,20 @@
 Bongo NEWS file listing user-visible changes.
 This file is in the public domain.
 
+April 27, 2007
+
+ * The keys in seek mode have changed a little.  It used to
+   be that `f' and `b' each sought one second, while `M-f'
+   and `M-b' sought ten seconds.  Here are the new keys:
+
+    - One second: `C-f', `C-b', `F', `B'
+    - Three seconds: `f', `b', `<left>', `<right>'
+    - Ten seconds: `M-f', `M-b', `M-<left>', `M-<right>'
+    - One minute: `C-M-f', `C-M-b'
+
+   Some other keys in this keymap changed as well, but I
+   don't think any of it is worth mentioning.
+
 April 26, 2007
 
  * Playback progress is now shown directly in the playlist
