@@ -6240,7 +6240,7 @@ In addition, set `bongo-next-action' to the value of
 In addition, unless `bongo-next-action' is already set to
 `bongo-play-queued', set `bongo-stored-next-action' to the value
 of `bongo-next-action' and set the latter to `bongo-play-queued'."
-  (interactive "d")
+  (interactive)
   (with-point-at-bongo-track point
     (move-marker bongo-queued-track-marker (point-at-bol point))
     (unless (eq bongo-next-action 'bongo-play-queued)
@@ -6268,7 +6268,7 @@ of `bongo-next-action' and set the latter to `bongo-play-queued'."
   "Start playing the track on the line at POINT.
 If there is no track at POINT, play the first track after POINT or
 signal an error if there is no track after POINT."
-  (interactive "d")
+  (interactive)
   (cond ((bongo-playlist-buffer-p)
          (with-point-at-bongo-track point
            (with-imminent-bongo-player-start
