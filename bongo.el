@@ -1771,6 +1771,11 @@ This is used by `bongo-default-format-infoset'."
   "Face used for already played Bongo tracks."
   :group 'bongo-faces)
 
+(defface bongo-elapsed-track-part
+  '((t (:strike-through "#808080")))
+  "Face used for the elapsed part of the currently playing Bongo track."
+  :group 'bongo-faces)
+
 (defface bongo-currently-playing-track
   '((t (:weight bold :inherit bongo-track)))
   "Face used for the currently playing Bongo track."
@@ -4606,7 +4611,22 @@ By ``one of the times'' is meant elapsed time or total time.")
       (when bongo-header-line-mode
         (bongo-update-header-line-string))
       (when bongo-mode-line-indicator-mode
-        (bongo-update-mode-line-indicator-string)))
+        (bongo-update-mode-line-indicator-string))
+      (catch 'abort
+        ;; While `save-excursion' is good for making sure
+        ;; that point stays on the same line in all cases,
+        ;; it cannot bring point back to the original column
+        ;; (because of how `bongo-redisplay-line' works).
+        (let ((point (when (bongo-current-track-line-p)
+                       (point))))
+          (save-excursion
+            (goto-char (or (bongo-point-at-current-track-line)
+                           (throw 'abort nil)))
+            (bongo-line-set-property 'bongo-track-length
+              (bongo-player-total-time player))
+            (bongo-redisplay-line))
+          (when point
+            (goto-char point)))))
     (when (bufferp bongo-seek-buffer)
       (bongo-seek-redisplay))))
 
@@ -8009,6 +8029,19 @@ Fast-forward or rewind the track."]
       (when (bongo-marked-track-line-p)
         (let ((bongo-facify-below-existing-faces t))
           (bongo-facify-current-line 'bongo-marked-track-line)))
+      (when (and (bongo-currently-playing-track-line-p)
+                 (bongo-elapsed-time)
+                 (bongo-total-time))
+        (let* ((end (- (window-width) 2))
+               (middle (floor (* end
+                                 (/ (bongo-elapsed-time)
+                                    (bongo-total-time))))))
+          (insert (make-string (max 0 (- end (current-column))) 32)) 
+          (goto-char (point-at-bol))
+          (while (< (current-column) middle)
+            (forward-char 1))
+          (bongo-facify-region (point-at-bol) (point)
+                               'bongo-elapsed-track-part)))
       (when invisible
         (put-text-property (bongo-point-before-line)
                            (bongo-point-after-line)
