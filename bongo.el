@@ -585,8 +585,15 @@ This variable is used by the function `bongo-default-format-field'."
 (when (stringp bongo-album-format)
   (message "Warning: `bongo-album-format' should not be a string"))
 
+(defcustom bongo-display-track-lengths t
+  "Whether to display track lengths in Bongo playlist buffers.
+See also `bongo-track-length-column'."
+  :type 'boolean
+  :group 'bongo-display)
+
 (defcustom bongo-track-length-column 60
-  "Column at which to align track lengths in Bongo playlist buffers."
+  "Column at which to align track lengths in Bongo playlist buffers.
+See also `bongo-display-track-lengths'."
   :type 'integer
   :group 'bongo-display)
 
@@ -594,7 +601,9 @@ This variable is used by the function `bongo-default-format-field'."
   '((when bongo-index
       (concat bongo-index ". "))
     bongo-title
-    (when (and bongo-length (bongo-playlist-buffer-p bongo-target))
+    (when (and bongo-display-track-lengths
+               bongo-length
+               (bongo-playlist-buffer-p bongo-target))
       (concat (let ((other-fields-width
                      (with-temp-buffer
                        (insert (bongo-format-infoset
