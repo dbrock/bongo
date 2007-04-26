@@ -7945,9 +7945,12 @@ Fast-forward or rewind the track."]
                    (if (bongo-action-track-line-p)
                        "Enqueue and Perform Action"
                      "Enqueue and Play")
-                 (if (bongo-action-track-line-p)
-                     "Perform Action"
-                   "Play"))
+                 (cond ((bongo-action-track-line-p)
+                        "Perform Action")
+                       ((bongo-header-line-p)
+                        "Play Contents")
+                       (t
+                        "Play")))
               ,(if (bongo-header-line-p)
                    'bongo-play-lines
                  'bongo-dwim)]
