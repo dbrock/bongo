@@ -1,6 +1,19 @@
 Bongo NEWS file listing user-visible changes.
 This file is in the public domain.
 
+April 26, 2007
+
+ * Playback progress is now shown directly in the playlist
+   buffer using the `bongo-elapsed-track-part' face (which
+   by default looks like the `bongo-played-track' face).
+
+ * Track lengths are now displayed in playlist buffers.
+   You may want to customize `bongo-track-length-column' or
+   (to disable this feature) `bongo-display-track-lengths'.
+
+   [This feature is still rather experimental and probably
+   does not work the way we will ultimately want it to.]
+
 April 11, 2007
 
  * There is a new binding for playing stuff: `g'.  It plays
