@@ -585,24 +585,30 @@ This variable is used by the function `bongo-default-format-field'."
 (when (stringp bongo-album-format)
   (message "Warning: `bongo-album-format' should not be a string"))
 
+(defcustom bongo-track-length-column 60
+  "Column at which to align track lengths in Bongo playlist buffers."
+  :type 'integer
+  :group 'bongo-display)
+
 (defcustom bongo-track-format
   '((when bongo-index
       (concat bongo-index ". "))
     bongo-title
-    (when (and bongo-length (not (bongo-library-buffer-p bongo-target)))
-      (concat (if (bongo-playlist-buffer-p bongo-target)
-                  (let ((other-fields-width
-                         (length (bongo-format-infoset
-                                  `((track (length . nil)
-                                           ,@bongo-track)
-                                    ,@bongo-infoset))))
-                        (indentation-width
-                         (* (length bongo-indentation-string)
-                            (bongo-line-indentation bongo-line))))
-                    (make-string (max 1 (- 65 indentation-width
-                                           other-fields-width)) 32))
-                " ")
-              bongo-length)))
+    (when (and bongo-length (bongo-playlist-buffer-p bongo-target))
+      (concat (let ((other-fields-width
+                     (with-temp-buffer
+                       (insert (bongo-format-infoset
+                                `((track (length . nil)
+                                         ,@bongo-track)
+                                  ,@bongo-infoset)))
+                       (current-column)))
+                    (indentation-width
+                     (* (length bongo-indentation-string)
+                        (bongo-line-indentation bongo-line))))
+                (make-string (max 0 (- bongo-track-length-column
+                                       indentation-width
+                                       other-fields-width)) 32))
+              "  " bongo-length)))
   "Template for displaying tracks in Bongo.
 Value is a list of expressions, each evaluating to a string or nil.
 When the expressions are evaluated,
@@ -2025,62 +2031,74 @@ As a special case, return nil if FILE-NAME is nil."
                       (string-to-number (match-string 1) 16))))
     (buffer-string)))
 
-(defun bongo-default-infoset-from-file-name (file-name)
-  (if (bongo-uri-p file-name)
-      `((artist . unknown)
-        (album . unknown)
-        (track (title . ,(bongo-unescape-uri file-name))))
-    (let* ((base-name (file-name-sans-extension
-                       (file-name-nondirectory file-name)))
-           (values (split-string base-name bongo-file-name-field-separator)))
-      (when (> (length values) 5)
-        (let ((fifth-and-rest (nthcdr 4 values)))
-          (setcar fifth-and-rest (bongo-join-fields fifth-and-rest))
-          (setcdr fifth-and-rest nil)))
-      (cond ((= 5 (length values))
-             (if (string-match bongo-file-name-track-index-regexp
-                               (nth 3 values))
+(defun bongo-default-infoset-from-file-name (file-name) 
+  (let ((track-length-part
+         (when bongo-track-length
+           `((length . ,bongo-track-length)))))
+    (if (bongo-uri-p file-name)
+        `((artist . unknown)
+          (album . unknown)
+          (track (title . ,(bongo-unescape-uri file-name))
+                 ,@track-length-part))
+      (let* ((base-name (file-name-sans-extension
+                         (file-name-nondirectory file-name)))
+             (values (split-string base-name bongo-file-name-field-separator)))
+        (when (> (length values) 5)
+          (let ((fifth-and-rest (nthcdr 4 values)))
+            (setcar fifth-and-rest (bongo-join-fields fifth-and-rest))
+            (setcdr fifth-and-rest nil)))
+        (cond ((= 5 (length values))
+               (if (string-match bongo-file-name-track-index-regexp
+                                 (nth 3 values))
+                   `((artist (name . ,(nth 0 values)))
+                     (album (year . ,(nth 1 values))
+                            (title . ,(nth 2 values)))
+                     (track (index . ,(nth 3 values))
+                            (title . ,(nth 4 values))
+                            ,@track-length-part))
                  `((artist (name . ,(nth 0 values)))
                    (album (year . ,(nth 1 values))
                           (title . ,(nth 2 values)))
-                   (track (index . ,(nth 3 values))
-                          (title . ,(nth 4 values))))
+                   (track (title . ,(bongo-join-fields
+                                     (nthcdr 3 values)))
+                          ,@track-length-part))))
+              ((and (= 4 (length values))
+                    (string-match bongo-file-name-track-index-regexp
+                                  (nth 2 values)))
+               `((artist (name . ,(nth 0 values)))
+                 (album (title . ,(nth 1 values)))
+                 (track (index . ,(nth 2 values))
+                        (title . ,(nth 3 values))
+                        ,@track-length-part)))
+              ((and (= 4 (length values))
+                    (string-match bongo-file-name-album-year-regexp
+                                  (nth 1 values)))
                `((artist (name . ,(nth 0 values)))
                  (album (year . ,(nth 1 values))
                         (title . ,(nth 2 values)))
+                 (track (title . ,(nth 3 values))
+                        ,@track-length-part)))
+              ((= 4 (length values))
+               `((artist (name . ,(nth 0 values)))
+                 (album (title . ,(nth 1 values)))
                  (track (title . ,(bongo-join-fields
-                                   (nthcdr 3 values)))))))
-            ((and (= 4 (length values))
-                  (string-match bongo-file-name-track-index-regexp
-                                (nth 2 values)))
-             `((artist (name . ,(nth 0 values)))
-               (album (title . ,(nth 1 values)))
-               (track (index . ,(nth 2 values))
-                      (title . ,(nth 3 values)))))
-            ((and (= 4 (length values))
-                  (string-match bongo-file-name-album-year-regexp
-                                (nth 1 values)))
-             `((artist (name . ,(nth 0 values)))
-               (album (year . ,(nth 1 values))
-                      (title . ,(nth 2 values)))
-               (track (title . ,(nth 3 values)))))
-            ((= 4 (length values))
-             `((artist (name . ,(nth 0 values)))
-               (album (title . ,(nth 1 values)))
-               (track (title . ,(bongo-join-fields
-                                 (nthcdr 2 values))))))
-            ((= 3 (length values))
-             `((artist (name . ,(nth 0 values)))
-               (album (title . ,(nth 1 values)))
-               (track (title . ,(nth 2 values)))))
-            ((= 2 (length values))
-             `((artist (name . ,(nth 0 values)))
-               (album . unknown)
-               (track (title . ,(nth 1 values)))))
-            ((= 1 (length values))
-             `((artist . unknown)
-               (album . unknown)
-               (track (title . ,(nth 0 values)))))))))
+                                   (nthcdr 2 values)))
+                        ,@track-length-part)))
+              ((= 3 (length values))
+               `((artist (name . ,(nth 0 values)))
+                 (album (title . ,(nth 1 values)))
+                 (track (title . ,(nth 2 values))
+                        ,@track-length-part)))
+              ((= 2 (length values))
+               `((artist (name . ,(nth 0 values)))
+                 (album . unknown)
+                 (track (title . ,(nth 1 values))
+                        ,@track-length-part)))
+              ((= 1 (length values))
+               `((artist . unknown)
+                 (album . unknown)
+                 (track (title . ,(nth 0 values))
+                        ,@track-length-part))))))))
 
 (defun bongo-simple-infoset-from-file-name (file-name)
   `((track (title . ,(file-name-sans-extension
@@ -2667,11 +2685,22 @@ You should use `bongo-line-infoset' most of the time."
                      (genre . ,stream-genre)
                      (part-title . ,stream-part-title))))
           (uri-title
-           `((artist . unknown)
-             (album . unknown)
-             (track (title . ,uri-title))))
+           (let ((track-length
+                  (bongo-line-get-property 'bongo-track-length point)))
+             `((artist . unknown)
+               (album . unknown)
+               (track (title . ,uri-title)
+                      ,@(when track-length
+                          `((length . ,track-length)))))))
           (t
-           (bongo-infoset-from-file-name file-name)))))
+           (bongo-file-track-infoset point)))))
+
+(defun bongo-file-track-infoset (&optional point)
+  "Return the infoset for the file track at POINT.
+You should use `bongo-line-infoset' most of the time."
+  (let ((bongo-track-length
+         (bongo-line-get-property 'bongo-track-length point)))
+    (bongo-infoset-from-file-name (bongo-line-file-name point))))
 
 (defun bongo-action-track-infoset (&optional point)
   "Return the infoset for the action track at POINT.
@@ -2684,13 +2713,12 @@ You should use `bongo-line-infoset' most of the time."
   (unless (bongo-track-line-p point)
     (error "Point is not on a track line"))
   (or (bongo-line-get-property 'bongo-infoset point)
-      (let (file-name)
-        (cond ((setq file-name (bongo-line-file-name point))
-               (if (bongo-uri-p file-name)
-                   (bongo-uri-track-infoset point)
-                 (bongo-infoset-from-file-name file-name)))
-              ((bongo-line-action point)
-               (bongo-action-track-infoset point))))))
+      (cond ((bongo-uri-track-line-p point)
+             (bongo-uri-track-infoset point)) 
+            ((bongo-file-track-line-p)
+             (bongo-file-track-infoset point))
+            ((bongo-action-track-line-p point)
+             (bongo-action-track-infoset point)))))
 
 (defun bongo-header-infoset (&optional point)
   "Return the infoset for the header at POINT.
@@ -3162,7 +3190,7 @@ Actually only look at the terminating newline."
   ;; When changing this, consider also changing
   ;; `bongo-line-serializable-properties'.
   (list 'bongo-file-name 'bongo-action 'bongo-backend
-        'bongo-infoset 'bongo-uri-title
+        'bongo-infoset 'bongo-uri-title 'bongo-track-length
         'bongo-stream-name 'bongo-stream-genre
         'bongo-fields 'bongo-external-fields
         'bongo-header 'bongo-collapsed
@@ -9010,7 +9038,7 @@ instead, use high-level functions such as `find-file'."
   ;; When changing this, consider also changing
   ;; `bongo-line-semantic-properties'.
   (list 'bongo-file-name 'bongo-action 'bongo-backend
-        'bongo-infoset 'bongo-uri-title
+        'bongo-infoset 'bongo-uri-title 'bongo-track-length
         'bongo-stream-name 'bongo-stream-genre
         'bongo-fields 'bongo-external-fields
         'bongo-header 'bongo-collapsed)
