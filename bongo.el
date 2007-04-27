@@ -1647,7 +1647,9 @@ If running without a window system, signal an error."
                                    (eval bongo-mode-line-resume-icon-11)))
                    'help-echo
                    (let ((position (bongo-point-at-current-track-line)))
-                     (concat "mouse-1: "
+                     ;; We can't put the <mouse-3> text at
+                     ;; the bottom because it'll truncate.
+                     (concat "mouse-3: display Bongo buffers\nmouse-1: "
                              (if position
                                  (concat "play "
                                          (bongo-format-infoset
