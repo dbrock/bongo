@@ -2724,7 +2724,7 @@ You should use `bongo-line-infoset' most of the time."
   (or (bongo-line-get-property 'bongo-infoset point)
       (cond ((bongo-uri-track-line-p point)
              (bongo-uri-track-infoset point)) 
-            ((bongo-file-track-line-p)
+            ((bongo-file-track-line-p point)
              (bongo-file-track-infoset point))
             ((bongo-action-track-line-p point)
              (bongo-action-track-infoset point)))))
