@@ -1,6 +1,18 @@
 Bongo NEWS file listing user-visible changes.
 This file is in the public domain.
 
+April 28, 2007
+
+ * Left-clicking the arrow buttons in the mode line now
+   fast-forwards or rewinds instead of switching tracks ---
+   to switch tracks, use the right mouse button (`mouse-3').
+
+ * The arrow buttons will now only appear during playback
+   (leaving just the play button when playback is stopped).
+
+   To pick your own set of mode line buttons, customize the
+   variable `bongo-mode-line-indicator-format'.
+
 April 27, 2007
 
  * The keys in seek mode have changed a little.  It used to
