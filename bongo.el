@@ -4834,18 +4834,22 @@ If PLAYER does not support seeking, signal an error."
 
 (defun bongo-player-elapsed-time (player)
   "Return the number of seconds PLAYER has played so far.
-If the player backend cannot report this, return nil."
-  (bongo-player-call-with-default
-   player 'get-elapsed-time
-   'bongo-default-player-get-elapsed-time))
+If the player backend cannot report this, return nil.
+The return value is always a floating point number or nil."
+  (let ((value (bongo-player-call-with-default
+                player 'get-elapsed-time
+                'bongo-default-player-get-elapsed-time)))
+    (and value (>= value 0) (float value))))
 
 (defun bongo-player-total-time (player)
   "Return the total number of seconds PLAYER has and will use.
-If the player backend cannot report this, return nil."
+If the player backend cannot report this, return nil.
+The return value is always a floating point number or nil."
   (let ((value (bongo-player-call-with-default
                 player 'get-total-time
                 'bongo-default-player-get-total-time)))
-    (and value (> value 0) value)))
+    ;; In most cases, zero means "I don't know".
+    (and value (> value 0) (float value))))
 
 (defun bongo-player-update-elapsed-time (player elapsed-time)
   "Set PLAYER's `elapsed-time' property to ELAPSED-TIME,
@@ -8048,6 +8052,10 @@ Fast-forward or rewind the track."]
     (prog1 map
       (define-key map [mouse-3] 'bongo-pop-up-context-menu))))
 
+(defun bongo-current-column (&optional point window)
+  (let ((posn (posn-at-point point window)))
+    (and posn (car (posn-col-row posn)))))
+
 (defun bongo-redisplay-line (&optional point)
   "Redisplay the line at POINT, preserving semantic text properties."
   (save-excursion
@@ -8097,16 +8105,30 @@ Fast-forward or rewind the track."]
       (when (and (bongo-currently-playing-track-line-p)
                  (bongo-elapsed-time)
                  (bongo-total-time))
-        (let* ((end (- (window-width) 2))
-               (middle (floor (* end
-                                 (/ (bongo-elapsed-time)
-                                    (bongo-total-time))))))
-          (insert (make-string (max 0 (- end (current-column))) 32)) 
-          (goto-char (point-at-bol))
-          (while (< (current-column) middle)
-            (forward-char 1))
-          (bongo-facify-region (point-at-bol) (point)
-                               'bongo-elapsed-track-part)))
+        (let ((windows (get-buffer-window-list (current-buffer))))
+          (let (smallest-window)
+            (dolist (window windows)
+              (when (and (posn-at-point point window)
+                         (or (null smallest-window)
+                             (< (window-width window)
+                                (window-width smallest-window))))
+                (setq smallest-window window)))
+            (when smallest-window
+              (let ((point (point)))
+                (save-window-excursion
+                  (select-window smallest-window)
+                  (goto-char point)
+                  (let* ((middle (floor (* (window-width)
+                                           (/ (bongo-elapsed-time)
+                                              (bongo-total-time))))))
+                    (goto-char (point-at-bol))
+                    (while (let ((column (bongo-current-column)))
+                             (and column (< column middle)))
+                      (if (eolp)
+                          (insert " ")
+                        (forward-char 1)))
+                    (bongo-facify-region (point-at-bol) (point)
+                                         'bongo-elapsed-track-part))))))))
       (when invisible
         (put-text-property (bongo-point-before-line)
                            (bongo-point-after-line)
