@@ -8356,6 +8356,13 @@ Fast-forward or rewind the track."]
   (let ((posn (posn-at-point point window)))
     (and posn (car (posn-col-row posn)))))
 
+(defcustom bongo-display-inline-playback-progress nil
+  "Whether to display playback progress inline in the playlist buffer.
+This is done using the face `bongo-elapsed-track-part'.
+Enabling this may considerably slow down interactive seeking."
+  :type 'boolean
+  :group 'bongo)
+
 (defun bongo-redisplay-line (&optional point)
   "Redisplay the line at POINT, preserving semantic text properties."
   (save-excursion
@@ -8402,7 +8409,8 @@ Fast-forward or rewind the track."]
       (when (bongo-marked-track-line-p)
         (let ((bongo-facify-below-existing-faces t))
           (bongo-facify-current-line 'bongo-marked-track-line)))
-      (when (and (bongo-currently-playing-track-line-p)
+      (when (and bongo-display-inline-playback-progress
+                 (bongo-currently-playing-track-line-p)
                  (bongo-elapsed-time)
                  (bongo-total-time))
         (let ((windows (get-buffer-window-list (current-buffer))))

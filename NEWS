@@ -3,6 +3,10 @@ This file is in the public domain.
 
 April 28, 2007
 
+ * Inline playback progress is now disabled by default,
+   because it slowed down seeking.  To turn it back on,
+   customize `bongo-display-inline-playback-progress'.
+
  * Left-clicking the arrow buttons in the mode line now
    fast-forwards or rewinds instead of switching tracks ---
    to switch tracks, use the right mouse button (`mouse-3').
