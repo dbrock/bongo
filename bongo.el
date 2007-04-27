@@ -6767,6 +6767,14 @@ This functionality may not be available for all backends."
         (bongo-player-pause/resume bongo-player)
       (error "No active player"))))
 
+(defun bongo-minibuffer-seek-string ()
+  (save-window-excursion
+    (with-temp-buffer
+      (let ((bongo-seek-buffer (current-buffer)))
+        (select-window (minibuffer-window))
+        (bongo-seek-redisplay)
+        (buffer-string)))))
+
 (defun bongo-seek-forward (&optional n)
   "Seek N units forward in the currently playing track.
 The time unit is currently backend-specific.
@@ -6778,9 +6786,9 @@ This functionality may not be available for all backends."
           (error "No active player")
         (bongo-player-seek-by bongo-player n)
         (unless seeking-interactively
-          (when (and (bongo-player-elapsed-time bongo-player)
-                     (bongo-player-total-time bongo-player))
-            (bongo-show)))))))
+          (let ((message-log-max nil))
+            (with-temp-message (bongo-minibuffer-seek-string)
+              (sit-for 2))))))))
 
 (defun bongo-seek-backward (&optional n)
   "Seek N units backward in the currently playing track.
@@ -6793,13 +6801,12 @@ This functionality may not be available for all backends."
          (error "No active player")
        (bongo-player-seek-by bongo-player (- n))
        (unless seeking-interactively
-         (when (and (bongo-player-elapsed-time bongo-player)
-                    (bongo-player-total-time bongo-player))
-           (bongo-show)))))))
+         (let ((message-log-max nil))
+           (with-temp-message (bongo-minibuffer-seek-string)
+             (sit-for 2))))))))
 
 (defun bongo-seek-to (position)
-  "Seek to POSITION in the currently playing track.
-The time unit is currently backend-specific.
+  "Seek to POSITION (seconds) in the currently playing track.
 This functionality may not be available for all backends."
   (interactive
    (with-bongo-playlist-buffer
@@ -6829,9 +6836,9 @@ This functionality may not be available for all backends."
          (error "No active player")
        (bongo-player-seek-to bongo-player position)
        (unless seeking-interactively
-         (when (and (bongo-player-elapsed-time bongo-player)
-                    (bongo-player-total-time bongo-player))
-           (bongo-show)))))))
+         (let ((message-log-max nil))
+           (with-temp-message (bongo-minibuffer-seek-string)
+             (sit-for 2))))))))
 
 
 ;;;; Interactive seeking
