@@ -5219,9 +5219,10 @@ the player's backend has a non-nil `pause-signal' property."
   (bongo-player-get player 'seeking-supported))
 
 (defun bongo-default-player-seek-by (player n)
-  "Signal an error explaining that PLAYER does not support seeking.
-This is a dummy implementation, so N is ignored."
-  (bongo-player-seek-to player (+ (bongo-player-elapsed-time player) n)))
+  "Tell PLAYER to seek by N seconds (backwards if N is negative).
+If PLAYER does not support seeking, signal an error."
+  (bongo-player-seek-to player
+    (+ (or (bongo-player-elapsed-time player) 0) n)))
 
 (defun bongo-default-player-seek-to (player n)
   "Signal an error explaining that PLAYER does not support seeking.
