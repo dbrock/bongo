@@ -7125,13 +7125,13 @@ This functionality may not be available for all backends."
        (error "No active player"))))
   (let ((seeking-interactively (eq major-mode 'bongo-seek-mode)))
     (with-bongo-playlist-buffer
-     (if (null bongo-player)
-         (error "No active player")
-       (bongo-player-seek-to bongo-player position)
-       (unless seeking-interactively
-         (let ((message-log-max nil))
-           (with-temp-message (bongo-minibuffer-seek-string)
-             (sit-for 2))))))))
+      (if (null bongo-player)
+          (error "No active player")
+        (bongo-player-seek-to bongo-player position)
+        (unless seeking-interactively
+          (let ((message-log-max nil))
+            (with-temp-message (bongo-minibuffer-seek-string)
+              (sit-for 2))))))))
 
 
 ;;;; Interactive seeking
@@ -8451,19 +8451,19 @@ Enabling this may considerably slow down interactive seeking."
         (line-move-ignore-invisible nil)
         (end-marker (move-marker (make-marker) end)))
     (save-excursion
-     (when (interactive-p)
-       (message "Rendering %s..." target-string))
-     (goto-char beg)
-     (bongo-ignore-movement-errors
-       (bongo-snap-to-object-line)
-       (while (< (point) end-marker)
-         (when (interactive-p)
-           (message "Rendering %s...%d%%" target-string
-                    (/ (* 100 (point)) (point-max))))
-         (bongo-redisplay-line)
-         (bongo-next-object-line)))
-     (when (interactive-p)
-       (message "Rendering %s...done" target-string)))))
+      (when (interactive-p)
+        (message "Rendering %s..." target-string))
+      (goto-char beg)
+      (bongo-ignore-movement-errors
+        (bongo-snap-to-object-line)
+        (while (< (point) end-marker)
+          (when (interactive-p)
+            (message "Rendering %s...%d%%" target-string
+                     (/ (* 100 (point)) (point-max))))
+          (bongo-redisplay-line)
+          (bongo-next-object-line)))
+      (when (interactive-p)
+        (message "Rendering %s...done" target-string)))))
 
 (defun bongo-redisplay ()
   "Redisplay the current Bongo buffer.
