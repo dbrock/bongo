@@ -8829,9 +8829,16 @@ See `yank' for the meaning of ARGUMENT."
     (beginning-of-line)
     (when line-move-ignore-invisible
       (bongo-skip-invisible))
+    ;; This trick causes the yanked text to be inserted
+    ;; before all markers at the beginning of the line.
+    (insert-before-markers " ")
+    (backward-char 1) 
     (let ((yank-excluded-properties
            (remq 'invisible yank-excluded-properties)))
       (yank argument))
+    (save-excursion
+      (goto-char (region-end))
+      (delete-char 1))
     (bongo-clean-up-after-insertion (region-beginning) (region-end))))
 
 ;; XXX: This definitely does not work properly.
