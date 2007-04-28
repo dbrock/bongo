@@ -9523,6 +9523,14 @@ However, setting it through Custom does this automatically."
     (define-key map "P" 'bongo-previous)
     (define-key map "N" 'bongo-next)
     (define-key map "s" 'bongo-seek)
+    (define-key map "\C-B" 'bongo-seek-backward)
+    (define-key map "\C-F" 'bongo-seek-forward)
+    (define-key map "B" 'bongo-seek-backward-3)
+    (define-key map "F" 'bongo-seek-forward-3)
+    (define-key map "\M-B" 'bongo-seek-backward-10)
+    (define-key map "\M-F" 'bongo-seek-forward-10)
+    (define-key map "\M-\C-B" 'bongo-seek-backward-60)
+    (define-key map "\M-\C-F" 'bongo-seek-forward-60)
     (define-key map "i" 'bongo-insert-file)
     (define-key map "I" 'bongo-insert-special)
     (define-key map "g" 'bongo-play)
@@ -9531,7 +9539,7 @@ However, setting it through Custom does this automatically."
     (define-key map "t" 'bongo-transpose-forward)
     (define-key map "T" 'bongo-transpose-backward)
     (define-key map "f" 'bongo-flush-playlist)
-    (define-key map "F" 'bongo-reset-playlist)
+    (define-key map "R" 'bongo-reset-playlist)
     (define-key map "S" 'bongo-sprinkle)
     (define-key map "m" 'bongo-mark-forward)
     (define-key map "u" 'bongo-unmark-forward)
@@ -9943,7 +9951,7 @@ If BUFFER is neither nil nor a buffer, return nil."
 
   To start playing a track, use `RET'; to stop, use `C-c C-s'.
   To play the previous or next track, use `C-c C-p' or `C-c C-n'.
-  To pause or resume, use `SPC', and to seek, use `s'.
+  To pause, use `SPC', and to fast-forward or rewind, use `s'.
 
   You can use `i' and `I' to insert things directly into playlists,
   but enqueuing (using `e') from libraries is often more convenient.
@@ -9953,7 +9961,6 @@ If BUFFER is neither nil nor a buffer, return nil."
 
 (defun bongo-buffer ()
   "Return an interesting Bongo buffer, creating it if necessary.
-
 First try to find an existing Bongo buffer, using a strategy similar to the
 function `bongo-library-buffer' and the function `bongo-playlist-buffer'.
 If no Bongo buffer is found, create a new one.

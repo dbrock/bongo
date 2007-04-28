@@ -3,6 +3,12 @@ This file is in the public domain.
 
 April 28, 2007
 
+ * The keys `F', `B', `M-F', `M-B', `C-M-F' and `C-M-B' are
+   now bound to immediate seeking commands, which provide
+   quicker ways of seeking (you no longer have to use `s').
+
+   The old `F' command has been moved to `R' (for "reset").
+
  * Inline playback progress is now disabled by default,
    because it slowed down seeking.  To turn it back on,
    customize `bongo-display-inline-playback-progress'.
