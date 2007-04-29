@@ -3784,6 +3784,166 @@ existing header into two (see `bongo-maybe-insert-intermediate-header')."
         (bongo-maybe-insert-intermediate-header)))))
 
 
+;;;; The prefix/region/marking convention
+
+(defun bongo-universal-prefix/region/marking-object-command (&optional n)
+  "In Bongo, force the prefix/region/marking convention for a command.
+That is, read a key sequence and execute the command bound to that sequence
+some number of times, each time with point at a different track or section.
+If given a prefix argument N, execute the command once for each of the
+  next N tracks or sections.
+Otherwise, if the region is active, execute the command once for each
+  track or section in the region.
+Otherwise, if there are any marked tracks, execute the command once for
+  each marked track.
+Otherwise, just execute the command on the track or section at point.
+In all cases (and this is an important detail), execute the command
+without any prefix argument, active region or marking.
+See `bongo-universal-prefix/region/marking-track-command' for a similar
+utility that operates only on tracks (not sections)."
+  (interactive "P")
+  (let ((command (key-binding (read-key-sequence nil t))))
+    (when (eq command 'keyboard-quit)
+      (keyboard-quit))
+    (save-excursion
+      (cond (n
+             (setq n (prefix-numeric-value n))
+             (let ((mark-active nil)
+                   (marking bongo-marking))
+               (when marking
+                 ;; XXX: This discards the killed marking
+                 ;;      as an unfortunate side-effect.
+                 (bongo-kill-marking))
+               (if (< n 0)
+                   (dotimes (dummy (- n))
+                     (bongo-previous-object)
+                     (save-excursion
+                       (command-execute command)))
+                 (dotimes (dummy n)
+                   (bongo-snap-to-object-line)
+                   (save-excursion
+                     (command-execute command))
+                   (goto-char (bongo-point-after-object))))
+               (when marking
+                 (bongo-yank-marking))))
+            ((bongo-region-active-p)
+             (deactivate-mark)
+             (let ((marking bongo-marking))
+               (when marking
+                 ;; XXX: This discards the killed marking
+                 ;;      as an unfortunate side-effect.
+                 (bongo-kill-marking))
+               (goto-char (region-beginning))
+               (while (and (bongo-snap-to-object-line 'no-error)
+                           (< (point) (region-end)))
+                 (command-execute command)
+                 (goto-char (bongo-point-after-object)))
+               (when marking
+                 (bongo-yank-marking))))
+            (bongo-marking
+             (let ((mark-active nil)
+                   (marking bongo-marking))
+               (bongo-kill-marking)
+               (dolist (marker (reverse marking))
+                 (catch 'abort
+                   (goto-char (or (marker-position (car marker))
+                                  (throw 'abort nil)))
+                   (command-execute command)))))
+            (t
+             (let ((mark-active nil)
+                   (marking bongo-marking))
+               (when marking
+                 ;; XXX: This discards the killed marking
+                 ;;      as an unfortunate side-effect.
+                 (bongo-kill-marking))
+               (bongo-snap-to-object-line)
+               (command-execute command)
+               (when marking
+                 (bongo-yank-marking))))))))
+
+(defun bongo-universal-prefix/region/marking-track-command (&optional n)
+  "In Bongo, force the prefix/region/marking convention for a command.
+That is, read a key sequence and execute the command bound to that sequence
+some number of times, each time with point at a different track.
+If given a prefix argument N, execute the command once for each of the
+  next N tracks.
+Otherwise, if the region is active, execute the command once for each
+  track in the region.
+Otherwise, if there are any marked tracks, execute the command once for
+  each marked track.
+Otherwise, just execute the command on the track at point.
+In all cases (and this is an important detail), execute the command
+without any prefix argument, active region or marking.
+Unlike `bongo-universal-prefix/region/marking-object-command',
+ignore all section structure (i.e., operate only on tracks)."
+  (interactive "P")
+  (let ((command (key-binding (read-key-sequence nil t))))
+    (when (eq command 'keyboard-quit)
+      (keyboard-quit))
+    (save-excursion
+      (cond (n
+             (setq n (prefix-numeric-value n))
+             (let ((mark-active nil)
+                   (marking bongo-marking))
+               (when marking
+                 ;; XXX: This discards the killed marking
+                 ;;      as an unfortunate side-effect.
+                 (bongo-kill-marking))
+               (if (< n 0)
+                   (dotimes (dummy (- n))
+                     (goto-char (or (bongo-point-at-previous-track-line)
+                                    (signal 'bongo-no-previous-object nil)))
+                     (save-excursion
+                       (command-execute command)))
+                 (dotimes (dummy n)
+                   (unless (bongo-track-line-p)
+                     (goto-char (or (bongo-point-at-next-track-line)
+                                    (signal 'bongo-no-next-object nil))))
+                   (save-excursion
+                     (command-execute command))
+                   (forward-line 1)))
+               (when marking
+                 (bongo-yank-marking))))
+            ((bongo-region-active-p)
+             (deactivate-mark)
+             (let ((marking bongo-marking))
+               (when marking
+                 ;; XXX: This discards the killed marking
+                 ;;      as an unfortunate side-effect.
+                 (bongo-kill-marking))
+               (goto-char (region-beginning))
+               (while (and (or (bongo-track-line-p)
+                               (goto-char (or (bongo-point-at-next-track-line)
+                                              (point-max))))
+                           (< (point) (region-end)))
+                 (command-execute command)
+                 (forward-line 1))
+               (when marking
+                 (bongo-yank-marking))))
+            (bongo-marking
+             (let ((mark-active nil)
+                   (marking bongo-marking))
+               (bongo-kill-marking)
+               (dolist (marker (reverse marking))
+                 (catch 'abort
+                   (goto-char (or (marker-position (car marker))
+                                  (throw 'abort nil)))
+                   (command-execute command)))))
+            (t
+             (let ((mark-active nil)
+                   (marking bongo-marking))
+               (when marking
+                 ;; XXX: This discards the killed marking
+                 ;;      as an unfortunate side-effect.
+                 (bongo-kill-marking))
+               (unless (bongo-track-line-p)
+                 (goto-char (or (bongo-point-at-next-track-line)
+                                (signal 'bongo-no-next-object nil))))
+               (command-execute command)
+               (when marking
+                 (bongo-yank-marking))))))))
+
+
 ;;;; Markings
 
 ;;; Each track line in Bongo is either marked or unmarked.
@@ -9551,6 +9711,10 @@ However, setting it through Custom does this automatically."
     (define-key map "f" 'bongo-flush-playlist)
     (define-key map "R" 'bongo-reset-playlist)
     (define-key map "S" 'bongo-sprinkle)
+    (define-key map "&"
+      'bongo-universal-prefix/region/marking-object-command)
+    (define-key map "\M-&"
+      'bongo-universal-prefix/region/marking-track-command)
     (define-key map "m" 'bongo-mark-forward)
     (define-key map "u" 'bongo-unmark-forward)
     (define-key map "\177" 'bongo-unmark-backward)
