@@ -9295,11 +9295,11 @@ This function uses `bongo-update-references-to-renamed-files'."
               (bongo-ignore-movement-errors
                 (while (bongo-snap-to-object-line)
                   (when (string-equal (bongo-line-file-name) old-name)
-                    (bongo-delete-line)
-                    (bongo-insert-line 'bongo-file-name new-name))
+                    (bongo-line-set-property 'bongo-file-name new-name)
+                    (bongo-redisplay-line))
                   (bongo-next-object-line)))))
-        (bongo-delete-line)
-        (bongo-insert-line 'bongo-file-name new-name)))))
+        (bongo-line-set-property 'bongo-file-name new-name)
+        (bongo-redisplay-line)))))
 
 (defun bongo-rename-uri-track (new-uri &optional new-title point)
   "Retarget and optionally retitle the URI track at POINT.
