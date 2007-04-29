@@ -8678,7 +8678,9 @@ Return the character position of the end of the copied text."
   (interactive "p")
   (or n (setq n 1))
   (if (< n 0)
-      (bongo-copy-line-backward (- n))
+      (progn (when (eq this-command 'bongo-copy-line-forward)
+               (setq this-command 'bongo-copy-line-backward))
+             (bongo-copy-line-backward (- n)))
     (when (> n 0)
       (when (eq last-command 'bongo-copy-line-forward)
         (append-next-kill))
@@ -8704,7 +8706,9 @@ otherwise, just move to the previous line of text."
   (interactive "p")
   (or n (setq n 1))
   (if (< n 0)
-      (bongo-copy-line-forward (- n))
+      (progn (when (eq this-command 'bongo-copy-line-backward)
+               (setq this-command 'bongo-copy-line-forward))
+             (bongo-copy-line-forward (- n)))
     (when (> n 0)
       (bongo-previous-object-or-line)
       (when (eq last-command 'bongo-copy-line-backward)
@@ -8740,13 +8744,15 @@ Otherwise, if there are any marked tracks, copy those.
 Otherwise, just copy the track or section at point.
 Leave point after the copied text."
   (interactive "P")
-  (cond ((not (null n))
+  (cond (n
          (bongo-copy-line-forward (prefix-numeric-value n)))
         ((bongo-region-active-p)
          (bongo-copy-region (region-beginning) (region-end)))
         (bongo-marking
          (bongo-copy-marked))
         (t
+         (when (eq this-command 'bongo-copy-forward)
+           (setq this-command 'bongo-copy-line-forward))
          (bongo-copy-line-forward))))
 
 (defun bongo-copy-backward (&optional n)
@@ -8756,8 +8762,12 @@ Otherwise, if the region is active, copy the region.
 Otherwise, if there are any marked tracks, copy those.
 Otherwise, just copy the track or section at point.
 Leave point before the copied text."
-  (interactive "p")
-  (bongo-copy-forward (- n)))
+  (interactive "P")
+  (if n
+      (bongo-copy-forward (- (prefix-numeric-value n)))
+    (when (eq this-command 'bongo-copy-backward)
+      (setq this-command 'bongo-copy-forward))
+    (bongo-copy-forward)))
 
 (defun bongo-clean-up-after-insertion (beg end)
   (let ((end (move-marker (make-marker) end))
