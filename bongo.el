@@ -1777,7 +1777,7 @@ If running without a window system, signal an error."
                                    (eval bongo-mode-line-backward-icon-18))
                                   ((= icon-size 11)
                                    (eval bongo-mode-line-backward-icon-11)))
-                   'help-echo "mouse-1: rewind 10 seconds" 
+                   'help-echo "mouse-1: rewind 10 seconds"
                    'local-map bongo-mode-line-backward-map
                    'mouse-face 'highlight)
        (when (>= emacs-major-version 22)
@@ -1795,7 +1795,7 @@ If running without a window system, signal an error."
                                    (eval bongo-mode-line-forward-icon-18))
                                   ((= icon-size 11)
                                    (eval bongo-mode-line-forward-icon-11)))
-                   'help-echo "mouse-1: fast-forward 10 seconds" 
+                   'help-echo "mouse-1: fast-forward 10 seconds"
                    'local-map bongo-mode-line-forward-map
                    'mouse-face 'highlight)
        (when (>= emacs-major-version 22)
@@ -2335,7 +2335,7 @@ As a special case, return nil if FILE-NAME is nil."
                       (string-to-number (match-string 1) 16))))
     (buffer-string)))
 
-(defun bongo-default-infoset-from-file-name (file-name) 
+(defun bongo-default-infoset-from-file-name (file-name)
   (let ((track-length-part
          (when bongo-track-length
            `((length . ,bongo-track-length)))))
@@ -3018,7 +3018,7 @@ You should use `bongo-line-infoset' most of the time."
     (error "Point is not on a track line"))
   (or (bongo-line-get-property 'bongo-infoset point)
       (cond ((bongo-uri-track-line-p point)
-             (bongo-uri-track-infoset point)) 
+             (bongo-uri-track-infoset point))
             ((bongo-file-track-line-p point)
              (bongo-file-track-infoset point))
             ((bongo-action-track-line-p point)
@@ -7392,7 +7392,7 @@ That is, when `bongo-seek-electric-mode' is non-nil.")
     (define-key map [(meta up)] 'bongo-seek-forward-60)
     (define-key map [(meta down)] 'bongo-seek-backward-60)
     (define-key map "\M-\C-b" 'bongo-seek-backward-60)
-    (define-key map "\M-\C-f" 'bongo-seek-forward-60) 
+    (define-key map "\M-\C-f" 'bongo-seek-forward-60)
     (define-key map [(control meta left)] 'bongo-seek-backward-60)
     (define-key map [(control meta right)] 'bongo-seek-forward-60)
     (define-key map "a" 'bongo-replay-current)
@@ -8433,7 +8433,7 @@ Fast-forward or rewind the track."]
                      'bongo-kill-line
                    'bongo-kill)]
                ,@region-menu
-               ,@marking-menu) 
+               ,@marking-menu)
            `(,(cond ((bongo-local-file-track-line-p)
                      "Bongo File Track")
                     ((bongo-uri-track-line-p)
@@ -8777,7 +8777,7 @@ If the region ends inside a section, kill that whole section."
   "In Bongo, kill all marked track lines and kill the marking."
   (interactive)
   (let ((marking (reverse bongo-marking)))
-    (bongo-kill-marking) 
+    (bongo-kill-marking)
     (while (and marking (null (marker-position (caar marking))))
       (setq marking (cdr marking)))
     (when marking
@@ -9002,7 +9002,7 @@ See `yank' for the meaning of ARGUMENT."
     ;; This trick causes the yanked text to be inserted
     ;; before all markers at the beginning of the line.
     (insert-before-markers " ")
-    (backward-char 1) 
+    (backward-char 1)
     (let ((yank-excluded-properties
            (remq 'invisible yank-excluded-properties)))
       (yank argument))
@@ -9776,7 +9776,7 @@ However, setting it through Custom does this automatically."
                         bongo-mark-played-tracks)))
       (define-key menu-map [bongo-sprinkle-mode]
         '(menu-item "Automatic Sprinkling" bongo-sprinkle-mode
-          :button (:toggle . bongo-sprinkle-mode) 
+          :button (:toggle . bongo-sprinkle-mode)
           :visible (bongo-playlist-buffer-p)))
       (define-key menu-map [bongo-sprinkle]
         '(menu-item "Sprinkle a Random Track" bongo-sprinkle
