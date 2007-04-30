@@ -7804,10 +7804,15 @@ TYPE defaults to `PRIMARY'.  Use `CLIPBOARD' on Microsoft Windows."
 (defun bongo-get-x-selection-uri ()
   "Return the URI in the X Windows selection, if any.
 See `bongo-get-x-selection'."
-  (or (let ((primary (bongo-get-x-selection)))
-        (and (bongo-uri-p primary) primary))
-      (let ((clipboard (bongo-get-x-selection 'CLIPBOARD)))
-        (and (bongo-uri-p clipboard) clipboard))))
+  (let ((value (or (let ((primary (bongo-get-x-selection)))
+                     (and (bongo-uri-p primary) primary))
+                   (let ((clipboard (bongo-get-x-selection 'CLIPBOARD)))
+                     (and (bongo-uri-p clipboard) clipboard)))))
+    (prog1 value
+      (when value
+        ;; The string may have `read-only' properties on it,
+        ;; and other properties may cause problems as well.
+        (set-text-properties 0 (length value) nil value)))))
 
 (defun bongo-insert-uri (uri &optional title)
   "Insert a new track line corresponding to URI.
