@@ -3828,14 +3828,15 @@ utility that operates only on tracks (not sections)."
                  (bongo-yank-marking))))
             ((bongo-region-active-p)
              (deactivate-mark)
-             (let ((marking bongo-marking))
+             (let ((marking bongo-marking)
+                   (end (region-end)))
                (when marking
                  ;; XXX: This discards the killed marking
                  ;;      as an unfortunate side-effect.
                  (bongo-kill-marking))
                (goto-char (region-beginning))
                (while (and (bongo-snap-to-object-line 'no-error)
-                           (< (point) (region-end)))
+                           (< (point) end))
                  (command-execute command)
                  (goto-char (bongo-point-after-object)))
                (when marking
@@ -3906,7 +3907,8 @@ ignore all section structure (i.e., operate only on tracks)."
                  (bongo-yank-marking))))
             ((bongo-region-active-p)
              (deactivate-mark)
-             (let ((marking bongo-marking))
+             (let ((marking bongo-marking)
+                   (end (region-end)))
                (when marking
                  ;; XXX: This discards the killed marking
                  ;;      as an unfortunate side-effect.
@@ -3915,7 +3917,7 @@ ignore all section structure (i.e., operate only on tracks)."
                (while (and (or (bongo-track-line-p)
                                (goto-char (or (bongo-point-at-next-track-line)
                                               (point-max))))
-                           (< (point) (region-end)))
+                           (< (point) end))
                  (command-execute command)
                  (forward-line 1))
                (when marking
