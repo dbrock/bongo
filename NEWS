@@ -3,6 +3,17 @@ Bongo NEWS file listing user-visible changes.
 Copyright (C) 2007  Daniel Brockman
 See the end of the file for licensing conditions.
 
+May 6, 2007
+
+ * The keys `f' and `b' are now bound to seeking commands,
+   to go with the newly-introduced `F', `B', `M-F', etc.
+
+   The old `f' command (`bongo-flush-playlist') has been
+   moved to `~' (played tracks are "backups", in a sense).
+
+ * The command `C-c TAB' now sits on `C-c C-e' instead,
+   because of the symmetry with `C-c C-a'.
+
 April 28, 2007
 
  * The keys `F', `B', `M-F', `M-B', `C-M-F' and `C-M-B' are
