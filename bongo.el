@@ -6,7 +6,7 @@
 ;;   Free Software Foundation, Inc.
 
 ;; Author: Daniel Brockman <daniel@brockman.se>
-;; URL: http://www.brockman.se/software/bongo/
+;; URL: http://bongo.nongnu.org/
 ;; Created: September 3, 2005
 ;; Updated: May 6, 2007
 
