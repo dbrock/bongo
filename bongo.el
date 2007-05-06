@@ -9712,8 +9712,10 @@ However, setting it through Custom does this automatically."
     (define-key map "s" 'bongo-seek)
     (define-key map [?\C-\S-b] 'bongo-seek-backward)
     (define-key map [?\C-\S-f] 'bongo-seek-forward)
-    (define-key map "B" 'bongo-seek-backward-3)
-    (define-key map "F" 'bongo-seek-forward-3)
+    (define-key map "B" 'bongo-seek-backward)
+    (define-key map "F" 'bongo-seek-forward)
+    (define-key map "b" 'bongo-seek-backward-3)
+    (define-key map "f" 'bongo-seek-forward-3)
     (define-key map "\M-B" 'bongo-seek-backward-10)
     (define-key map "\M-F" 'bongo-seek-forward-10)
     (define-key map [?\C-\M-\S-b] 'bongo-seek-backward-60)
@@ -9725,7 +9727,7 @@ However, setting it through Custom does this automatically."
     (define-key map "E" 'bongo-insert-enqueue)
     (define-key map "t" 'bongo-transpose-forward)
     (define-key map "T" 'bongo-transpose-backward)
-    (define-key map "f" 'bongo-flush-playlist)
+    (define-key map "~" 'bongo-flush-playlist)
     (define-key map "R" 'bongo-reset-playlist)
     (define-key map "S" 'bongo-sprinkle)
     (define-key map "&"
@@ -9766,6 +9768,7 @@ However, setting it through Custom does this automatically."
       (define-key map "x" 'bongo-start)
       (define-key map "c" 'bongo-pause/resume)
       (define-key map "v" 'bongo-stop)
+      ;; This replaces the rewind binding, but that's okay.
       (define-key map "b" 'bongo-next))
     (when (not bongo-xmms-refugee-mode)
       ;; Delete leftover XMMS bindings, as it may be
@@ -9775,7 +9778,9 @@ However, setting it through Custom does this automatically."
       (when (eq (lookup-key map "x") 'bongo-start)
         (define-key map "x" nil))
       (when (eq (lookup-key map "b") 'bongo-next)
-        (define-key map "b" nil)))
+        (define-key map "b" nil))
+      (when (eq (lookup-key map "V") 'volume)
+        (define-key map "V" nil)))
     (let ((menu-map (make-sparse-keymap "Bongo")))
       (define-key menu-map [bongo-quit]
         '("Quit Bongo" . bongo-quit))
