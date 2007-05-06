@@ -10,20 +10,22 @@
 ;; Created: September 3, 2005
 ;; Updated: May 6, 2007
 
-;; This file is free software; you can redistribute it and/or
-;; modify it under the terms of the GNU General Public License as
+;; This file is part of Bongo.
+
+;; Bongo is free software; you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as
 ;; published by the Free Software Foundation; either version 2 of
 ;; the License, or (at your option) any later version.
 
-;; This file is distributed in the hope that it will be useful,
+;; Bongo is distributed in the hope that it will be useful,
 ;; but WITHOUT ANY WARRANTY; without even the implied warranty
 ;; of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 ;; See the GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public
-;; License along with this program (see the file `COPYING');
-;; if not, write to the Free Software Foundation, 51 Franklin
-;; Street, Fifth Floor, Boston, MA 02110-1301, USA.
+;; License along with Bongo (see the file `COPYING'); if not,
+;; write to the Free Software Foundation, 51 Franklin Street,
+;; Fifth Floor, Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
