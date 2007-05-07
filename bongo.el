@@ -3831,7 +3831,7 @@ utility that operates only on tracks (not sections)."
             ((bongo-region-active-p)
              (deactivate-mark)
              (let ((marking bongo-marking)
-                   (end (region-end)))
+                   (end (move-marker (make-marker) (region-end))))
                (when marking
                  ;; XXX: This discards the killed marking
                  ;;      as an unfortunate side-effect.
@@ -3841,6 +3841,7 @@ utility that operates only on tracks (not sections)."
                            (< (point) end))
                  (command-execute command)
                  (goto-char (bongo-point-after-object)))
+               (move-marker end nil)
                (when marking
                  (bongo-yank-marking))))
             (bongo-marking
@@ -3910,7 +3911,7 @@ ignore all section structure (i.e., operate only on tracks)."
             ((bongo-region-active-p)
              (deactivate-mark)
              (let ((marking bongo-marking)
-                   (end (region-end)))
+                   (end (move-marker (make-marker) (region-end))))
                (when marking
                  ;; XXX: This discards the killed marking
                  ;;      as an unfortunate side-effect.
@@ -3922,6 +3923,7 @@ ignore all section structure (i.e., operate only on tracks)."
                            (< (point) end))
                  (command-execute command)
                  (forward-line 1))
+               (move-marker end nil)
                (when marking
                  (bongo-yank-marking))))
             (bongo-marking
