@@ -45,14 +45,20 @@ The manual was last updated on @value{LAST-UPDATED}.
 @end ifnottex
 
 @menu
+* Introduction::        An overview of basic Bongo concepts.
+
 Using Bongo
 
-* Introduction::        An overview of basic Bongo concepts.
 * Inserting Tracks::    Populating your buffers with media.
 * Playing Tracks::      Listening to audio and watching video.
-* Library Buffers::     Organizing your media collection.
-* Saving and Loading::  Storing Bongo buffers in files.
+* Enqueuing Tracks::    Picking tracks from libraries into playlists.
 * Marking Tracks::      Choosing sets of tracks to operate on.
+* Saving and Loading::  Storing Bongo buffers in files.
+
+Advanced Topics
+
+* P/R/M Convention::    Convention used by many Bongo commands.
+* Action Tracks::       Special tracks that perform actions.
 
 Hacking Bongo
 
@@ -72,16 +78,9 @@ Basics
 
 * Tracks::              Media files, URIs, audio CDs, DVDs, etc.
 * Backends::            External applications used to play tracks.
+* Players::             External processes actually playing tracks.
 * Playlists::           Buffers holding tracks to be played.
-* Libraries::           Buffers used to organize media collections.
-
-Tracks
-
-* File Tracks::         Tracks for media files on your local file system.
-* URI Tracks::          Tracks for remote media such as Internet radio.
-* CD Tracks::           Tracks representing audio CDs.
-* DVD Tracks::          Tracks representing DVDs.
-* Action Tracks::       Special tracks for performing actions.
+* Libraries::           Buffers holding entire media collections.
 
 Playback
 
@@ -97,28 +96,38 @@ Playback
 @node Introduction
 @chapter Introduction
 
-You are reading about Bongo, the flexible and usable media player for
-GNU Emacs.  Bongo is flexible because it is not overly controlling ---
-it lets you use its tools however you want without getting in the way.
-It is usable because it has good bindings and works well by default.
+You are reading about Bongo --- a flexible and usable media player for
+GNU Emacs.  Bongo is flexible because it does not force things upon you.
+It is usable because it has good key bindings and works well by default.
 
-Four nouns central to Bongo are @dfn{tracks}, which represent media
+To open a Bongo buffer, use @kbd{M-x bongo @key{RET}}.  To switch
+between playlist and library, use the @kbd{h}
+(@code{bongo-switch-buffers}) command.  There are a few different ways
+to go from here.
+
+@itemize @bullet
+@item
+One way to use Bongo is to go to a playlist, insert some tracks, and
+just play those tracks in some order (@pxref{Playing Tracks}).
+@item
+Another way is to insert a lot of tracks into a library, and pick out
+some of them into a playlist (@pxref{Enqueuing Tracks}).
+@item
+Yet another way is to let Bongo continuously pick out fresh random
+tracks from the library into the playlist (@pxref{Sprinkle Mode}).
+@end itemize
+
+Five ideas central to Bongo are @dfn{tracks}, which represent media
 resources; @dfn{backends}, which are applications used to play media;
-and @dfn{playlists} and @dfn{libraries}, which are used to
-organize tracks.
+@dfn{players}, which are instances of backends; and @dfn{playlists} and
+@dfn{libraries}, which are buffers used to organize tracks.
 
-One simple way to use Bongo is to create a playlist, insert some tracks,
-and then play those tracks --- manually, randomly, or from top to bottom
-(@pxref{Playback Modes}).  Another common way is to create a library,
-insert a large number of tracks, and then either manually pick out some
-of them into a playlist or let Bongo keep the playlist populated with
-random tracks from the library (@pxref{Sprinkle Mode}).
-
-The following sections explain these basic concepts in turn.
+The following sections explain these basic ideas in turn.
 
 @menu
 * Tracks::              Media files, URIs, audio CDs, DVDs, etc.
 * Backends::            External applications used to play tracks.
+* Players::             External processes actually playing tracks.
 * Playlists::           Buffers holding tracks to be played.
 * Libraries::           Buffers holding entire media collections.
 @end menu
@@ -127,12 +136,13 @@ The following sections explain these basic concepts in turn.
 @section Tracks
 
 Bongo is a media player; its job is to play things.  The things that it
-plays are called @dfn{tracks}.  You can have tracks for local audio and
-video files, remote media streams (e.g., radio), and for CDs and DVDs.
+plays are called @dfn{tracks}.  Bongo tracks can represent local audio
+and video files, remote media streams (such as internet radio stations),
+audio CD tracks and DVD chapters.
 
 There are even tracks that perform arbitrary actions when played
-(@pxref{Action Tracks}).  For example, such tracks are commonly used to
-stop playback at certain points in a playlist.
+(@pxref{Action Tracks}).  Such tracks may be used, for example, to force
+playback to stop at certain points in a playlist.
 
 To insert a local file track into a playlist or library, use @kbd{i}.
 Other kinds can be inserted using @kbd{I} (@pxref{Inserting Tracks}).
@@ -147,55 +157,242 @@ The applications it uses for this purpose are called @dfn{backends}.
 The term ``backend'' is used loosely to refer to either an external
 application, or to the glue code in Bongo specific to that application,
 or even to both the application and the glue code seen as a whole.
-This usage is quite natural and does not seem to cause any confusion.
+(This usage is quite natural and normally does not cause any confusion.)
 
-Instances of backends are called @dfn{players}: there may be multiple
-VLC @emph{players} at any given time --- each probably playing a
-different track --- but there is still only one VLC @emph{backend}.
+Bongo currently ships with backends for VLC, @samp{mpg123},
+@samp{ogg123}, @samp{speexdec}, TiMidity and MikMod.  Unfortunately,
+only VLC and @samp{mpg123} support fast-forwarding and rewinding
+(@pxref{Seeking}).
+
+@node Players
+@section Players
+
+Instances of backends (@pxref{Backends}) are called @dfn{players} (or
+@dfn{backend players}).  Every time a track starts playing, a new
+backend player is created.  Multiple players may exist simultaneously.
+
+For example, while there is only one VLC @emph{backend}, there may be
+multiple VLC @emph{players} at any given time --- each probably playing
+a different track.
+
+Every player has an associated process (which does the actual work of
+playing) and an associated buffer (from which it may be controlled).
+Bongo buffers designed to hold players are called @dfn{playlist
+buffers}.
 
 @node Playlists
 @section Playlists
 
+Playlist buffers, or simply @dfn{playlists}, are buffers specifically
+designed to hold and control backend players (@pxref{Players}).
+
+Playlists have a number of commands used to control playback: play the
+track at point (@key{RET}), pause/resume playback (@key{SPC}), go to the
+next track (@kbd{C-c C-n}), go to the previous track (@kbd{C-c C-p}),
+stop playback (@kbd{C-c C-s}), and so on (@pxref{Playing Tracks}).
+
+Some backends support fast-forwarding and rewinding (@pxref{Seeking}).
 
 @node Libraries
 @section Libraries
+@cindex nearest playlist buffer
 
+Library buffers, or simply @dfn{libraries}, are buffers specifically
+designed to hold tracks for convenient insertion into playlist buffers.
+
+After inserting tracks into a library (using @kbd{i} and @kbd{I}), you
+may enqueue into the nearest playlist using the @kbd{e} command (which
+appends to the end of the playlist) and the @kbd{E} command (which
+inserts into the playlist directly after the currently playing track).
+
+All the commands for controlling playback (@pxref{Playlists}) are also
+available in library buffers, where they simply control playback in the
+most recently used, or @dfn{nearest}, playlist buffer.  Similarily, if
+you attempt to play a track in a library (using @key{RET}), the track
+will be enqueued into the nearest playlist and played there instead.
+
+You may prefer to use Bongo without library buffers, simply inserting
+tracks directly into playlists.  There is no problem with that:
+libraries are provided only as a convenience.
 
 @node Inserting Tracks
 @chapter Inserting Tracks
 
+@table @kbd
+@item i
+Insert a file or directory (@code{bongo-insert-file}).
 
-@menu
-* File Tracks::         Tracks for media files on your local file system.
-* URI Tracks::          Tracks for remote media such as Internet radio.
-* CD Tracks::           Tracks representing audio CDs.
-* DVD Tracks::          Tracks representing DVDs.
-* Action Tracks::       Special tracks for performing actions.
-@end menu
+@item I
+Insert one or more non-file tracks (@code{bongo-insert-special}).
+@end table
 
-@node File Tracks
-@section File Tracks
+If you try to insert a directory with subdirectories, Bongo will ask
+whether you want to recursively insert them too.  To get rid of this
+question, customize the variable
+@code{bongo-insert-whole-directory-trees}.
 
+The @kbd{I} command prompts for the type of thing to insert --- an
+action track, a CD, a URI, or the contents of a PLS or an M3U playlist.
+These special insert commands are described individually below.
 
-@node URI Tracks
-@section URI Tracks
+@table @kbd
+@item I action @key{RET}
+Insert an action track (@code{bongo-insert-action}).
 
+This command prompts for an Emacs Lisp form to be evaluated when the
+action track is played.  @ref{Top, Emacs Lisp Reference, , elisp, GNU
+Emacs Lisp Reference Manual}
 
-@node CD Tracks
-@section CD Tracks
+@item I cd @key{RET}
+Insert one track for each audio track on the CD in the tray
+(@code{bongo-insert-cd}).  If the track information is unavailable,
+insert a single track representing the entire disc.
 
+The customization group @code{bongo-audio-cd} covers this feature.
+@ref{Easy Customization, , , emacs, GNU Emacs Manual}
 
-@node DVD Tracks
-@section DVD Tracks
+@item I uri @key{RET}
+Insert a URI track (@code{bongo-insert-uri}).
 
+This commands prompts for the URI (or URL) and for an optional title.
+If specified, the title will be displayed instead of the URI.  For most
+internet radio streams, leaving out the title enables the radio station
+to specify a title on its own.
 
-@node Action Tracks
-@section Action Tracks
+@item I playlist @key{RET}
+Insert the contents of a PLS or an M3U playlist file
+(@code{bongo-insert-playlist-contents}).
 
+The type of the playlist is determined by its file extension:
+
+@itemize @bullet
+@item
+@samp{pls} for PLS playlists;
+@item
+@samp{m3u} or @samp{m3u8} (forces UTF-8) for M3U playlists.
+@end itemize
+
+While PLS files are rather complex, M3U files are simple lists of file
+names (one per line, except that lines starting with @samp{#} are
+comments).
+@end table
 
 @node Playing Tracks
 @chapter Playing Tracks
 
+To start playing some particular track, move point to that track line
+and hit @key{RET} (@code{bongo-dwim}).  This does not work for playing
+sections, as @key{RET} on a section header just collapses the section.
+To play the thing at point, whether a track or a section, use @kbd{g}
+(@code{bongo-play}).
+
+Since library buffers are not meant to play tracks, in library buffers,
+the @key{RET} and @kbd{g} commands enqueue into the nearest playlist and
+play there instead.
+
+@table @asis
+@item @key{RET}
+Play the track at point.  If point is on a section header, collapse or
+expand the section.
+@item @kbd{g}
+Play the track or section at point, unless there is an active region
+or marking (@pxref{Marking Tracks}).
+
+In choosing which tracks and sections to play, this command follows the
+prefix/region/marking (@pxref{P/R/M Convention}), so it may not actually
+always play the track or section at point.
+@item @kbd{1 g}
+Play the track or section at point, even if there is an active region
+or marking.
+@end table
+
+It is often useful to temporarily pause playback without killing the
+backend player.  This is supported for all backends (@pxref{Pausing}).
+
+@table @asis
+@item @key{SPC}
+Pause or resume playback (@code{bongo-pause/resume}).
+@end table
+
+Some backends support fast-forwarding and rewinding the currently
+playing track.  @ref{Seeking} for details.
+
+@table @asis
+@item @kbd{f}, @kbd{F}, @kbd{M-F}, @kbd{C-M-F}
+Fast-forward the currently playing track (@code{bongo-seek-forward}).
+@item @kbd{b}, @kbd{B}, @kbd{M-B}, @kbd{C-M-B}
+Rewind the currently playing track (@code{bongo-seek-backward}).
+@item @kbd{s}
+Go into a special mode where @kbd{M-f}, @kbd{M-b}, @kbd{C-M-f},
+@kbd{C-M-b} and the arrow keys do fast-forwarding and rewinding
+(@code{bongo-seek}).  Use @key{RET} or @kbd{C-g} to exit this mode.
+@end table
+
+The @kbd{C-c C-s} (@code{bongo-start/stop}) command stops playback and
+kills the backend player process if something is being played.
+If nothing is being played, then @kbd{C-c C-s} starts playing the
+first track (or the last track, in regressive playback mode).
+
+@table @asis
+@item @kbd{C-c C-s}
+Start or stop playback.
+@item @kbd{C-u C-c C-s}
+Switch to start/stop playback mode, in which playback stops whenever any
+track finishes playing (@pxref{Playback Modes}).
+@item @kbd{1 C-c C-s}
+Insert a stopping action track immediately after the current track
+(@pxref{Action Tracks}).  (``Stop after playing this one track.'')
+@item @kbd{5 C-c C-s}
+Insert a stopping action track five tracks below the current track.
+(``Stop after playing these five tracks.'')
+@item @kbd{C-u C-u C-c C-s}
+Insert a stopping action track at point.
+@end table
+
+The @kbd{C-c C-n} (@code{bongo-play-next}), @kbd{C-c C-p}
+(@code{bongo-play-previous}) and @kbd{C-c C-r}
+(@code{bongo-play-random}) commands are used to start playing another
+track, stopping any currently playing track first.
+
+@table @asis
+@item @kbd{C-c C-n}
+Play the next track.
+@item @kbd{5 C-c C-n}
+Skip four tracks downwards and play the one after that.
+@item @kbd{C-u C-c C-n}
+Switch to progressive playback mode (the default).
+@item @kbd{C-c C-p}
+Play the previous track.
+@item @kbd{5 C-c C-p}
+Skip four tracks upwards and play the one before that.
+@item @kbd{C-u C-c C-p}
+Switch to regressive playback mode, in which tracks are played in
+reverse order.
+@item @kbd{C-c C-r}
+Play a random track.
+@item @kbd{C-u C-c C-r}
+Switch to random playback mode.
+@end table
+
+Though @kbd{0 C-c C-n} may be used to play the current track again, it
+is easier to use the @kbd{C-c C-a}
+(@code{bongo-replay-current}) command.
+
+@table @asis
+@item @kbd{C-c C-a}
+Play the current track again.
+@item @kbd{C-u C-c C-a}
+Switch to repeating playback mode.
+@end table
+
+Just as @kbd{C-a} has a counterpart @kbd{C-e} in Emacs, so @kbd{C-c C-a}
+has a counterpart @kbd{C-c C-e} (@code{bongo-skip-current}) in Bongo.
+
+@table @asis
+@item @kbd{C-c C-e}
+Skip the current track and move on according to the current playback
+mode (@pxref{Playback Modes}).
+@end table
 
 @menu
 * Pausing::             Temporarily stopping playback.
@@ -209,37 +406,204 @@ different track --- but there is still only one VLC @emph{backend}.
 @node Pausing
 @section Pausing
 
+@cindex @key{SPC}
+@findex bongo-pause/resume
+The command @key{SPC} (@code{bongo-pause/resume}) toggles the paused
+state of the currently playing track.
+
+@cindex signals
+Some backends (e.g., VLC and @samp{mpg123}) support pausing by talking
+to the player process through a pipe.  For backends where this is not
+possible (due to lack of any such remote control facility), pausing is
+implemented using @samp{SIGTSTP} (or @samp{SIGSTOP}) and @samp{SIGCONT},
+which forces the entire process to stop (just as @samp{C-z} would in a
+job control shell).
 
 @node Seeking
 @section Seeking
+@cindex fast-forwarding
+@cindex rewinding
 
+Fast-forwarding and rewinding, usually referred to as @dfn{seeking}
+forward or backward, is how you skip around inside the currently
+playing track.
+
+@table @asis
+@item @kbd{b}, @kbd{f}
+Seek 1 second (or @var{n} seconds, given a prefix argument @var{n})
+backward (@code{bongo-seek-backward}) or forward
+(@code{bongo-seek-forward}) in the currently playing track.
+
+@item @kbd{B}, @kbd{F}
+Seek 3 seconds.
+
+@item @kbd{M-B}, @kbd{M-F}
+Seek 10 seconds.
+
+@item @kbd{C-M-B}, @kbd{C-M-F}
+Seek 60 seconds @footnote{Since the keys @kbd{C-M-B} and @kbd{C-M-F}
+cannot be typed in all terminals, the following commands may be used as
+substitutes:
+
+@table @asis
+@item @kbd{60 b}, @kbd{60 f}
+Seek 60 seconds.
+
+@item @kbd{C-u C-u C-u b}, @kbd{C-u C-u C-u f}
+Seek 64 seconds.
+@end table}.
+@end table
+
+By default, on graphical terminals, the mode line will contain buttons
+that let you seek using the mouse.  (To add or remove Bongo mode line
+buttons, customize @code{bongo-mode-line-indicator-format}.)
+
+To seek a specific number of seconds, give a numeric prefix argument to
+@kbd{f} or @kbd{b}.  (For example, @kbd{27 f} would seek 27
+seconds forward.)
+
+To seek to a specific position, use the command @kbd{s}
+(@code{bongo-seek}) with a numeric prefix argument.  (For example,
+@kbd{80 s} would jump directly to 1 minute and 20 seconds from the
+beginning of the track.)  Giving just @kbd{C-u} as the prefix argument
+to @kbd{s} will prompt for the position to seek to, letting you say
+things like ``1:20''.
+
+Another way to seek is to type just @kbd{s} without any prefix argument.
+This takes you into a special mode, called Bongo Seek mode, which is
+dedicated to seeking @footnote{By default, Bongo Seek mode is
+``electric'', meaning that it assumes control over the entire keyboard.
+To turn this behavior off, customize the variable
+@code{bongo-seek-electric-mode}.  When non-electric, Bongo Seek mode
+uses a regular window instead of the echo area.}.  Playback status is
+shown continuously in the echo area, and apart from the usual bindings
+for seeking (see above), the following extra key bindings are available:
+
+@table @asis
+@item @key{LEFT}, @key{RIGHT}
+Seek 3 seconds.
+
+@item @kbd{M-b}, @kbd{M-f}, @kbd{M-@key{LEFT}}, @kbd{M-@key{RIGHT}}, @key{DOWN}, @key{UP}
+Seek 10 seconds.
+
+@item @kbd{C-M-b}, @kbd{C-M-f}, @kbd{C-M-@key{LEFT}}, @kbd{C-M-@key{RIGHT}}, @kbd{M-@key{DOWN}}, @kbd{M-@key{UP}}
+Seek 60 seconds.
+
+@item @kbd{a}, @kbd{e}, @key{HOME}, @key{END}
+These are shortcuts for @kbd{C-c C-a} (@code{bongo-replay-current}) and
+@kbd{C-c C-e} (@code{bongo-skip-current}).
+
+@item @kbd{p}, @kbd{n}, @kbd{r}
+These are shortcuts for @kbd{C-c C-p} (@code{bongo-play-previous}),
+@kbd{C-c C-n} (@code{bongo-play-next}), and @kbd{C-c C-r}
+(@code{bongo-play-random}).
+
+@item @key{RET}, @kbd{C-g}, @kbd{s}
+Quit Bongo Seek mode.
+@end table
+
+Unfortunately, not all backends support seeking.  Among the ones in the
+Bongo distribution, VLC and @samp{mpg123} do support it, whereas
+@samp{ogg123}, @samp{speexdec}, TiMidity and MikMod do not.
 
 @node Playback Modes
 @section Playback Modes
 
+Whenever a track finishes playing (or is skipped using @kbd{C-c C-e}),
+normally, the next track in the playlist will be played --- this is the
+default behavior, but it can be changed.  The way Bongo chooses which
+track to play next is called the @dfn{playback mode}.
+
+There are five built-in playback modes.  Switching to one of them is
+easily done by giving a @kbd{C-u} prefix argument to the corresponding
+playback command (@pxref{Playing Tracks}):
+
+@table @kbd
+@item C-u C-c C-n
+In @dfn{progressive playback}, the default playback mode, tracks are
+played in the usual top-to-bottom order.
+
+@item C-u C-c C-p
+In @dfn{regressive playback}, tracks are played in reverse order,
+bottom-to-top.
+
+@item C-u C-c C-a
+In @dfn{repeating playback}, the same track is played over and over.
+
+@item C-u C-c C-s
+In @dfn{start/stop playback}, playback is stopped after each track.
+
+For example, this is often nice when your playlist contains videos that
+would otherwise keep popping up, covering your Emacs frame.
+
+@item C-u C-c C-r
+In @dfn{random playback}, tracks are played in random order.  For an
+alternative to random playback mode, @ref{Sprinkle Mode}.
+@end table
+
+When a non-progressive playback mode is in effect, this is indicated in
+the mode line:
+
+@itemize @bullet
+@item
+@samp{Playlist[reverse]} for regressive playback;
+@item
+@samp{Playlist[repeat]} for repeating playback;
+@item
+@samp{Playlist[stop]} for start/stop playback;
+@item
+@samp{Playlist[random]} for random playback;
+@item
+@samp{Playlist[custom]} for custom playback modes (to change this for
+some specific custom playback mode, put the string to be used as the
+indicator on the @code{bongo-playback-mode-indicator} property of the
+symbol naming the function used for @code{bongo-next-action}).
+@end itemize
 
 @node Sprinkle Mode
 @section Sprinkle Mode
 
 
+
 @node Volume Control
 @section Volume Control
 
+The volume control facility is provided by the @samp{volume} library
+@footnote{http://www.brockman.se/software/volume-el/}.
+
+The @kbd{v} (@code{volume}) command
 
 @node Last.fm
 @section Last.fm
 
 
-@node Library Buffers
-@chapter Library Buffers
+@node Enqueuing Tracks
+@chapter Enqueuing Tracks
+
+The following commands are used to enqueue tracks into the playlist:
+
+@table @kbd
+@item e
+Append a track to the end of the playlist.
+@item E
+Insert a track into the playlist directly after the currently playing
+track (in order to have it played next).
+@end table
+
+@node Marking Tracks
+@chapter Marking Tracks
 
 
 @node Saving and Loading
 @chapter Saving and Loading
 
 
-@node Marking Tracks
-@chapter Marking Tracks
+@node P/R/M Convention
+@chapter The Prefix/Region/Marking Convention
+
+
+@node Action Tracks
+@chapter Action Tracks
 
 
 @node Internals
