@@ -5116,8 +5116,9 @@ By ``one of the times'' is meant elapsed time or total time.")
         ;; that point stays on the same line in all cases,
         ;; it cannot bring point back to the original column
         ;; (because of how `bongo-redisplay-line' works).
-        (let ((point (when (bongo-current-track-line-p)
-                       (point))))
+        (let* ((line-move-ignore-invisible nil)
+               (point (when (bongo-current-track-line-p)
+                        (point))))
           (save-excursion
             (goto-char (or (bongo-point-at-current-track-line)
                            (throw 'abort nil)))
