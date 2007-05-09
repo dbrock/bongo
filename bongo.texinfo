@@ -4,7 +4,7 @@
 @settitle Bongo Manual
 @c %**end of header
 
-@set LAST-UPDATED  April 7, 2007
+@set LAST-UPDATED  May 8, 2007
 
 @copying
 Copyright @copyright{} 2007  Daniel Brockman
