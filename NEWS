@@ -3,6 +3,15 @@ Bongo NEWS file listing user-visible changes.
 Copyright (C) 2007  Daniel Brockman
 See the end of the file for licensing conditions.
 
+May 11, 2007
+
+ * There is now a volume control mode line button.  Click it
+   to open the volume control interface (as `v' would), or
+   use your mouse wheel on it to adjust the volume directly.
+
+   You should update the `volume' library to get the most
+   out of this feature.  Mouse support was recently added.
+
 May 6, 2007
 
  * The keys `f' and `b' are now bound to seeking commands,

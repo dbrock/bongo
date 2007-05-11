@@ -1022,6 +1022,8 @@ the function `bongo-hyphen-padded-mode-line-p'."
 (defcustom bongo-mode-line-indicator-format
   '((bongo-mode-line-pad-string)
     (when (bongo-hyphen-padded-mode-line-p) "[")
+    (bongo-mode-line-volume-button)
+    (when (require 'volume nil t) " ")
     (bongo-mode-line-backward/previous-button)
     (bongo-mode-line-pause/resume-button)
     (bongo-mode-line-start/stop-button)
@@ -1065,6 +1067,10 @@ The values of the expressions are concatenated."
                   (bongo-mode-line-backward/previous-button))
            (const :tag "Combined [Fast-forward/Next] button"
                   (bongo-mode-line-forward/next-button))
+           (const :tag "[Volume control] button (if available)"
+                  (bongo-mode-line-volume-button))
+           (const :tag "Blank space if volume control available"
+                  (when (require 'volume nil t) " "))
            (const :tag "Elapsed time"
                   (when (bongo-playing-p)
                     (bongo-format-seconds (bongo-elapsed-time))))
@@ -1393,7 +1399,7 @@ static char *next_11[] = {
 
 (defvar bongo-mode-line-backward-icon-18
   '`(image :type xpm :ascent center :data ,(concat "/* XPM */
-static char *previous_18[] = {
+static char *backward_18[] = {
 /* width  height  number of colors  number of characters per pixel */
 \" 20     18      2                 1\",
 /* colors */
@@ -1423,7 +1429,7 @@ static char *previous_18[] = {
 
 (defvar bongo-mode-line-backward-icon-11
   '`(image :type xpm :ascent center :data ,(concat "/* XPM */
-static char *previous_11[] = {
+static char *backward_11[] = {
 /* width  height  number of colors  number of characters per pixel */
 \" 11     11      2                 1\",
 /* colors */
@@ -1446,7 +1452,7 @@ static char *previous_11[] = {
 
 (defvar bongo-mode-line-forward-icon-18
   '`(image :type xpm :ascent center :data ,(concat "/* XPM */
-static char *next_18[] = {
+static char *forward_18[] = {
 /* width  height  number of colors  number of characters per pixel */
 \" 20     18      2                 1\",
 /* colors */
@@ -1476,7 +1482,7 @@ static char *next_18[] = {
 
 (defvar bongo-mode-line-forward-icon-11
   '`(image :type xpm :ascent center :data ,(concat "/* XPM */
-static char *next_11[] = {
+static char *forward_11[] = {
 /* width  height  number of colors  number of characters per pixel */
 \" 11     11      2                 1\",
 /* colors */
@@ -1496,6 +1502,59 @@ static char *next_11[] = {
 \"...........\"
 };"))
   "Bongo [Fast-forward] button icon (11 pixels tall).")
+
+(defvar bongo-mode-line-volume-icon-18
+  '`(image :type xpm :ascent center :data ,(concat "/* XPM */
+static char *volume_18[] = {
+/* width  height  number of colors  number of characters per pixel */
+\" 20     18      2                 1\",
+/* colors */
+\"# c " bongo-mode-line-icon-color  "\",
+\". c None\",
+/* pixels */
+\"....................\",
+\"....................\",
+\"........#...........\",
+\".......##....##.....\",
+\"......###.....##....\",
+\".....####...#..##...\",
+\"..#######...##.##...\",
+\"..#######.#..##.##..\",
+\"..#######..#.##.##..\",
+\"..#######..#.##.##..\",
+\"..#######.#..##.##..\",
+\"..#######...##.##...\",
+\".....####...#..##...\",
+\"......###.....##....\",
+\".......##....##.....\",
+\"........#...........\",
+\"....................\",
+\"....................\"
+};"))
+  "Bongo [Volume] button icon (18 pixels tall).")
+
+(defvar bongo-mode-line-volume-icon-11
+  '`(image :type xpm :ascent center :data ,(concat "/* XPM */
+static char *volume_11[] = {
+/* width  height  number of colors  number of characters per pixel */
+\" 11     11      2                 1\",
+/* colors */
+\"# c " bongo-mode-line-icon-color  "\",
+\". c None\",
+/* pixels */
+\"...........\",
+\"...........\",
+\".....#.....\",
+\"....##.#...\",
+\"..####..#..\",
+\"..#####.#..\",
+\"..####..#..\",
+\"....##.#...\",
+\".....#.....\",
+\"...........\",
+\"...........\"
+};"))
+  "Bongo [Volume] button icon (11 pixels tall).")
 
 (defvar bongo-mode-line-start-map
   (let ((map (make-sparse-keymap)))
@@ -1614,6 +1673,24 @@ static char *next_11[] = {
         (lambda (e)
           (interactive "e")
           (bongo-next))))))
+
+(defvar bongo-mode-line-volume-map
+  (let ((map (make-sparse-keymap)))
+    (prog1 map
+      (define-key map [mode-line mouse-1]
+        (lambda (e)
+          (interactive "e")
+          (if volume-buffer
+              (volume-quit)
+            (volume))))
+      (define-key map [mode-line mouse-4]
+        (lambda (e)
+          (interactive "e")
+          (volume-raise)))
+      (define-key map [mode-line mouse-5]
+        (lambda (e)
+          (interactive "e")
+          (volume-lower))))))
 
 (defun bongo-face-height (face-name)
   "Return the height of the font used for FACE-NAME, or nil.
@@ -1887,6 +1964,26 @@ If running without a window system, signal an error."
                    'local-map (if (bongo-playing-p)
                                   bongo-mode-line-forward/next-map
                                 bongo-mode-line-next-map)
+                   'mouse-face 'highlight)
+       (when (>= emacs-major-version 22)
+         (propertize " " 'display '(space :width (1))))))))
+
+(defun bongo-mode-line-volume-button ()
+  "Return the string to use as [Volume] button in the mode line."
+  (when (and window-system (require 'volume nil t))
+    (let ((icon-size (bongo-mode-line-icon-size)))
+      (concat
+       (when (>= emacs-major-version 22)
+         (propertize " " 'display '(space :width (1))))
+       (propertize " "
+                   'display (cond ((= icon-size 18)
+                                   (eval bongo-mode-line-volume-icon-18))
+                                  ((= icon-size 11)
+                                   (eval bongo-mode-line-volume-icon-11)))
+                   'help-echo (concat "mouse-1: open volume control\n"
+                                      "mouse-4: raise volume\n"
+                                      "mouse-5: lower volume")
+                   'local-map bongo-mode-line-volume-map
                    'mouse-face 'highlight)
        (when (>= emacs-major-version 22)
          (propertize " " 'display '(space :width (1))))))))
