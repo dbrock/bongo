@@ -1,11 +1,11 @@
 #!/usr/bin/env ruby
-## tree-from-tags.rb --- create symlink hierarchies from media tags
-# Copyright (C) 2006  Daniel Brockman
+## tree-from-tags.rb --- create file hierarchies from media tags
+# Copyright (C) 2006, 2007  Daniel Brockman
 
 # Author: Daniel Brockman <daniel@brockman.se>
 # URL: http://www.brockman.se/software/bongo/
 # Created: April 24, 2006
-# Updated: October 17, 2006
+# Updated: May 15, 2007
 
 # This file is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
@@ -31,17 +31,27 @@ require "find"
 require "taglib"
 
 if ARGV.empty? or ["-?", "-h", "-help", "--help"].include? ARGV.first
-  puts "Usage: #$0 DIRECTORIES..."
+  puts "Usage: #$0 [--hardlinks] DIRECTORIES..."
   puts "
 This program recursively scans DIRECTORIES for media files in formats
-that support embedded file tags, such as Ogg and MP3.  For each file
-with sufficient embedded information, it creates a symlink in the
-current directory, or in a subdirectory of the current directory,
+that support embedded file tags, such as Ogg and MP3.
+
+For each file with sufficient embedded information, it creates a symlink
+in the current directory, or in a subdirectory of the current directory,
 pointing to the original file.
 
-The symlinks created by this program follow a certain naming scheme
-that is understood by Bongo, the Emacs media player."
+If given the `--hardlinks' option, it creates hardlinks instead.
+
+The symlinks or hardlinks created by this program follow a certain
+naming scheme that is understood by Bongo, the Emacs media player."
   exit
+end
+
+if ["--hard", "--hardlink", "--hardlinks"].include? ARGV.first
+  ARGV.shift
+  $hardlinks = true
+else
+  $hardlinks = false
 end
 
 class NotEnoughData < RuntimeError ; end
@@ -143,7 +153,7 @@ end
 
 n_completed_files = 0           # This counts all files.
 n_processed_files = 0           # This only counts recognized files.
-n_created_symlinks = 0
+n_created_links = 0
 Find.find *ARGV do |file_name|
   if FileTest.directory? file_name
     status_line.update do
@@ -186,11 +196,20 @@ Find.find *ARGV do |file_name|
       FileUtils.mkdir_p(dir_name) if components.length > 1
 
       begin
-        FileUtils.ln_s(file_name, new_file_name)
-        n_created_symlinks += 1
+        if $hardlinks
+          FileUtils.ln(file_name, new_file_name)
+        else
+          FileUtils.ln_s(file_name, new_file_name)
+        end
+        n_created_links += 1
       rescue Errno::EEXIST
-        raise unless FileTest.symlink? new_file_name and
-          File.readlink(new_file_name) == file_name
+        if $hardlinks
+          raise unless File.stat(file_name).ino ==
+            File.stat(new_file_name).ino
+        else
+          raise unless FileTest.symlink? new_file_name and
+            File.readlink(new_file_name) == file_name
+        end
       end
 
     rescue TagLib::BadFile
@@ -201,7 +220,8 @@ Find.find *ARGV do |file_name|
       puts ; warn_skip file_name, "Not enough track data " +
         "(need at least the track title)."
     rescue Errno::EEXIST
-      puts ; warn_skip file_name, "Cannot create symlink: " +
+      puts ; warn_skip file_name,
+        "Cannot create #{$hardlinks ? "hardlink" : "symbolic link"}: " +
         "Conflicting file already exists. [original error: #$!]"
     rescue Interrupt
       puts ; puts "Interrupted." ; exit(1)
@@ -220,7 +240,8 @@ status_line.update do
 end
 
 puts ; puts "Processed #{n_processed_files} media files " +
-  "(created #{n_created_symlinks} symlinks)."
+  "(created #{n_created_links} " +
+  "#{$hardlinks ? "hardlinks" : "symbolic links"})."
 
 ## Local Variables:
 ## time-stamp-format: "%:b %:d, %:y"

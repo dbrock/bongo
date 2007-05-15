@@ -3,6 +3,12 @@ Bongo NEWS file listing user-visible changes.
 Copyright (C) 2007  Daniel Brockman
 See the end of the file for licensing conditions.
 
+May 15, 2007
+
+ * The `tree-from-tabs.rb' script has a new command line
+   option, `--hardlinks', which tells it to create hardlinks
+   instead of symbolic links.
+
 May 11, 2007
 
  * There is now a volume control mode line button.  Click it
