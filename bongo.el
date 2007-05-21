@@ -9780,7 +9780,7 @@ However, setting it through Custom does this automatically."
     (define-key map "h" 'bongo-switch-buffers)
     (define-key map "H" 'bongo-list-buffers)
     (define-key map "l" 'bongo-recenter)
-    (define-key map "\C-i" 'bongo-toggle-collapsed)
+    (define-key map "$" 'bongo-toggle-collapsed)
     (define-key map "p" 'previous-line)
     (define-key map "n" 'next-line)
     (substitute-key-definition
