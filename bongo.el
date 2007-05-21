@@ -9735,17 +9735,24 @@ instead, use high-level functions such as `find-file'."
       (unless (looking-at bongo-magic-regexp)
         (error "Unrecognized format"))
       (bongo-delete-line)
-      (while (not (eobp))
-        (let ((start (point)))
-          (condition-case nil
-              (let ((object (read (current-buffer))))
-                (delete-region start (point))
-                (if (stringp object)
-                    (insert object)
-                  (error "Unexpected object: %s" object)))
-            (end-of-file
-             (delete-region start (point-max))))))
-      (bongo-redisplay-region (point-min) (point-max))
+      (let ((original-buffer-size (- end beg))
+            (iteration 0))
+        (while (not (eobp))
+          (when (zerop (% (setq iteration (+ iteration 1)) 500))
+            (message "Reading Bongo buffer...%d%%"
+                     (/ (* 100.0 (- original-buffer-size
+                                    (- (point-max) (point))))
+                        original-buffer-size)))
+          (let ((start (point)))
+            (condition-case nil
+                (let ((object (read (current-buffer))))
+                  (delete-region start (point))
+                  (if (stringp object)
+                      (insert object)
+                    (error "Unexpected object: %s" object)))
+              (end-of-file
+               (delete-region start (point-max)))))))
+      (message "Reading Bongo buffer...done") 
       (point-max))))
 
 (defvar bongo-line-serializable-properties
@@ -9776,14 +9783,11 @@ instead, use high-level functions such as `save-buffer'."
                   bongo-playlist-magic-string
                 bongo-library-magic-string) "\n")
       (while (not (eobp))
-        (when (bongo-object-line-p)
-          (delete-region (point-at-bol) (point-at-eol)))
-        (bongo-keep-text-properties (point-at-bol) (point-at-eol)
-                                    '(face mouse-face display follow-link))
         (bongo-keep-text-properties (point-at-eol) (1+ (point-at-eol))
                                     bongo-line-serializable-properties)
         (prin1 (bongo-extract-line) (current-buffer))
-        (insert "\n")))))
+        (insert "\n"))
+      (point-max))))
 
 
 ;;;; Bongo Dired Library mode
