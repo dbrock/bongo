@@ -4732,6 +4732,13 @@ Otherwise, signal an error."
   'bongo-best-backend-for-file
   'bongo-backend-for-file)
 
+(defun bongo-completing-read (&rest args)
+  (if (and (boundp 'ido-mode) ido-mode)
+      ;; XXX: This shouldn't be necessary.
+      (let ((ido-merged-indicator nil))
+        (apply 'ido-completing-read args))
+    (apply 'completing-read args)))
+
 (defun bongo-set-backend-for-track (backend &optional point)
   "Specify that BACKEND is to be used for playing the track at POINT."
   (interactive
@@ -10387,19 +10394,40 @@ This function stores the current window configuration in the variable
                 (progn (bury-buffer)
                        (not (eq first-buffer (current-buffer))))))))
 
-(defun bongo-switch-buffers (&optional other-window)
-  "Switch from a Bongo playlist to a Bongo library, or vice versa.
-If prefix argument OTHER-WINDOW is non-nil, display the other buffer
-in another window."
+(defun bongo-buffers ()
+  (let (result)
+    (dolist (buffer (buffer-list) result)
+      (when (bongo-buffer-p buffer)
+        (push buffer result)))))
+
+(defun bongo-switch-to-buffer ()
+  (interactive)
+  (let* ((buffer-name
+          (bongo-completing-read "Switch to Bongo buffer: "
+                                 (mapcar 'buffer-name (bongo-buffers))))
+         (buffer (get-buffer buffer-name)))
+    (cond (buffer
+           (switch-to-buffer buffer))
+          ((y-or-n-p (format "No buffer matching `%s', create one? "
+                             buffer-name))
+           (if (prog1 (y-or-n-p (format "Make `%s' a library buffer? "
+                                        buffer-name))
+                 (switch-to-buffer buffer-name))
+               (bongo-library-mode)
+             (bongo-playlist-mode))))))
+
+(defun bongo-switch-buffers (&optional prompt)
+  "In Bongo, switch from a playlist to a library, or vice versa.
+With prefix argument PROMPT, prompt for the buffer to switch to."
   (interactive "P")
-  (let* ((buffer (if (bongo-playlist-buffer-p)
-                     (bongo-library-buffer)
-                   (bongo-playlist-buffer)))
-         (window (get-buffer-window buffer)))
-    (if window
-        (select-window window)
-      (if other-window
-          (pop-to-buffer buffer)
+  (if prompt
+      (bongo-switch-to-buffer)
+    (let* ((buffer (if (bongo-playlist-buffer-p)
+                       (bongo-library-buffer)
+                     (bongo-playlist-buffer)))
+           (window (get-buffer-window buffer)))
+      (if window
+          (select-window window)
         (switch-to-buffer buffer)))))
 
 (defun bongo-list-buffers ()
