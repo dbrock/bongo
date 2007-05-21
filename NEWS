@@ -3,6 +3,41 @@ Bongo NEWS file listing user-visible changes.
 Copyright (C) 2007  Daniel Brockman
 See the end of the file for licensing conditions.
 
+May 21, 2007
+
+ * New key bindings `S-<up>' and `S-<down>' (each with `M-'
+   and `C-M-' variants) change the volume.
+
+ * New key bindings `S-<right>' and `S-<left>' (with `M-'
+   and `C-M-' variants) fast-forward and rewind.
+
+ * The `f' and `b' keys have been switched with `F' and `B'.
+   Now use `f' or `b' to seek just one second.  (This lets
+   you seek N seconds using `<N> f' or `<N> b'.)
+
+ * The <TAB> (`bongo-toggle-collapsed') command has been
+   moved to `$' to make room for a future <TAB> command.
+
+ * New command `H' (`bongo-list-buffers') brings up a list
+   of all Bongo buffers to ease switching between them.
+
+ * Giving a prefix argument to `h' (`bongo-switch-buffers')
+   now makes Bongo prompt for the buffer to switch to.
+
+ * Now <mouse-3> in Bongo buffers always brings up a context
+   menu (it used to do it on object lines only).
+
+ * Files with `.bongo' extensions are now treated as either
+   playlists or libraries according to the value of the user
+   option `bongo-prefer-library-buffers'.
+
+ * Switching to a Bongo mode from a non-fundamental,
+   non-Bongo mode now requires confirmation.
+
+ * New minor mode `bongo-dired-library-mode' lets you use
+   any Dired buffer as a Bongo library.  The mode is enabled
+   automatically by the `d' (`bongo-dired-line') command.
+
 May 15, 2007
 
  * The `tree-from-tabs.rb' script has a new command line
