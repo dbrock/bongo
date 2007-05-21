@@ -9994,6 +9994,13 @@ Do not use this mode directly.  Instead, use Bongo Playlist mode (see
 `bongo-playlist-mode') or Bongo Library mode (see `bongo-library-mode').
 
 \\{bongo-mode-map}"
+  (or (memq major-mode (list 'fundamental-mode
+                             'bongo-mode
+                             'bongo-playlist-mode
+                             'bongo-library-mode))
+      (yes-or-no-p (format "Really switch from %s mode to Bongo mode? "
+                           mode-name))
+      (keyboard-quit))
   (kill-all-local-variables)
   (set (make-local-variable 'forward-sexp-function)
        'bongo-forward-section)
