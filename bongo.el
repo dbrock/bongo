@@ -2366,12 +2366,11 @@ each field and separates the obtained field values using
                                       (buffer-string))
                                     'bongo-action-track-expression))
                      ((stringp description-specifier)
-                      (bongo-facify (copy-sequence description-specifier)
-                                    'bongo-action-track-description))
+                      (bongo-facify-copy description-specifier
+                                         'bongo-action-track-description))
                      ((functionp description-specifier)
-                      (bongo-facify (copy-sequence
-                                     (apply description-specifier data))
-                                    'bongo-action-track-description))
+                      (bongo-facify-copy (apply description-specifier data)
+                                         'bongo-action-track-description))
                      (t (error (concat "Invalid action description "
                                        "specifier: `%S'")
                                description-specifier))))))
@@ -8397,6 +8396,11 @@ This function calls `bongo-facify-in-object'."
 
 (defalias 'bongo-facify 'bongo-facify-string)
 
+(defun bongo-facify-copy (string &rest new-faces)
+  "Make a copy of STRING and add NEW-FACES to the `face' property.
+Return the newly-made copy, which has NEW-FACES on it."
+  (apply 'bongo-facify (copy-sequence string) new-faces))
+
 (defun bongo-facify-region (beg end &rest new-faces)
   "Add NEW-FACES to the `face' property of text between BEG and END.
 This function calls `bongo-facify-in-object' on the current buffer."
@@ -10018,6 +10022,8 @@ if `bongo-prefer-library-buffers' is non-nil (the default).
 \\{bongo-library-mode-map}"
     :group 'bongo :syntax-table nil :abbrev-table nil)
 
+(put 'bongo-library-mode 'mode-class 'special)
+
 (define-derived-mode bongo-playlist-mode bongo-mode "Playlist"
   "Major mode for Bongo playlist buffers.
 Playlist buffers are essential to Bongo, because you use them to play tracks.
@@ -10062,6 +10068,8 @@ if `bongo-prefer-library-buffers' is nil.
       'bongo-paused-track-marker)
     (add-to-list 'overlay-arrow-variable-list
       'bongo-queued-track-arrow-marker)))
+
+(put 'bongo-playlist-mode 'mode-class 'special)
 
 (define-minor-mode bongo-sprinkle-mode
   "Minor mode for automatic sprinkling of Bongo playlists.
@@ -10157,11 +10165,11 @@ If BUFFER is neither nil nor a buffer, return nil."
 
 (defun bongo-insert-comment-text (text)
   (let ((inhibit-read-only t))
-    (insert (bongo-facify text 'bongo-comment))))
+    (insert (bongo-facify-copy text 'bongo-comment))))
 
 (defun bongo-insert-warning-text (text)
   (let ((inhibit-read-only t))
-    (insert (bongo-facify text 'bongo-warning))))
+    (insert (bongo-facify-copy text 'bongo-warning))))
 
 (bongo-define-obsolete-function-alias
   'bongo-insert-comment
@@ -10188,7 +10196,7 @@ If BUFFER is neither nil nor a buffer, return nil."
              (propertize
               (mapconcat
                (lambda (backend-name)
-                 (bongo-facify
+                 (bongo-facify-copy
                   (bongo-backend-pretty-name backend-name) 'bold))
                bongo-enabled-backends ", ")
               'bongo-enabled-backends-list t))))))))
