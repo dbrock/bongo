@@ -141,6 +141,22 @@ the buffer returned by the function `bongo-buffer'."
          (bongo-buffer))
      ,@body))
 
+(defmacro with-temp-bongo-playlist-buffer (&rest body)
+  "Execute the forms in BODY in a temporary Bongo playlist buffer.
+The value returned is the value of the last form in BODY."
+  (declare (indent 0) (debug t))
+  `(with-temp-buffer
+     (bongo-playlist-mode)
+     ,@body))
+
+(defmacro with-temp-bongo-library-buffer (&rest body)
+  "Execute the forms in BODY in a temporary Bongo library buffer.
+The value returned is the value of the last form in BODY."
+  (declare (indent 0) (debug t))
+  `(with-temp-buffer
+     (bongo-library-mode)
+     ,@body))
+
 (defmacro with-bongo-library-buffer (&rest body)
   "Execute the forms in BODY in some Bongo library buffer.
 The value returned is the value of the last form in BODY.
@@ -232,7 +248,7 @@ Return the final value of TEST.
 ;;;; Commonly-used variables
 
 (defvar bongo-backends '()
-  "List of names of available Bongo player backends.
+  "List of symbols naming available Bongo player backends.
 The backend data for each entry is stored in the `bongo-backend'
 property of the backend name symbol.")
 
@@ -3319,8 +3335,15 @@ See `bongo-line-proposed-external-fields'."
 
 (defun bongo-track-line-p (&optional point)
   "Return non-nil if the line at POINT is a track line."
-  (or (bongo-file-track-line-p point)
-      (bongo-action-track-line-p point)))
+  (case major-mode
+    ((bongo-playlist-mode bongo-library-mode)
+     (or (bongo-file-track-line-p point)
+         (bongo-action-track-line-p point)))
+    (dired-mode
+     (save-excursion
+       (bongo-goto-point point)
+       (ignore-errors
+         (bongo-backend-for-file (dired-get-file-for-visit)))))))
 
 (defun bongo-currently-playing-track-line-p (&optional point)
   "Return non-nil if the line at POINT is currently playing."
@@ -9316,17 +9339,19 @@ Return the playlist position of the newly-inserted text.
 If MAYBE-DISPLAY-PLAYLIST is non-nil, maybe display the playlist;
 see `bongo-display-playlist-after-enqueue'."
   (or n (setq n 1))
-  (when line-move-ignore-invisible
-    (bongo-skip-invisible))
-  (let ((line-move-ignore-invisible nil))
-    (let ((beg (point))
-          (end (dotimes (dummy (abs n) (point))
-                 (bongo-goto-point
-                  (if (> n 0)
-                      (bongo-point-after-object)
-                    (bongo-point-before-previous-object))))))
-      (bongo-enqueue-region mode (min beg end) (max beg end)
-                            maybe-display-playlist))))
+  (if (eq major-mode 'dired-mode)
+      (bongo-dired-enqueue-lines mode n maybe-display-playlist)
+    (when line-move-ignore-invisible
+      (bongo-skip-invisible))
+    (let ((line-move-ignore-invisible nil))
+      (let ((beg (point))
+            (end (dotimes (dummy (abs n) (point))
+                   (bongo-goto-point
+                    (if (> n 0)
+                        (bongo-point-after-object)
+                      (bongo-point-before-previous-object))))))
+        (bongo-enqueue-region mode (min beg end) (max beg end)
+                              maybe-display-playlist)))))
 
 (defun bongo-insert-enqueue-lines (&optional n maybe-display-playlist)
   "Insert the next N tracks or sections just below the current track.
@@ -9639,7 +9664,8 @@ NEW-ACTION is the new action (a function or an expression)."
                 (bongo-down-section))
               (if (bongo-local-file-track-line-p)
                   (bongo-line-file-name)
-                (error "No local file track here")))))))
+                (error "No local file track here")))))
+    (bongo-dired-library-mode 1)))
 
 
 ;;;; Serializing buffers
@@ -9753,6 +9779,71 @@ instead, use high-level functions such as `save-buffer'."
                                     bongo-line-serializable-properties)
         (prin1 (bongo-extract-line) (current-buffer))
         (insert "\n")))))
+
+
+;;;; Bongo Dired Library mode
+
+(defun bongo-dired-enqueue-lines (mode &optional n maybe-display-playlist)
+  (let ((dired-buffer (current-buffer)))
+    (with-temp-bongo-library-buffer
+      (bongo-insert-file (with-current-buffer dired-buffer
+                           (dired-get-file-for-visit)))
+      (bongo-enqueue-region mode (point-min) (point-max)
+                            maybe-display-playlist))))
+
+(defun bongo-dired-append-enqueue-lines (&optional n maybe-display-playlist)
+  (interactive (list (prefix-numeric-value current-prefix-arg)
+                     'maybe-display-playlist))
+  (bongo-dired-enqueue-lines 'append n maybe-display-playlist))
+
+(defun bongo-dired-insert-enqueue-lines (&optional n maybe-display-playlist)
+  (interactive (list (prefix-numeric-value current-prefix-arg)
+                     'maybe-display-playlist))
+  (bongo-dired-enqueue-lines 'insert n maybe-display-playlist))
+
+(defun bongo-dired-play-line ()
+  (interactive)
+  (let ((point (bongo-dired-insert-enqueue-lines)))
+    (with-bongo-playlist-buffer
+      (bongo-play-line point))))
+
+(defun bongo-dired-dwim ()
+  (interactive)
+  (if (ignore-errors
+        (bongo-backend-for-file (dired-get-file-for-visit)))
+      (bongo-dired-play-line)
+    (let ((dired-mode-hook
+           (cons (lambda ()
+                   (bongo-dired-library-mode 1))
+                 (and (boundp 'dired-mode-hook)
+                      (if (and (listp dired-mode-hook)
+                               (not (eq (car dired-mode-hook) 'lambda)))
+                          dired-mode-hook
+                        (list dired-mode-hook))))))
+      (dired-find-file))))
+
+(defvar bongo-dired-library-mode-map
+  (let ((map (make-sparse-keymap)))
+    (prog1 map
+      (define-key map "e" 'bongo-dired-append-enqueue-lines)
+      (define-key map "E" 'bongo-dired-insert-enqueue-lines)
+      (define-key map "h" 'bongo-switch-buffers)
+      (define-key map "q" 'bongo-quit)
+      (define-key map "\C-m" 'bongo-dired-dwim)
+      (define-key map " " 'bongo-pause/resume)
+      (define-key map "\C-c\C-a" 'bongo-replay-current)
+      (define-key map "\C-c\C-e" 'bongo-perform-next-action)
+      (define-key map "\C-c\C-p" 'bongo-play-previous)
+      (define-key map "\C-c\C-n" 'bongo-play-next)
+      (define-key map "\C-c\C-r" 'bongo-play-random)
+      (define-key map "\C-c\C-s" 'bongo-start/stop))))
+
+(define-minor-mode bongo-dired-library-mode
+  "Use a Dired buffer as a Bongo library.
+
+\\{bongo-dired-library-mode-map}"
+ :lighter " Bongo Library"
+ :keymap bongo-dired-library-mode-map)
 
 
 ;;;; Typical user entry points
@@ -10151,8 +10242,10 @@ If BUFFER is nil, test the current buffer instead.
 If BUFFER is neither nil nor a buffer, return nil."
   (when (or (null buffer) (bufferp buffer))
     (with-current-buffer (or buffer (current-buffer))
-      (or (eq 'bongo-playlist-mode major-mode)
-          (eq 'bongo-library-mode major-mode)))))
+      (or (eq major-mode 'bongo-playlist-mode)
+          (eq major-mode 'bongo-library-mode)
+          (and (eq major-mode 'dired-mode)
+               bongo-dired-library-mode)))))
 
 (defun bongo-library-buffer-p (&optional buffer)
   "Return non-nil if BUFFER is in Bongo Library mode.
@@ -10160,7 +10253,9 @@ If BUFFER is nil, test the current buffer instead.
 If BUFFER is neither nil nor a buffer, return nil."
   (when (or (null buffer) (bufferp buffer))
     (with-current-buffer (or buffer (current-buffer))
-      (eq 'bongo-library-mode major-mode))))
+      (or (eq 'bongo-library-mode major-mode)
+          (and (eq 'dired-mode major-mode)
+               bongo-dired-library-mode)))))
 
 (defun bongo-playlist-buffer-p (&optional buffer)
   "Return non-nil if BUFFER is in Bongo Playlist mode.
