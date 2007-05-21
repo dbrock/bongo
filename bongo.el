@@ -8,7 +8,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://bongo.nongnu.org/
 ;; Created: September 3, 2005
-;; Updated: May 15, 2007
+;; Updated: May 21, 2007
 
 ;; This file is part of Bongo.
 
