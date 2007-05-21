@@ -9859,10 +9859,17 @@ However, setting it through Custom does this automatically."
     (define-key map "%T" 'bongo-unmark-by-track-title-regexp)
     (define-key map "r" 'bongo-rename-line)
     (define-key map "d" 'bongo-dired-line)
-    (when (require 'volume nil t)
-      (if bongo-xmms-refugee-mode
-          (define-key map "V" 'volume)
-        (define-key map "v" 'volume)))
+    (if bongo-xmms-refugee-mode
+        (define-key map "V" 'volume)
+      (define-key map "v" 'volume))
+    (define-key map [(shift up)] 'volume-raise)
+    (define-key map [(control shift up)] 'volume-raise-10)
+    (define-key map [(meta shift up)] 'volume-raise-10)
+    (define-key map [(control meta shift up)] 'volume-raise-50)
+    (define-key map [(shift down)] 'volume-lower)
+    (define-key map [(control shift down)] 'volume-lower-10)
+    (define-key map [(meta shift down)] 'volume-lower-10)
+    (define-key map [(control meta shift down)] 'volume-lower-50)
     (when bongo-xmms-refugee-mode
       (define-key map "z" 'bongo-previous)
       (define-key map "x" 'bongo-start)
