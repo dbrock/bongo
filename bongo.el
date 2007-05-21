@@ -9662,7 +9662,12 @@ Any file whose beginning matches this regexp will be assumed to
 be a serialized Bongo buffer.")
 
 (add-to-list 'auto-mode-alist
-             '("\\.bongo\\(-library\\)?$" . bongo-library-mode))
+             `("\\.bongo$"
+               . ,(if bongo-prefer-library-buffers
+                      'bongo-library-mode
+                    'bongo-playlist-mode)))
+(add-to-list 'auto-mode-alist
+             '("\\.bongo-library$" . bongo-library-mode))
 (add-to-list 'auto-mode-alist
              '("\\.bongo-playlist$" . bongo-playlist-mode))
 
