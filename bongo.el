@@ -9778,6 +9778,7 @@ However, setting it through Custom does this automatically."
     (define-key map "q" 'bongo-quit)
     (define-key map "Q" 'bury-buffer)
     (define-key map "h" 'bongo-switch-buffers)
+    (define-key map "H" 'bongo-list-buffers)
     (define-key map "l" 'bongo-recenter)
     (define-key map "\C-i" 'bongo-toggle-collapsed)
     (define-key map "p" 'previous-line)
@@ -10384,6 +10385,15 @@ in another window."
       (if other-window
           (pop-to-buffer buffer)
         (switch-to-buffer buffer)))))
+
+(defun bongo-list-buffers ()
+  (interactive)
+  (if (featurep 'ibuffer)
+      (ibuffer nil "*Bongo Ibuffer*"
+               '((predicate . (bongo-buffer-p))) nil nil
+               '(("Playlists" (predicate . (bongo-playlist-buffer-p)))
+                 ("Libraries" (predicate . (bongo-library-buffer-p)))))
+    (switch-to-buffer (list-buffers-noselect nil (bongo-buffers)))))
 
 (defun bongo ()
   "Switch to a Bongo buffer.
