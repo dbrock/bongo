@@ -4766,21 +4766,26 @@ Otherwise, signal an error."
   "Specify that BACKEND is to be used for playing the track at POINT."
   (interactive
    (let* ((backends
-           (cons (cons "(auto)" nil)
+           (cons (cons "(auto)" "nil")
                  (mapcar (lambda (backend)
                            (cons (bongo-backend-pretty-name backend)
-                                 backend))
+                                 ;; Putting symbols in this
+                                 ;; alist causes trouble.
+                                 (symbol-name backend)))
                          bongo-backends)))
           (current-backend
            (car (rassoc (bongo-line-get-property 'bongo-backend)
                         backends)))
           (completion-ignore-case t))
-     (list (cdr (assoc (completing-read
-                        (format (concat "Backend for playing this "
-                                        "track (default `%s'): ")
-                                current-backend)
-                        backends nil t nil nil current-backend)
-                       backends)))))
+     (list (intern (cdr (assoc (bongo-completing-read
+                                (format (concat "Backend for playing this "
+                                                "track (default `%s'): ")
+                                        (if current-backend
+                                            (bongo-backend-pretty-name
+                                             current-backend)
+                                          "(auto)"))
+                                backends nil t nil nil current-backend)
+                               backends))))))
   (if backend
       (bongo-line-set-property 'bongo-backend backend point)
     (bongo-line-remove-property 'bongo-backend point)))
