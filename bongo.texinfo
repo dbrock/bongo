@@ -4,10 +4,11 @@
 @settitle Bongo Manual
 @c %**end of header
 
-@set LAST-UPDATED  May 15, 2007
+@set LAST-UPDATED  June 8, 2007
 
 @copying
-Copyright @copyright{} 2007  Daniel Brockman
+Copyright @copyright{} 2007  Daniel Brockman@*
+Copyright @copyright{} 2007  Daniel Jensen
 
 @quotation
 Permission is granted to copy, distribute and/or modify this document
@@ -580,6 +581,110 @@ track (in order to have it played next).
 @node Writing Backends
 @chapter Writing Backends
 
+The predefined backends support commonly used media files and players.
+To use other programs with Bongo, you can define your own custom
+backends.  This involves some Emacs Lisp, but simple non-interactive
+backends are easy to define.  @xref{Top, Emacs Lisp Reference,, elisp,
+GNU Emacs Lisp Reference Manual}, for help with writing Lisp.
+
+As an example, here is a minimal backend for displaying PostScript and
+PDF files with Evince, a GNOME document viewer.  We don't need
+interactive controls for Evince, we only want to launch it.
+
+@lisp
+(eval-after-load 'bongo
+  (define-bongo-backend evince
+    :matcher '(local-file "ps" "pdf")))
+@end lisp
+
+@code{define-bongo-backend} is used to define backends. The definition
+is wrapped inside an @code{eval-after-load} form so that it will
+execute after Bongo has loaded.  You don't need this if you load Bongo
+at startup, but it will work in both cases.
+
+The first argument names the backend.  As a side effect, it also
+defines the executable file @file{evince} to be used with the backend.
+In most cases, this default behavior is fine.  If you want to
+customize the invocation of Evince, use @kbd{M-x customize-group
+@key{RET} bongo-evince @key{RET}}.  The @code{define-bongo-backend}
+macro automatically defines customizable options for this.
+
+The second argument, the keyword @code{:matcher}, and the third
+argument define a matcher for the backend.  Files with suffixes
+@file{ps} and @file{pdf} can now be inserted in Bongo buffers, and
+Bongo will select the new backend to display them.  The Evince backend
+is now ready for use.
+
+For information on how to write more advanced backend definitions,
+refer to the description of @code{define-bongo-backend} below.
+Examples can be found in @file{bongo.el}.
+
+@defmac define-bongo-backend name [keyword value]@dots{}
+Defines a new backend named @var{name}.  More specifically, defines
+variables used by the backend, a constructor function that will be
+invoked to play tracks with the backend and optionally matchers and
+translators for the backend.  The default definitions can be
+overridden with keyword arguments.  The @var{name} argument is not
+evaluated.
+
+@code{define-bongo-backend} accepts the following optional keywords:
+
+@table @code
+@item :pretty-name @var{string}
+The name used to described the backend to the user.  The default is to
+use @var{name}.
+
+@item :matcher @var{matcher}
+A backend matcher expression.  This keyword can be supplied multiple
+times, specifying multiple matchers.  There is no default matcher.
+
+@item :file-name-transformer @var{expression}
+A file name transformer for the backend, to be used by
+@code{bongo-transform-file-name} to manipulate file names.  This
+keyword can be supplied multiple times, specifying multiple
+transformers.  There is no default file name transformer.
+
+@item :program-name @var{string}
+The file name of the executable program for the backend.  The default
+is the symbol-name of @var{name}.
+
+@item :program-name-variable @var{variable}
+The variable specifying the backend executable.  The default defines a
+variable @code{bongo-@var{name}-program-name}, bound to the value of
+@var{program-name}.
+
+@item :program-arguments @var{list}
+A list of program arguments, to be processed by
+@code{bongo-evaluate-program-arguments}.  The default is
+@code{(@var{extra-program-arguments-variable} bongo-extra-arguments
+bongo-file-name)}.
+
+@item :extra-program-arguments-variable @var{variable-name}
+The name of the variable specifying extra command line arguments to
+pass to the program.  This variable will be defined with
+@code{defcustom}, if its name is mentioned in
+@var{extra-program-arguments}.  A null value means no variable will be
+defined.  The default defines a variable
+@code{bongo-@var{name}-extra-arguments}.
+
+@item :extra-program-arguments @var{list}
+The initial value for the @var{extra-program-arguments-variable}
+variable.  The default is @code{nil}.
+
+@item :constructor @var{function}
+The function that will create and invoke the backend player.  It must
+be a function of two arguments, a file name and a list of extra
+arguments.  It shall return a player, represented by a cons
+@code{(name . properties)} where @code{properties} is an alist.
+
+The default defines a function @code{bongo-start-@var{name}-player}
+which calls @code{bongo-start-simple-player}.
+
+@item :pause-signal @var{sigcode}
+The signal used with @code{signal-process} to pause the player
+process.  The default is @code{SIGSTOP}.
+@end table
+@end defmac
 
 @node GNU GPL
 @appendix GNU General Public License
