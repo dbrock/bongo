@@ -593,11 +593,11 @@ interactive controls for Evince, we only want to launch it.
 
 @lisp
 (eval-after-load 'bongo
-  (define-bongo-backend evince
-    :matcher '(local-file "ps" "pdf")))
+  '(define-bongo-backend evince
+     :matcher '(local-file "ps" "pdf")))
 @end lisp
 
-@code{define-bongo-backend} is used to define backends. The definition
+@code{define-bongo-backend} is used to define backends.  The definition
 is wrapped inside an @code{eval-after-load} form so that it will
 execute after Bongo has loaded.  You don't need this if you load Bongo
 at startup, but it will work in both cases.
