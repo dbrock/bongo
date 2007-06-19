@@ -4,7 +4,7 @@
 @settitle Bongo Manual
 @c %**end of header
 
-@set LAST-UPDATED  June 8, 2007
+@set LAST-UPDATED  June 19, 2007
 
 @copying
 Copyright @copyright{} 2007  Daniel Brockman@*
@@ -662,9 +662,8 @@ bongo-file-name)}.
 @item :extra-program-arguments-variable @var{variable-name}
 The name of the variable specifying extra command line arguments to
 pass to the program.  This variable will be defined with
-@code{defcustom}, if its name is mentioned in
-@var{extra-program-arguments}.  A null value means no variable will be
-defined.  The default defines a variable
+@code{defcustom}, if its name is mentioned in @var{program-arguments}.
+The default defines a variable
 @code{bongo-@var{name}-extra-arguments}.
 
 @item :extra-program-arguments @var{list}
