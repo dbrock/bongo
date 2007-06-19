@@ -2451,7 +2451,7 @@ As a special case, return nil if FILE-NAME is nil."
 
 (defun bongo-default-infoset-from-file-name (file-name)
   (let ((track-length-part
-         (when bongo-track-length
+         (when (and (boundp 'bongo-track-length) bongo-track-length)
            `((length . ,bongo-track-length)))))
     (if (bongo-uri-p file-name)
         `((artist . unknown)
