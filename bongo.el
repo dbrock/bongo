@@ -6525,18 +6525,30 @@ If point is on a header, collapse or expand the section below.
 If point is on a playlist track, just start playing the track.
 If point is on a library track, enqueue the track in the playlist
   and then immediately start playing it.
-With numerical prefix argument N, play or enqueue the next N tracks.
-With \\[universal-argument] as prefix argument, play or enqueue-play
-  the track at point after explicitily specifying the backend to use.
+With numerical prefix argument N, play or enqueue the next N tracks
+  or sections (even if point is on a header).
+With \\[universal-argument] as prefix argument, play or enqueue-play \
+the track at point
+  after explicitily specifying the backend to use.
+With \\[universal-argument] as prefix argument on a header, \
+just start playing the section.
+With \\[universal-argument] \\[universal-argument] as prefix argument \
+on a header, start playing the section
+  after explicitly specifying the backend to use.
+In other words, add an extra \\[universal-argument] when point is \
+on a header and you want
+  to play the section instead of collapsing/expanding it.
 If point is neither on a track nor on a header, do nothing."
   (interactive "P")
-  (cond ((bongo-header-line-p)
-         (bongo-toggle-collapsed))
-        ((bongo-track-line-p)
+  (cond ((or n (bongo-track-line-p))
          (if (not (consp n))
              (bongo-play-lines n)
-           (call-interactively 'bongo-set-backend-for-track)
-           (bongo-play-lines)))))
+           (when (or (bongo-track-line-p)
+                     (> (prefix-numeric-value n) 4))
+             (call-interactively 'bongo-set-backend-for-track))
+           (bongo-play-lines)))
+        ((bongo-header-line-p)
+         (bongo-toggle-collapsed))))
 
 (defun bongo-mouse-dwim (event)
   "In Bongo, do what the user means to the object that was clicked on.

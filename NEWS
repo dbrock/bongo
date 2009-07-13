@@ -7,6 +7,9 @@ July 13, 2009
 
  * Bongo now forces VLC to exit after finishing a track.
 
+ * `C-u RET' on a section header now starts playing
+   the section.  To set the backend, use `C-u C-u RET'.
+
 May 21, 2007
 
  * New key bindings `S-<up>' and `S-<down>' (each with `M-'
