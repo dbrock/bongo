@@ -940,8 +940,6 @@ The values of the expressions are concatenated."
 Value is derived from `bongo-header-line-format'.
 The name of this variable should go in `header-line-format'.")
 (make-variable-buffer-local 'bongo-header-line-string)
-
-;; This is needed for text properties to work in the header line.
 (put 'bongo-header-line-string 'risky-local-variable t)
 
 (defun bongo-update-header-line-string (&rest dummy)
@@ -2008,8 +2006,6 @@ If running without a window system, signal an error."
   "Bongo mode line indicator string.
 Value is derived from `bongo-mode-line-indicator-format'.
 The name of this variable should go in, e.g., `global-mode-string'.")
-
-;; This is needed for text properties to work in the mode line.
 (put 'bongo-mode-line-indicator-string 'risky-local-variable t)
 
 (defun bongo-update-mode-line-indicator-string (&rest dummy)
@@ -4626,7 +4622,7 @@ If BACKEND-NAME is not a symbol, just return it."
 
 (defun bongo-backend-name (backend)
   "Return the name of BACKEND."
-  (car backend))
+  (car (bongo-backend backend)))
 
 (defun bongo-backend-pretty-name (backend)
   "Return BACKEND's pretty name."
@@ -7779,9 +7775,9 @@ unless `find-file-wildcards' is set to nil."
   (interactive
    (list (let ((file-string
                 (read-file-name
-                 (case bongo-insert-whole-directory-trees
-                   ((nil ask) "Insert file or directory: ")
-                   (otherwise "Insert file or directory tree: "))
+                 (if (memq bongo-insert-whole-directory-trees '(nil ask))
+                     "Insert file or directory: "
+                   "Insert file or directory tree: ")
                  default-directory nil nil
                  (when (eq major-mode 'dired-mode)
                    (dired-get-filename t)))))
