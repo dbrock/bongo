@@ -1,6 +1,6 @@
 ;;; bongo.el --- flexible and usable media player for Emacs
 
-;; Copyright (C) 2005, 2006, 2007  Daniel Brockman
+;; Copyright (C) 2005, 2006, 2007, 2008, 2009  Daniel Brockman
 ;; Copyright (C) 2006, 2007  Daniel Jensen
 ;; Copyright (C) 1998, 2000, 2001, 2002, 2003, 2004, 2005
 ;;   Free Software Foundation, Inc.
@@ -8,7 +8,7 @@
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; URL: http://bongo.nongnu.org/
 ;; Created: September 3, 2005
-;; Updated: June 19, 2007
+;; Updated: July 13, 2009
 
 ;; This file is part of Bongo.
 
@@ -6125,7 +6125,8 @@ These will come at the end or right before the file name, if any."
   (let* ((process-connection-type nil)
          (arguments (append
                      (when bongo-vlc-interactive
-                       (append (list "-I" "rc" "--rc-fake-tty")
+                       (append (list "-I" "rc" "--rc-fake-tty"
+                                     "--play-and-exit")
                                (when (bongo-uri-p file-name)
                                  (list "-vv"))
                                (when (eq window-system 'w32)

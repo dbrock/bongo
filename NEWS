@@ -1,7 +1,11 @@
 Bongo NEWS file listing user-visible changes.
 
-Copyright (C) 2007  Daniel Brockman
+Copyright (C) 2007, 2009  Daniel Brockman
 See the end of the file for licensing conditions.
+
+July 13, 2009
+
+ * Bongo now forces VLC to exit after finishing a track.
 
 May 21, 2007
 
