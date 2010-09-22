@@ -1,14 +1,15 @@
 ;;; bongo.el --- flexible and usable media player for Emacs
 
-;; Copyright (C) 2005, 2006, 2007, 2008, 2009  Daniel Brockman
-;; Copyright (C) 2006, 2007  Daniel Jensen
+;; Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010
+;;   Daniel Brockman
+;; Copyright (C) 2006, 2007
+;;   Daniel Jensen
 ;; Copyright (C) 1998, 2000, 2001, 2002, 2003, 2004, 2005
 ;;   Free Software Foundation, Inc.
 
 ;; Author: Daniel Brockman <daniel@brockman.se>
-;; URL: http://bongo.nongnu.org/
+;; URL: http://github.com/dbrock/bongo
 ;; Created: September 3, 2005
-;; Updated: July 13, 2009
 
 ;; This file is part of Bongo.
 
@@ -27,14 +28,7 @@
 ;; write to the Free Software Foundation, 51 Franklin Street,
 ;; Fifth Floor, Boston, MA 02110-1301, USA.
 
-;;; Commentary:
-
-;; The `lastfm-submit' library, necessary for Last.fm
-;; functionality, is available at the following URL:
-
-;; <http://www.brockman.se/software/lastfm-submit.el>
-
-;;; TODO:
+;;; To do:
 
 ;; Shuffle operations.  It would be nice to have both a
 ;; random shuffle operation and an interleaving
