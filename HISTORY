@@ -1,0 +1,28 @@
+Historically, the main difference between Bongo and EMMS 2.0 was that
+the former had a more elaborate user interface, while the latter was
+more mature and supported more formats (for example, Bongo could not
+play radio streams for quite a while).  It might be fair to say that
+while Bongo was a GUI that could play media, EMMS 2.0 was a media
+player that could display a GUI, although this description became less
+and less accurate as the feature sets of the two players converged.
+While Bongo and EMMS 2.0 do not share any code, both sprung out of the
+original EMMS community.
+
+In fact, Bongo started out as an experiment in creating a better
+“playlist buffer interface” (PBI) for EMMS, which had traditionally
+had an all but invisible UI, with the PBI added pretty much as an
+afterthought.  The experiment quickly got out of hand as Bongo evolved
+into a complete media player in its own right and Daniel Brockman
+started to use it full-time.  In response to this, Jorgen Schäfer, the
+original author of EMMS, — who had always thought that the very
+concept of a PBI was unnecessary and lame, — quipped, “Great, he took
+the worst hack of EMMS, and made it into a new player.”
+
+For the thread that started EMMS 2.0 and Bongo, see
+<http://lists.gnu.org/archive/html/emms-help/2005-08/msg00057.html>.
+
+The original intention was to eventually merge Bongo into EMMS 2.0.
+However, this plan was pretty much floating around on ice, and it shot
+right off into space when Yoni Rabkin Katzenell stepped up to rewrite
+the EMMS PBI for EMMS 2.0.  Since then, Bongo and EMMS 2.0 have
+continued to evolve in parallel and both are now mature programs.
