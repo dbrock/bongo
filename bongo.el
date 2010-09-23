@@ -10295,8 +10295,10 @@ If BUFFER is neither nil nor a buffer, return nil."
 (defvar bongo-logo
   (find-image
    (list (list :type 'pbm :file "bongo-logo.pbm"
-               :foreground (bongo-face-foreground 'bongo-comment nil t)
-               :background (bongo-face-background 'bongo-comment nil t)))))
+               :foreground (bongo-face-foreground
+                            'bongo-comment nil 'default)
+               :background (bongo-face-background
+                            'bongo-comment nil 'default)))))
 
 (defun bongo-insert-comment-text (text)
   (let ((inhibit-read-only t))
