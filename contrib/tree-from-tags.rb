@@ -3,9 +3,7 @@
 # Copyright (C) 2006, 2007  Daniel Brockman
 
 # Author: Daniel Brockman <daniel@brockman.se>
-# URL: http://www.brockman.se/software/bongo/
 # Created: April 24, 2006
-# Updated: May 15, 2007
 
 # This file is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
@@ -242,9 +240,3 @@ end
 puts ; puts "Processed #{n_processed_files} media files " +
   "(created #{n_created_links} " +
   "#{$hardlinks ? "hardlinks" : "symbolic links"})."
-
-## Local Variables:
-## time-stamp-format: "%:b %:d, %:y"
-## time-stamp-start: "# Updated: "
-## time-stamp-end: "$"
-## End:
