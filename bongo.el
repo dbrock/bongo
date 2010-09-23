@@ -1,15 +1,13 @@
 ;;; bongo.el --- flexible and usable media player for Emacs
 
-;; Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010
-;;   Daniel Brockman
-;; Copyright (C) 2006, 2007
-;;   Daniel Jensen
+;; Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010  Daniel Brockman
+;; Copyright (C) 2006, 2007  Daniel Jensen
 ;; Copyright (C) 1998, 2000, 2001, 2002, 2003, 2004, 2005
 ;;   Free Software Foundation, Inc.
 
 ;; Author: Daniel Brockman <daniel@brockman.se>
-;; URL: http://github.com/dbrock/bongo
 ;; Created: September 3, 2005
+;; URL: http://github.com/dbrock/bongo
 
 ;; This file is part of Bongo.
 
@@ -10571,14 +10569,10 @@ See the function `bongo-buffer'."
 
 ;;; Local Variables:
 ;;; coding: utf-8
-;;; time-stamp-format: "%:b %:d, %:y"
-;;; time-stamp-start: ";; Updated: "
-;;; time-stamp-end: "$"
-;;; time-stamp-line-limit: 20
 ;;; checkdoc-arguments-in-order-flag: nil
 ;;; checkdoc-permit-comma-termination-flag: t
 ;;; checkdoc-symbol-words: ("command-line")
 ;;; End:
 
 (provide 'bongo)
-;;; bongo.el ends here
+;;; bongo.el ends here.

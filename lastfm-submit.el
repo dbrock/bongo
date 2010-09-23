@@ -2,9 +2,7 @@
 ;; Copyright (C) 2006  Daniel Brockman
 
 ;; Author: Daniel Brockman <daniel@brockman.se>
-;; URL: http://www.brockman.se/software/lastfm-submit.el
 ;; Created: May 24, 2006
-;; Updated: November 12, 2006
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -74,9 +72,6 @@ See also `lastfmsubmit-program-name'."
 
 ;;; Local Variables:
 ;;; coding: utf-8
-;;; time-stamp-format: "%:b %:d, %:y"
-;;; time-stamp-start: ";; Updated: "
-;;; time-stamp-end: "$"
 ;;; End:
 
 (provide 'lastfm-submit)

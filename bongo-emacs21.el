@@ -4,22 +4,22 @@
 ;;   2001, 2002, 2003, 2004, 2005, 2006  Free Software Foundation, Inc.
 
 ;; Author: Daniel Brockman <daniel@brockman.se>
-;; URL: http://www.brockman.se/software/bongo/
 ;; Created: December 27, 2006
-;; Updated: February 12, 2007
 
-;; This file is free software; you can redistribute it and/or
+;; This file is part of Bongo.
+
+;; Bongo is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
 ;; published by the Free Software Foundation; either version 2 of
 ;; the License, or (at your option) any later version.
 
-;; This file is distributed in the hope that it will be useful,
+;; Bongo is distributed in the hope that it will be useful,
 ;; but WITHOUT ANY WARRANTY; without even the implied warranty
 ;; of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 ;; See the GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public
-;; License along with this program (see the file `COPYING');
+;; License along with Bongo (see the file `COPYING');
 ;; if not, write to the Free Software Foundation, 51 Franklin
 ;; Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
@@ -334,10 +334,6 @@ in which `%s' turns it on."
 
 ;;; Local Variables:
 ;;; coding: utf-8
-;;; time-stamp-format: "%:b %:d, %:y"
-;;; time-stamp-start: ";; Updated: "
-;;; time-stamp-end: "$"
-;;; time-stamp-line-limit: 20
 ;;; End:
 
 (provide 'bongo-emacs21)
