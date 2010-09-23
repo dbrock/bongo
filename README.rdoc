@@ -1,6 +1,31 @@
 = Bongo
 
-Bongo is a flexible and usable media player for GNU Emacs.
+Bongo is a flexible and usable media player for GNU Emacs.  If you
+store your music collection locally and use structured file names,
+then Bongo is a great way for you to play music from within Emacs.
+
+== Getting started
+
+Once your media collection is good to go (see below), getting started
+with Bongo is easy.  Add the Bongo directory to your
+‘<tt>load-path</tt>’, and then run “<tt>M-x load-library RET bongo
+RET</tt>”.  Here’s what you’ll want to put in your <tt>~/.emacs</tt>:
+
+  ;; Change this to the correct directory name for you.
+  (add-to-list 'load-path "~/src/bongo")
+  (autoload 'bongo "bongo"
+    "Start Bongo by switching to a Bongo buffer." t)
+
+The first thing you might want to do is skim through the customization
+group for Bongo (run “<tt>M-x customize-group RET bongo RET</tt>”).
+It might be fun to browse through all of it, but right now the most
+important option is ‘<tt>bongo-enabled-backends</tt>’.  This option
+determines what external programs Bongo will use to play stuff.
+Bongo will try to find a reasonable set of default backends by looking
+for the programs <tt>vlc</tt>, <tt>mpg123</tt>, <tt>ogg123</tt>,
+<tt>speexdec</tt>, <tt>timidity</tt>, and <tt>mikmod</tt>.  Check to
+make sure that this looks good before moving on.  You can skip most
+other stuff for now.
 
 == Your media collection
 
@@ -37,29 +62,6 @@ Many people use tags (e.g., ID3v2 tags or Ogg tags) for their metadata
 and don’t care about file names.  Luckily, Bongo comes with a tool
 called “<tt>tree-from-tags.rb</tt>”, which can be used to create a
 hierarchy of nicely-named symlinks into your tagged media collection.
-
-== Getting started
-
-Once your media collection is good to go, getting started with Bongo
-is easy.  Add the Bongo directory to your ‘<tt>load-path</tt>’, and
-then run “<tt>M-x load-library RET bongo RET</tt>”.  Here’s what
-you’ll want to put in your <tt>~/.emacs</tt>:
-
-  ;; Change this to the correct directory name for you.
-  (add-to-list 'load-path "~/src/bongo")
-  (autoload 'bongo "bongo"
-    "Start Bongo by switching to a Bongo buffer.")
-
-The first thing you might want to do is skim through the customization
-group for Bongo (run “<tt>M-x customize-group RET bongo RET</tt>”).
-It might be fun to browse through all of it, but right now the most
-important option is ‘<tt>bongo-enabled-backends</tt>’.  This option
-determines what external programs Bongo will use to play stuff.
-Bongo will try to find a reasonable set of default backends by looking
-for the programs <tt>vlc</tt>, <tt>mpg123</tt>, <tt>ogg123</tt>,
-<tt>speexdec</tt>, <tt>timidity</tt>, and <tt>mikmod</tt>.  Check to
-make sure that this looks good before moving on.  You can skip most
-other stuff for now.
 
 == Commands
 
