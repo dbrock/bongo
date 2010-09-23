@@ -834,13 +834,19 @@ If nil, use the same icon as for unplayed tracks."
   :type '(choice file (const :tag "Same as for other tracks" nil))
   :group 'bongo-track-icons)
 
-(defun bongo-find-image (file-name &optional background-face)
-  (find-image
-   (list (list :ascent 'center
-               :file file-name
-               :type (bongo-image-type-from-file-name file-name)
-               :background (bongo-face-background
-                            (or background-face 'default) nil t)))))
+(defvar bongo-etc-directory
+  (expand-file-name "etc" (file-name-directory (find-library-name "bongo"))))
+
+(defun bongo-find-image (file-name &optional face)
+  (let ((image-load-path (cons bongo-etc-directory image-load-path)))
+    (find-image
+     (list (list :ascent 'center
+                 :file file-name
+                 :type (bongo-image-type-from-file-name file-name)
+                 :foreground (bongo-face-foreground
+                              (or face 'default) nil 'default)
+                 :background (bongo-face-background
+                              (or face 'default) nil 'default))))))
 
 (defun bongo-make-image-string (image)
   "Return a string with IMAGE in its `display' property."
@@ -10293,12 +10299,7 @@ If BUFFER is neither nil nor a buffer, return nil."
     (buffer-string)))
 
 (defvar bongo-logo
-  (find-image
-   (list (list :type 'pbm :file "bongo-logo.pbm"
-               :foreground (bongo-face-foreground
-                            'bongo-comment nil 'default)
-               :background (bongo-face-background
-                            'bongo-comment nil 'default)))))
+  (bongo-find-image "bongo-logo.pbm" 'bongo-comment))
 
 (defun bongo-insert-comment-text (text)
   (let ((inhibit-read-only t))
