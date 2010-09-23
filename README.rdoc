@@ -60,8 +60,9 @@ the field separator.)
 
 Many people use tags (e.g., ID3v2 tags or Ogg tags) for their metadata
 and don’t care about file names.  Luckily, Bongo comes with a tool
-called “<tt>tree-from-tags.rb</tt>”, which can be used to create a
-hierarchy of nicely-named symlinks into your tagged media collection.
+called <tt>tree-from-tags.rb</tt> (located in the <tt>contrib/</tt>
+directory), which can be used to create a hierarchy of nicely-named
+symlinks into your tagged media collection.
 
 == Commands
 
