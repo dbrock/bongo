@@ -833,6 +833,7 @@ If nil, use the same icon as for unplayed tracks."
   :type '(choice file (const :tag "Same as for other tracks" nil))
   :group 'bongo-track-icons)
 
+(require 'find-func)
 (defvar bongo-etc-directory
   (expand-file-name "etc" (file-name-directory (find-library-name "bongo"))))
 
