@@ -838,7 +838,9 @@ If nil, use the same icon as for unplayed tracks."
   (expand-file-name "etc" (file-name-directory (find-library-name "bongo"))))
 
 (defun bongo-find-image (file-name &optional face)
-  (let ((image-load-path (cons bongo-etc-directory image-load-path)))
+  (let ((image-load-path (cons bongo-etc-directory
+                               (and (boundp 'image-load-path)
+                                    image-load-path))))
     (find-image
      (list (list :ascent 'center
                  :file file-name
