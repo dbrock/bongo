@@ -5837,28 +5837,46 @@ These will come at the end or right before the file name, if any."
 
 ;;; XXX: What happens if a record is split between two calls
 ;;;      to the process filter?
+(defun bongo-mpg123-parse-output (string)
+  "Return a list of (STATUS &rest PARAMETERS) from mpg123 process output string" 
+  (let* ((valid-lines (remove-if
+		      ;; remove unparsable lines
+		      (lambda (line)
+			(or (< (length line) 3)
+			    (not (or (string= (substring line 0 2) "@F")
+				     (string= "@P 0" line)))))
+		      (split-string string "[\n\r]+")))
+	 ;; map to a list of (STATUS &rest PARAMETERS)
+	 (parsed-output
+	  (mapcar (lambda (line)
+		    (if (string= "@P 0" line)
+			(list 'P 0)
+		      (let* ((elapsed-time (string-to-number (nth 3 (split-string line))))
+			     (total-time (+ elapsed-time (string-to-number
+							  (nth 4 (split-string line))))))
+			;; we can round the elapsed time, because the frontend only uses whole seconds
+			(list 'F (round elapsed-time) (round total-time)))))
+		  valid-lines)))
+    (delete-dups parsed-output)))
+
 (defun bongo-mpg123-process-filter (process string)
   (condition-case condition
       (let ((player (bongo-process-get process 'bongo-player)))
-        (with-temp-buffer
-          (insert string)
-          (goto-char (point-min))
-          (while (not (eobp))
-            (cond ((looking-at "^@P 0$")
-                   (bongo-player-succeeded player)
-                   (set-process-sentinel process nil)
-                   (delete-process process))
-                  ((looking-at "^@F .+ .+ \\(.+\\) \\(.+\\)$")
-                   (let* ((elapsed-time (string-to-number (match-string 1)))
-                          (total-time (+ elapsed-time (string-to-number
-                                                       (match-string 2)))))
-                     (bongo-player-update-elapsed-time player elapsed-time)
-                     (bongo-player-update-total-time player total-time)
-                     (bongo-player-times-changed player))))
-            (forward-line))))
+        (dolist (event (bongo-mpg123-parse-output string))
+	  (case (car event)
+	    ('F
+	     (let* ((elapsed-time (nth 1 event))
+		    (total-time (nth 2 event)))
+	       (bongo-player-update-elapsed-time player elapsed-time)
+	       (bongo-player-update-total-time player total-time)
+	       (bongo-player-times-changed player)))
+	    ('P
+	     (bongo-player-succeeded player)
+	     (set-process-sentinel process nil)
+	     (delete-process process)))))
     ;; Getting errors in process filters is not fun, so stop.
     (error (bongo-stop)
-           (signal (car condition) (cdr condition)))))
+	   (signal (car condition) (cdr condition)))))
 
 (defun bongo-start-mpg123-player (file-name &optional extra-arguments)
   (let* ((process-connection-type nil)
