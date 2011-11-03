@@ -568,33 +568,28 @@ Notice that an intermediate header ``[Frank Morton]'' was inserted."
   :type 'boolean
   :group 'bongo-display)
 
-(defcustom bongo-album-format
-  '(bongo-title
-    (when bongo-year
-      (concat " (" bongo-year ")")))
-  "Template for displaying albums in Bongo.
-Value is a list of expressions, each evaluating to a string or nil.
-When the expressions are evaluated,
+(defcustom bongo-album-function
+  'bongo-default-album
+  "Function for displaying albums in Bongo.
+Value is a funcion, evaluating to a string or nil.
+When the function is evaluated,
  - `bongo-title' is bound to the formatted album title;
  - `bongo-year' is bound to the formatted album year or nil;
  - `bongo-album' is bound to the contents of the `album' field;
  - `bongo-infoset' is bound to the whole infoset;
  - `bongo-target' is short for `bongo-infoset-formatting-target';
  - `bongo-line' is short for `bongo-infoset-formattnig-target-line'.
-The values of the expressions are concatenated.
-
-Value may also be a format string, in which case
- - %t means the album title, and
- - %y means the album year.
-This is only allowed for backwards compatibility.
 
 This variable is used by the function `bongo-default-format-field'."
-  :type '(choice (repeat sexp)
-                 (string :tag "Format string (deprecated)"))
+  :type 'function
+  :options '(bongo-default-album)
   :group 'bongo-display)
 
-(when (stringp bongo-album-format)
-  (message "Warning: `bongo-album-format' should not be a string"))
+(defun bongo-default-album ()
+  (concat
+   bongo-title
+   (when bongo-year
+      (concat " (" bongo-year ")"))))
 
 (defcustom bongo-display-track-lengths t
   "Whether to display track lengths in Bongo playlist buffers.
@@ -608,30 +603,11 @@ See also `bongo-display-track-lengths'."
   :type 'integer
   :group 'bongo-display)
 
-(defcustom bongo-track-format
-  '((when bongo-index
-      (concat bongo-index ". "))
-    bongo-title
-    (when (and bongo-display-track-lengths
-               bongo-length
-               (bongo-playlist-buffer-p bongo-target))
-      (concat (let ((other-fields-width
-                     (with-temp-buffer
-                       (insert (bongo-format-infoset
-                                `((track (length . nil)
-                                         ,@bongo-track)
-                                  ,@bongo-infoset)))
-                       (current-column)))
-                    (indentation-width
-                     (* (length bongo-indentation-string)
-                        (bongo-line-indentation bongo-line))))
-                (make-string (max 0 (- bongo-track-length-column
-                                       indentation-width
-                                       other-fields-width)) 32))
-              "  " bongo-length)))
-  "Template for displaying tracks in Bongo.
-Value is a list of expressions, each evaluating to a string or nil.
-When the expressions are evaluated,
+(defcustom bongo-track-function
+  'bongo-default-track
+  "Function for displaying tracks in Bongo.
+Value is a function, evaluating to a string or nil.
+When the function is evaluated,
  - `bongo-title' is bound to the formatted track title;
  - `bongo-index' is bound to the formatted track index or nil;
  - `bongo-length' is bound to the formatted track length or nil;
@@ -639,34 +615,50 @@ When the expressions are evaluated,
  - `bongo-infoset' is bound to the whole infoset;
  - `bongo-target' is short for `bongo-infoset-formatting-target';
  - `bongo-line' is short for `bongo-infoset-formatting-target-line'.
-The values of the expressions are concatenated.
-
-Value may also be a format string, in which case
- - %t means the track title, and
- - %i means the track index.
-This is only allowed for backwards compatibility.
 
 This variable is used by the function `bongo-default-format-field'."
-  :type '(choice (repeat sexp)
-                 (string :tag "Format string (deprecated)"))
+  :type 'function
+  :options '()
   :group 'bongo-display)
 
-(when (stringp bongo-track-format)
-  (message "Warning: `bongo-track-format' should not be a string"))
+(defun bongo-default-track ()
+  (concat
+   (when bongo-index
+     (concat bongo-index ". "))
+   bongo-title
+   (when (and bongo-display-track-lengths bongo-length
+	      (bongo-playlist-buffer-p bongo-target))
+     (concat (let ((other-fields-width
+		    (with-temp-buffer
+		      (insert (bongo-format-infoset
+			       `((track (length . nil)
+					,@bongo-track)
+				 ,@bongo-infoset)))
+		      (current-column)))
+		   (indentation-width
+		    (* (length bongo-indentation-string)
+		       (bongo-line-indentation bongo-line))))
+	       (make-string (max 0 (- bongo-track-length-column
+				      indentation-width
+				      other-fields-width)) 32))
+	     " " bongo-length))))
 
-(defcustom bongo-track-length-format
-  '("[" (bongo-format-seconds bongo-length) "]")
-  "Template for displaying track lengths in Bongo.
-Value is a list of expressions, each evaluating to a string or nil.
-The values of the expressions are concatenated.
-When the expressions are evaluated,
+(defcustom bongo-track-length-function
+  'bongo-default-track-length
+  "Function for displaying track lengths in Bongo.
+Value is a Function, evaluating to a string or nil.
+When the function is evaluated,
  - `bongo-length' is bound to the length of the track in seconds;
  - `bongo-track' is bound to the contents of the `track' field;
  - `bongo-infoset' is bound to the whole infoset;
  - `bongo-target' is short for `bongo-infoset-formatting-target';
  - `bongo-line' is short for `bongo-infoset-formattnig-target-line'."
-  :type '(repeat sexp)
+  :type 'function
+  :options '(bongo-default-track-length)
   :group 'bongo-display)
+
+(defun bongo-default-track-length ()
+  (concat "[" (bongo-format-seconds bongo-length) "]"))
 
 (defcustom bongo-action-format
   '("Action: " bongo-action-description)
@@ -920,26 +912,21 @@ If nil, use the same icon as for unplayed tracks."
         bongo-header-line-paused-string
       bongo-header-line-playing-string)))
 
-(defcustom bongo-header-line-format
-  '((bongo-header-line-playback-status) " "
-    (bongo-formatted-infoset))
-  "Template for Bongo playlist header lines.
-Value is a list of expressions, each evaluating to a string or nil.
-The values of the expressions are concatenated."
-  :type '(repeat
-          (choice
-           (const :tag "Space" " ")
-           string
-           (const :tag "Playback status"
-                  (bongo-header-line-playback-status))
-           (const :tag "Track description"
-                  (bongo-formatted-infoset))
-           (sexp :tag "Value of arbitrary expression")))
+(defcustom bongo-header-line-function
+  'bongo-default-header-line-function
+  "Function for Bongo playlist header lines."
+  :type 'function
+  :options '(bongo-default-header-line-function)
   :group 'bongo-header-line)
+
+(defun bongo-default-header-line-function ()
+  "Return String of Playback status and Track description"
+  (concat (bongo-header-line-playback-status) " "
+    (bongo-formatted-infoset)))
 
 (defvar bongo-header-line-string nil
   "Bongo header line string.
-Value is derived from `bongo-header-line-format'.
+Value is derived from `bongo-header-line-function'.
 The name of this variable should go in `header-line-format'.")
 (make-variable-buffer-local 'bongo-header-line-string)
 (put 'bongo-header-line-string 'risky-local-variable t)
@@ -960,7 +947,7 @@ Accept DUMMY arguments to ease hook usage."
               (remq 'bongo-header-line-string new-header-line-format)))
       (setq new-bongo-header-line-string
             (when (bongo-playing-p)
-              (bongo-format-string bongo-header-line-format)))
+              (funcall bongo-header-line-function)))
       (when (or (equal new-header-line-format '(""))
                 (and (equal new-header-line-format
                             '("" bongo-header-line-string))
@@ -1035,97 +1022,33 @@ This is either \"-\" or \" \", depending on the return value of
 the function `bongo-hyphen-padded-mode-line-p'."
   (if (bongo-hyphen-padded-mode-line-p) "-" " "))
 
-(defcustom bongo-mode-line-indicator-format
-  '((bongo-mode-line-pad-string)
-    (when (bongo-hyphen-padded-mode-line-p) "[")
-    (bongo-mode-line-volume-button)
-    (when (require 'volume nil t) " ")
-    (bongo-mode-line-backward/previous-button)
-    (bongo-mode-line-pause/resume-button)
-    (bongo-mode-line-start/stop-button)
-    (bongo-mode-line-forward/next-button)
-    (when (bongo-playing-p) " ")
-    (when (bongo-playing-p)
-      (cond ((and (bongo-elapsed-time) (bongo-total-time))
-             (format "%d%%" (/ (* 100.0 (bongo-elapsed-time))
-                               (bongo-total-time))))
-            ((bongo-elapsed-time)
-             (bongo-format-seconds (bongo-elapsed-time)))))
-    (when (bongo-hyphen-padded-mode-line-p) "]")
-    (bongo-mode-line-pad-string)
-    (when (bongo-hyphen-padded-mode-line-p)
-      (bongo-mode-line-pad-string)))
-  "Template for the Bongo mode line indicator.
-Value is a list of expressions, each evaluating to a string or nil.
-The values of the expressions are concatenated."
-  :type '(repeat
-          (choice
-           (const :tag "Padding" (bongo-mode-line-pad-string))
-           (const :tag "Blank space" " ")
-           string
-           (const :tag "[Start] button"
-                  (bongo-mode-line-start-button))
-           (const :tag "[Stop] button"
-                  (bongo-mode-line-stop-button))
-           (const :tag "[Start] or [Stop] button"
-                  (bongo-mode-line-start/stop-button))
-           (const :tag "[Pause] or [Resume] button"
-                  (bongo-mode-line-pause/resume-button))
-           (const :tag "[Previous] button"
-                  (bongo-mode-line-previous-button))
-           (const :tag "[Next] button"
-                  (bongo-mode-line-next-button))
-           (const :tag "[Fast-forward] button"
-                  (bongo-mode-line-forward-button))
-           (const :tag "[Rewind] button"
-                  (bongo-mode-line-backward-button))
-           (const :tag "Combined [Rewind/Previous] button"
-                  (bongo-mode-line-backward/previous-button))
-           (const :tag "Combined [Fast-forward/Next] button"
-                  (bongo-mode-line-forward/next-button))
-           (const :tag "[Volume control] button (if available)"
-                  (bongo-mode-line-volume-button))
-           (const :tag "Blank space if volume control available"
-                  (when (require 'volume nil t) " "))
-           (const :tag "Elapsed time"
-                  (when (bongo-playing-p)
-                    (bongo-format-seconds (bongo-elapsed-time))))
-           (const :tag "Remaining time"
-                  (when (bongo-playing-p)
-                    (bongo-format-seconds (bongo-remaining-time))))
-           (const :tag "Total time"
-                  (when (bongo-playing-p)
-                    (bongo-format-seconds (bongo-total-time))))
-           (const :tag "Elapsed time in percent of total time"
-                  (when (bongo-playing-p)
-                    (cond ((and (bongo-elapsed-time) (bongo-total-time))
-                           (format "%d%%" (/ (* 100.0 (bongo-elapsed-time))
-                                             (bongo-total-time))))
-                          ((bongo-elapsed-time)
-                           (bongo-format-seconds (bongo-elapsed-time))))))
-           (const :tag "Elapsed and total time"
-                  (when (bongo-playing-p)
-                    (when (and (bongo-elapsed-time) (bongo-total-time))
-                      (concat (bongo-format-seconds (bongo-elapsed-time)) "/"
-                              (bongo-format-seconds (bongo-total-time))))))
-           (const :tag "Padding if playing"
-                  (when (bongo-playing-p)
-                    (bongo-mode-line-pad-string)))
-           (const :tag "Blank space if playing"
-                  (when (bongo-playing-p) " "))
-           (const :tag "Left bracket if mode line is hyphen-padded"
-                  (when (bongo-hyphen-padded-mode-line-p) "["))
-           (const :tag "Right bracket if mode line is hyphen-padded"
-                  (when (bongo-hyphen-padded-mode-line-p) "]"))
-           (const :tag "Padding if mode line is hyphen-padded"
-                  (when (bongo-hyphen-padded-mode-line-p)
-                    (bongo-mode-line-pad-string)))
-           (const :tag "Padding if playing or mode line is hyphen-padded"
-                  (when (or (bongo-playing-p)
-                            (bongo-hyphen-padded-mode-line-p))
-                    (bongo-mode-line-pad-string)))
-           (sexp :tag "Value of arbitrary expression")))
+(defcustom bongo-mode-line-indicator-function
+  'bongo-default-mode-line-indicator-function
+  "Function for the Bongo mode line indicator."
+  :type 'function
+  :options '(bongo-default-mode-line-indicator-function)
   :group 'bongo-mode-line)
+
+(defun bongo-default-mode-line-indicator-function ()
+  (concat (bongo-mode-line-pad-string)
+	  (when (bongo-hyphen-padded-mode-line-p) "[")
+	  (bongo-mode-line-volume-button)
+	  (when (require 'volume nil t) " ")
+	  (bongo-mode-line-backward/previous-button)
+	  (bongo-mode-line-pause/resume-button)
+	  (bongo-mode-line-start/stop-button)
+	  (bongo-mode-line-forward/next-button)
+	  (when (bongo-playing-p) " ")
+	  (when (bongo-playing-p)
+	    (cond ((and (bongo-elapsed-time) (bongo-total-time))
+		   (format "%d%%" (/ (* 100.0 (bongo-elapsed-time))
+				     (bongo-total-time))))
+		  ((bongo-elapsed-time)
+		   (bongo-format-seconds (bongo-elapsed-time)))))
+	  (when (bongo-hyphen-padded-mode-line-p) "]")
+	  (bongo-mode-line-pad-string)
+	  (when (bongo-hyphen-padded-mode-line-p)
+	    (bongo-mode-line-pad-string))))
 
 (defcustom bongo-mode-line-indicator-parent 'global-mode-string
   "List variable in which to put the Bongo mode line indicator.
@@ -2006,7 +1929,7 @@ If running without a window system, signal an error."
 
 (defvar bongo-mode-line-indicator-string nil
   "Bongo mode line indicator string.
-Value is derived from `bongo-mode-line-indicator-format'.
+Value is derived from `bongo-mode-line-indicator-function'.
 The name of this variable should go in, e.g., `global-mode-string'.")
 (put 'bongo-mode-line-indicator-string 'risky-local-variable t)
 
@@ -2016,8 +1939,7 @@ Evalutate elements of `bongo-mode-line-indicator-format' and store
   the resulting string in `bongo-mode-line-indicator-string'.
 Accept DUMMY arguments to ease hook usage."
   (when (bongo-buffer-p)
-    (let ((new-value (bongo-format-string
-                      bongo-mode-line-indicator-format)))
+    (let ((new-value (funcall bongo-mode-line-indicator-function)))
       (if (not bongo-player-start-imminent)
           (setq bongo-mode-line-indicator-string new-value)
         (add-to-list 'bongo-deferred-status-indicator-updates
@@ -2306,14 +2228,7 @@ each field and separates the obtained field values using
                 (propertize (bongo-alist-get data 'year)
                             'face 'bongo-album-year)))
              (bongo-artist data))
-        (if (listp bongo-album-format)
-            (bongo-format-string bongo-album-format)
-          ;; XXX: This is deprecated.
-          (if (null bongo-year)
-              bongo-title
-            (require 'format-spec)
-            (format-spec bongo-album-format `((?t . ,bongo-title)
-                                              (?y . ,bongo-year)))))))
+        (funcall bongo-album-function)))
      ((track)
       ;; These variables are used in `bongo-track-format',
       ;; so their names are significant.
@@ -2329,18 +2244,11 @@ each field and separates the obtained field values using
               (bongo-alist-get data 'length))
              (length-string
               (when bongo-length
-                (bongo-format-string bongo-track-length-format)))
+                (funcall bongo-track-length-function)))
              (bongo-length
               (when length-string
                 (propertize length-string 'face 'bongo-track-length))))
-        (if (listp bongo-track-format)
-            (bongo-format-string bongo-track-format)
-          ;; XXX: This is deprecated.
-          (if (null bongo-index)
-              bongo-title
-            (require 'format-spec)
-            (format-spec bongo-track-format `((?t . ,bongo-title)
-                                              (?i . ,bongo-index)))))))
+        (funcall bongo-track-function)))
      ((stream)
       ;; These variables are used in `bongo-stream-format',
       ;; so their names are significant.
@@ -4128,17 +4036,18 @@ ignore all section structure (i.e., operate only on tracks)."
           bongo-track-mark-icon-string
         (make-string (length bongo-track-mark-icon-string) ? )))))
 
-(defcustom bongo-track-mark-format
-  '((bongo-track-mark-icon-string) " ")
-  "Template for displaying track marks in Bongo.
-Value is a list of expressions, each evaluating to a string or nil.
+(defcustom bongo-track-mark-function
+  'bongo-default-track-mark
+  "Function for displaying track marks in Bongo.
+Value is a Function, evaluating to a string or nil.
 The values of the expressions are concatenated."
-  :type '(repeat sexp)
+  :type 'function
+  :options '(bongo-default-track-mark)
   :group 'bongo-display
   :group 'bongo-track-marks)
 
-(bongo-define-obsolete-variable-alias 'bongo-mark-format
-  'bongo-track-mark-format "2007-02-12")
+(defun bongo-default-track-mark ()
+  (concat (bongo-track-mark-icon-string) " "))
 
 (defface bongo-marked-track '((t nil))
   "Face used for marked Bongo tracks."
@@ -5838,7 +5747,7 @@ These will come at the end or right before the file name, if any."
 ;;; XXX: What happens if a record is split between two calls
 ;;;      to the process filter?
 (defun bongo-mpg123-parse-output (string)
-  "Return a list of (STATUS &rest PARAMETERS) from mpg123 process output string" 
+  "Return a list of (STATUS &rest PARAMETERS) from mpg123 process output string"
   (let* ((valid-lines (remove-if
 		      ;; remove unparsable lines
 		      (lambda (line)
@@ -8957,7 +8866,7 @@ Enabling this may considerably slow down interactive seeking."
       (let ((properties (bongo-line-get-semantic-properties)))
         (bongo-clear-line)
         (bongo-line-set-properties properties))
-      (insert (bongo-format-string bongo-track-mark-format))
+      (insert (funcall bongo-track-mark-function))
       (dotimes (dummy (bongo-line-indentation))
         (insert bongo-indentation-string))
       (let ((icon-string (bongo-line-icon-string)))
@@ -10013,7 +9922,7 @@ instead, use high-level functions such as `find-file'."
                     (error "Unexpected object: %s" object)))
               (end-of-file
                (delete-region start (point-max)))))))
-      (message "Reading Bongo buffer...done") 
+      (message "Reading Bongo buffer...done")
       (point-max))))
 
 (defvar bongo-line-serializable-properties
