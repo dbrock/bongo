@@ -1008,6 +1008,10 @@ See `bongo-mode-line-indicator-format'."
   :set 'bongo-custom-set-minor-mode
   :group 'bongo-mode-line)
 
+(defvar bongo-player-times-last-updated 0
+  "Time in seconds when player output was last updated because of
+  player times changed")
+
 (defun bongo-hyphen-padded-mode-line-p ()
   "Return non-nil if the mode line is padded with hyphens.
 That is, if `mode-line-format' ends with a string ending with \"%-\"."
@@ -5140,33 +5144,36 @@ By ``one of the times'' is meant elapsed time or total time.")
 
 (defun bongo-player-times-changed (player)
   "Run the hooks for when one of the times of PLAYER has changed."
-  (save-current-buffer
-    (when (buffer-live-p (bongo-player-buffer player))
-      (set-buffer (bongo-player-buffer player)))
-    (run-hook-with-args 'bongo-player-times-changed-functions player)
-    (when (bongo-buffer-p)
-      (when bongo-header-line-mode
-        (bongo-update-header-line-string))
-      (when bongo-mode-line-indicator-mode
-        (bongo-update-mode-line-indicator-string))
-      (catch 'abort
-        ;; While `save-excursion' is good for making sure
-        ;; that point stays on the same line in all cases,
-        ;; it cannot bring point back to the original column
-        ;; (because of how `bongo-redisplay-line' works).
-        (let* ((line-move-ignore-invisible nil)
-               (point (when (bongo-current-track-line-p)
-                        (point))))
-          (save-excursion
-            (goto-char (or (bongo-point-at-current-track-line)
-                           (throw 'abort nil)))
-            (bongo-line-set-property 'bongo-track-length
-              (bongo-player-total-time player))
-            (bongo-redisplay-line))
-          (when point
-            (goto-char point)))))
-    (when (bufferp bongo-seek-buffer)
-      (bongo-seek-redisplay))))
+  (let ((current-seconds (second (current-time))))
+    (when (> current-seconds bongo-player-times-last-updated)
+      (setq bongo-player-times-last-updated current-seconds)
+      (save-current-buffer
+	(when (buffer-live-p (bongo-player-buffer player))
+	  (set-buffer (bongo-player-buffer player)))
+	(run-hook-with-args 'bongo-player-times-changed-functions player)
+	(when (bongo-buffer-p)
+	  (when bongo-header-line-mode
+	    (bongo-update-header-line-string))
+	  (when bongo-mode-line-indicator-mode
+	    (bongo-update-mode-line-indicator-string))
+	  (catch 'abort
+	    ;; While `save-excursion' is good for making sure
+	    ;; that point stays on the same line in all cases,
+	    ;; it cannot bring point back to the original column
+	    ;; (because of how `bongo-redisplay-line' works).
+	    (let* ((line-move-ignore-invisible nil)
+		   (point (when (bongo-current-track-line-p)
+			    (point))))
+	      (save-excursion
+		(goto-char (or (bongo-point-at-current-track-line)
+			       (throw 'abort nil)))
+		(bongo-line-set-property 'bongo-track-length
+		  (bongo-player-total-time player))
+		(bongo-redisplay-line))
+	      (when point
+		(goto-char point)))))
+	(when (bufferp bongo-seek-buffer)
+	  (bongo-seek-redisplay))))))
 
 (defcustom bongo-player-metadata-changed-hook '(bongo-show)
   "Normal hook run when a Bongo player receives new metadata."
