@@ -4,7 +4,7 @@
 @settitle Bongo Manual
 @c %**end of header
 
-@set LAST-UPDATED  December 4, 2007
+@set LAST-UPDATED  June 5, 2013
 
 @copying
 @noindent
@@ -343,6 +343,29 @@ implemented using @samp{SIGTSTP} (or @samp{SIGSTOP}) and @samp{SIGCONT},
 which forces the entire process to stop (just as @samp{C-z} would in a
 job control shell).
 
+@node Stopping
+@section Stopping Playback
+
+The @kbd{C-c C-s} command stops playback and kills the backend process.
+However, if nothing is being played, then @kbd{C-c C-s} instead
+@emph{starts} playing the first track.
+
+@table @asis
+@item @kbd{C-c C-s}
+Start or stop playback (@code{bongo-start/stop}).
+@item @kbd{C-u C-c C-s}
+Switch to start/stop playback mode, in which playback stops whenever any
+track finishes playing (@pxref{Playback Modes}).
+@item @kbd{1 C-c C-s}
+Insert a stopping action track (@pxref{Action Tracks}) immediately after
+the current track.  (``Stop after playing this track.'')
+@item @kbd{5 C-c C-s}
+Insert a stopping action track five tracks below the current track.
+(``Stop after playing these five tracks.'')
+@item @kbd{C-u C-u C-c C-s}
+Insert a stopping action track at point.
+@end table
+
 @node Seeking
 @section Fast-forwarding and Rewinding
 @cindex fast-forwarding
@@ -364,8 +387,9 @@ Fast-forward or rewind 3 seconds (or 3 @var{n} seconds).
 Fast-forward or rewind 10 seconds (or 10 @var{n} seconds).
 
 @item @kbd{C-M-F}, @kbd{C-M-B}, @kbd{C-M-S-@key{right}}, @kbd{C-M-S-@key{left}}
-Fast-forward or rewind 60 seconds (or @var{n} minutes) @footnote{While
-@kbd{C-M-B} and @kbd{C-M-F} cannot be typed in all terminals, you may
+Fast-forward or rewind 60 seconds (or @var{n} minutes).
+
+While @kbd{C-M-B} and @kbd{C-M-F} cannot be typed in all terminals, you may
 use the following commands as substitutes:
 
 @table @asis
@@ -374,7 +398,7 @@ Seek 60 seconds.
 
 @item @kbd{C-u C-u C-u b}, @kbd{C-u C-u C-u f}
 Seek 64 seconds.
-@end table}.
+@end table
 @end table
 
 To seek a specific number of seconds, give a numeric prefix argument to
@@ -424,28 +448,13 @@ than seeking (and a handful of other things) until you quit seek mode.
 If you don't like this, set @code{bongo-seek-electric-mode} to
 @code{nil}.
 
-@node Stopping
-@section Stopping Playback
+@node Volume
+@section Volume
 
-The @kbd{C-c C-s} command stops playback and kills the backend process.
-However, if nothing is being played, then @kbd{C-c C-s} instead
-@emph{starts} playing the first track.
+The volume control facility is provided by the @samp{volume} library
+@footnote{http://www.brockman.se/software/volume-el/}.
 
-@table @asis
-@item @kbd{C-c C-s}
-Start or stop playback (@code{bongo-start/stop}).
-@item @kbd{C-u C-c C-s}
-Switch to start/stop playback mode, in which playback stops whenever any
-track finishes playing (@pxref{Playback Modes}).
-@item @kbd{1 C-c C-s}
-Insert a stopping action track (@pxref{Action Tracks}) immediately after
-the current track.  (``Stop after playing this track.'')
-@item @kbd{5 C-c C-s}
-Insert a stopping action track five tracks below the current track.
-(``Stop after playing these five tracks.'')
-@item @kbd{C-u C-u C-c C-s}
-Insert a stopping action track at point.
-@end table
+The @kbd{v} (@code{volume}) command
 
 @node Switching Tracks
 @section Switching Tracks
@@ -541,14 +550,6 @@ symbol naming the function used for @code{bongo-next-action}).
 @section Sprinkle Mode
 
 
-
-@node Volume
-@section Volume
-
-The volume control facility is provided by the @samp{volume} library
-@footnote{http://www.brockman.se/software/volume-el/}.
-
-The @kbd{v} (@code{volume}) command
 
 @node Enqueuing Tracks
 @chapter Enqueuing Tracks
