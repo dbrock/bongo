@@ -270,13 +270,6 @@ URI (specify scheme followed by a colon)")))
 
 (bongo-evaluate-backend-defcustoms)
 
-(define-obsolete-variable-alias
-  'bongo-preferred-backends
-  'bongo-custom-backend-matchers nil
-  "This is an obsolete name for `bongo-custom-backend-matchers'.
-Please read the documentation for that variable, as the new usage
-differs slightly from the old.")
-
 (defcustom bongo-default-directory nil
   "Default directory for Bongo buffers, or nil.
 If nil, use the value of `default-directory' when the buffer is created."
@@ -299,10 +292,6 @@ If you set this variable to nil, you can happily use Bongo without ever
 seeing a library buffer (unless you create one yourself, of course)."
   :type 'boolean
   :group 'bongo)
-
-(make-obsolete-variable 'bongo-avoid-interrupting-playback
-                        "use playback command prefix arguments instead"
-                        "2006-12-03")
 
 (defcustom bongo-display-playlist-after-enqueue t
   "Whether to display the playlist after enqueuing a track."
@@ -1913,9 +1902,6 @@ the most general field and ending with the most specific field."
   :type '(repeat symbol)
   :group 'bongo-infosets)
 
-(define-obsolete-variable-alias 'bongo-fields
-  'bongo-potential-external-fields "2006-12-07")
-
 (defcustom bongo-infoset-from-file-name-function
   'bongo-default-infoset-from-file-name
   "Function used to convert file names into infosets.
@@ -2486,10 +2472,6 @@ Otherwise, return the first character position after the line at POINT."
       point
     (bongo-point-after-line point)))
 
-(define-obsolete-function-alias
-  'bongo-point-snapped-forwards
-  'bongo-point-at-bol-forward)
-
 (defun bongo-point-before-previous-line (&optional point)
   "Return the first position of the line before the one at POINT.
 If the line at POINT is the first line, return nil."
@@ -2635,10 +2617,6 @@ signal `bongo-no-previous-object'."
       (unless no-error
         (signal 'bongo-no-previous-object nil)))))
 
-(define-obsolete-function-alias
-  'bongo-backward-object-line
-  'bongo-previous-object-line)
-
 (put 'bongo-no-next-object
      'error-conditions
      '(error bongo-movement-error bongo-no-next-object))
@@ -2659,10 +2637,6 @@ signal `bongo-no-next-object'."
       (unless no-error
         (signal 'bongo-no-next-object nil)))))
 
-(define-obsolete-function-alias
-  'bongo-forward-object-line
-  'bongo-next-object-line)
-
 (defun bongo-snap-to-object-line (&optional no-error)
   "Move point to the next object line unless it is already on one.
 If point was already on an object line, return `point-not-moved'.
@@ -2673,10 +2647,6 @@ If NO-ERROR is non-nil, return nil instead of signalling an error."
   (if (bongo-object-line-p)
       'point-not-moved
     (bongo-next-object-line no-error)))
-
-(define-obsolete-function-alias
-  'bongo-maybe-forward-object-line
-  'bongo-snap-to-object-line)
 
 (put 'bongo-no-previous-header-line
      'error-conditions
@@ -2698,10 +2668,6 @@ With negative N, move forward instead."
             (goto-char position)
           (signal 'bongo-no-previous-header-line nil))))))
 
-(define-obsolete-function-alias
-  'bongo-backward-header-line
-  'bongo-previous-header-line)
-
 (put 'bongo-no-next-header-line
      'error-conditions
      '(error bongo-movement-error bongo-no-next-header-line))
@@ -2722,10 +2688,6 @@ With negative N, move backward instead."
             (goto-char position)
           (signal 'bongo-no-next-header-line nil))))))
 
-(define-obsolete-function-alias
-  'bongo-forward-header-line
-  'bongo-next-header-line)
-
 (defun bongo-backward-expression (&optional n)
   "Move backward across one section, track, or stretch of text.
 With prefix argument N, do it that many times.
@@ -2745,10 +2707,6 @@ With negative argument -N, move forward instead."
                             (bongo-point-at-previous-object-line)))
                          (point-min))))))))
 
-(define-obsolete-function-alias
-  'bongo-backward-section
-  'bongo-backward-expression)
-
 (defun bongo-forward-expression (&optional n)
   "Move forward across one section, track, or stretch of text.
 With prefix argument N, do it that many times.
@@ -2766,10 +2724,6 @@ This function is a suitable value for `forward-sexp-function'."
                              (bongo-point-after-object)
                            (bongo-point-before-next-object-line))
                          (point-max))))))))
-
-(define-obsolete-function-alias
-  'bongo-forward-section
-  'bongo-forward-expression)
 
 (defun bongo-previous-object (&optional no-error n)
   "Move to the previous object (either section or track).
@@ -2847,10 +2801,6 @@ If there are no sections or tracks at POINT, return nil."
                      (> (bongo-line-indentation) indentation))))
           after-last)))))
 
-(define-obsolete-function-alias
-  'bongo-point-after-section
-  'bongo-point-after-object)
-
 (defun bongo-point-at-next-object (&optional point)
   "Return the character position of the object after the one at POINT.
 By object is meant either section or track.
@@ -2885,10 +2835,6 @@ If there are no sections or tracks before POINT, return nil."
                  (> (bongo-line-indentation) indentation)))
         (when (= (bongo-line-indentation) indentation)
           (bongo-point-before-line))))))
-
-(define-obsolete-function-alias
-  'bongo-point-before-previous-section
-  'bongo-point-before-previous-object)
 
 (defalias 'bongo-point-at-previous-object
   'bongo-point-before-previous-object)
@@ -3550,10 +3496,6 @@ values to be joinable."
                 (setq result nil))))))
       (eq result t))))
 
-(define-obsolete-function-alias
-  'bongo-field-common-in-region-p
-  'bongo-region-joinable-on-field-p "2006-12-07")
-
 ;; XXX: This will not work properly unless the list of
 ;;      potential external fields is completely ordered.
 (defun bongo-potential-external-fields-in-region (beg end)
@@ -3570,10 +3512,6 @@ to be joinable on a field."
         (setq joining-fields nil))
       (setq fields (cdr fields)))
     joining-fields))
-
-(define-obsolete-function-alias
-  'bongo-common-fields-in-region
-  'bongo-potential-external-fields-in-region "2006-12-07")
 
 (defun bongo-potential-external-fields-at-point (&optional point)
   "Return the names of the fields that could join tracks around POINT.
@@ -3989,12 +3927,6 @@ The values of the expressions are concatenated."
 Reference-counted markers are pairs (MARKER . REFERENCE-COUNT).")
 (make-variable-buffer-local 'bongo-marking)
 
-(make-obsolete-variable 'bongo-marked-track-line-markers
-                        (concat "use `bongo-marking' instead, "
-                                "but note that the markers are "
-                                "now reference-counted")
-                        "2007-04-04")
-
 (defun bongo-marked-track-line-p (&optional point)
   "Return non-nil if the line at POINT is a marked track line."
   (bongo-line-get-property 'bongo-marked point))
@@ -4216,10 +4148,6 @@ Otherwise, just unmark the previous track."
 (defvar bongo-killed-marking nil
   "Killed marking that can be restored with `bongo-yank-marking'.")
 (make-variable-buffer-local 'bongo-killed-marking)
-
-(define-obsolete-variable-alias
-  'bongo-stored-marking
-  'bongo-killed-marking "2007-04-04")
 
 (defun bongo-yank-marking ()
   "Restore the killed marking from `bongo-killed-marking'.
@@ -4582,10 +4510,6 @@ Otherwise, signal an error."
     (unless (eq backend-name 'ignore)
       backend-name)))
 
-(define-obsolete-function-alias
-  'bongo-best-backend-for-file
-  'bongo-backend-for-file)
-
 (defun bongo-completing-read (&rest args)
   (if (and (boundp 'ido-mode) ido-mode)
       ;; XXX: This shouldn't be necessary.
@@ -4887,9 +4811,6 @@ This function runs `bongo-player-started-functions'."
           (bongo-player-put player 'lastfm-timer
             (run-with-timer 5 nil 'bongo-restart-lastfm-timer player)))
         (run-hook-with-args 'bongo-player-started-functions player)))))
-
-(define-obsolete-function-alias 'bongo-start-player
-  'bongo-play-file)
 
 (defcustom bongo-player-finished-hook nil
   "Normal hook run when a Bongo player in Bongo mode finishes.
@@ -5581,19 +5502,11 @@ oss (the Linux Open Sound System)" "oss")
                  (string :tag "Other audio driver"))
   :group 'bongo-mpg123)
 
-(define-obsolete-variable-alias
-  'bongo-mpg123-device-type
-  'bongo-mpg123-audio-driver)
-
 (defcustom bongo-mpg123-audio-device nil
   "Audio device (e.g., for ALSA, \"1:0\") to be used by mpg123.
 This corresponds to the `-a' option of mpg123."
   :type '(choice (const :tag "System default" nil) string)
   :group 'bongo-mpg123)
-
-(define-obsolete-variable-alias
-  'bongo-mpg123-device
-  'bongo-mpg123-audio-device)
 
 (defcustom bongo-mpg123-interactive t
   "If non-nil, use the remote-control facility of mpg123.
@@ -5621,11 +5534,6 @@ This variable is no longer used."
   :type 'integer
   :group 'bongo-mpg123)
 
-(make-obsolete-variable 'bongo-mpg123-seek-increment
-                        (concat "This variable is no longer used, "
-                                "as the mpg123 backend now accepts "
-                                "numbers of seconds to seek by."))
-
 (defcustom bongo-mpg123-time-update-delay-after-seek 1
   "Number of seconds to delay time updates from mpg123 after seeking.
 Such delays may prevent jerkiness in the visual seek interface."
@@ -5637,14 +5545,6 @@ Such delays may prevent jerkiness in the visual seek interface."
 These will come at the end or right before the file name, if any."
   :type '(repeat (choice string variable sexp))
   :group 'bongo-mpg123)
-
-(define-obsolete-function-alias
-  'bongo-mpg123-player-interactive-p
-  'bongo-player-interactive-p)
-
-(define-obsolete-function-alias
-  'bongo-mpg123-player-paused-p
-  'bongo-default-player-paused-p)
 
 (defun bongo-mpg123-player-pause/resume (player)
   (if (not (bongo-player-interactive-p player))
@@ -5666,10 +5566,6 @@ These will come at the end or right before the file name, if any."
    (format "JUMP %d\n"
            (bongo-seconds-to-mp3-frames (max seconds 0))))
   (bongo-player-sought player seconds))
-
-(define-obsolete-function-alias
-  'bongo-mpg123-player-seek-by
-  'bongo-default-player-seek-by)
 
 ;;; XXX: What happens if a record is split between two calls
 ;;;      to the process filter?
@@ -5839,10 +5735,6 @@ These will come at the end or right before the file name, if any."
   (process-send-string (bongo-player-process player)
                        (format "seek %f\n" (max seconds 0)))
   (bongo-player-sought player seconds))
-
-(define-obsolete-function-alias
-  'bongo-vlc-player-seek-by
-  'bongo-default-player-seek-by)
 
 (defun bongo-vlc-player-stop-timer (player)
   (let ((timer (bongo-player-get player 'timer)))
@@ -6091,10 +5983,6 @@ This corresponds to the `-ao' option of mplayer."
                  (string :tag "Other audio driver"))
   :group 'bongo-mplayer)
 
-(define-obsolete-variable-alias
-  'bongo-mplayer-audio-device
-  'bongo-mplayer-audio-driver)
-
 (defcustom bongo-mplayer-video-driver nil
   "Video driver to be used by mplayer.
 This corresponds to the `-vo' option of mplayer."
@@ -6105,10 +5993,6 @@ This corresponds to the `-vo' option of mplayer."
                            (bongo-mplayer-available-drivers 'video))
                  (string :tag "Other video driver"))
   :group 'bongo-mplayer)
-
-(define-obsolete-variable-alias
-  'bongo-mplayer-video-device
-  'bongo-mplayer-video-driver)
 
 (defcustom bongo-mplayer-interactive t
   "If non-nil, use the slave mode of mplayer.
@@ -6128,14 +6012,6 @@ These will come at the end or right before the file name, if any."
   :type '(repeat (choice string variable sexp))
   :group 'bongo-mplayer)
 
-(define-obsolete-function-alias
-  'bongo-mplayer-player-interactive-p
-  'bongo-default-player-interactive-p)
-
-(define-obsolete-function-alias
-  'bongo-mplayer-player-paused-p
-  'bongo-default-player-paused-p)
-
 (defun bongo-mplayer-player-pause/resume (player)
   (when (not (bongo-player-interactive-p player))
     (error (concat "This mplayer process is not interactive "
@@ -6152,10 +6028,6 @@ These will come at the end or right before the file name, if any."
   (process-send-string (bongo-player-process player)
                        (format "seek %f 2\n" (max seconds 0)))
   (bongo-player-sought player seconds))
-
-(define-obsolete-function-alias
-  'bongo-mplayer-player-seek-by
-  'bongo-default-player-seek-by)
 
 (defun bongo-mplayer-player-start-timer (player)
   (bongo-mplayer-player-stop-timer player)
@@ -6703,22 +6575,11 @@ The current track line is the line of the currently playing track,
 or that of the last played track if no track is currently playing.")
 (make-variable-buffer-local 'bongo-current-track-marker)
 
-(define-obsolete-variable-alias
-  'bongo-active-track-marker
-  'bongo-current-track-marker)
-
 (defun bongo-point-at-current-track-line ()
   (when bongo-current-track-marker
     (let ((position (marker-position bongo-current-track-marker))
           (line-move-ignore-invisible nil))
       (and (bongo-track-line-p position) position))))
-
-(define-obsolete-function-alias
-  'bongo-active-track-position
-  'bongo-point-at-current-track-line)
-(define-obsolete-function-alias
-  'bongo-point-at-current-track
-  'bongo-point-at-current-track-line)
 
 (defun bongo-set-current-track-marker (marker)
   (unless (eq marker bongo-current-track-marker)
@@ -6730,16 +6591,8 @@ or that of the last played track if no track is currently playing.")
 (defun bongo-set-current-track-position (&optional position)
   (move-marker bongo-current-track-marker (or position (point))))
 
-(define-obsolete-function-alias
-  'bongo-set-active-track
-  'bongo-set-current-track-position)
-
 (defun bongo-unset-current-track-position ()
   (move-marker bongo-current-track-marker nil))
-
-(define-obsolete-function-alias
-  'bongo-unset-active-track
-  'bongo-unset-current-track-position)
 
 (defun bongo-current-track-line-p (&optional point)
   "Return non-nil if the line at POINT is the current track line."
@@ -6875,13 +6728,6 @@ variable and its value.")
   (and bongo-queued-track-marker
        (marker-position bongo-queued-track-marker)))
 
-(define-obsolete-function-alias
-  'bongo-queued-track-position
-  'bongo-point-at-queued-track-line)
-(define-obsolete-function-alias
-  'bongo-point-at-queued-track
-  'bongo-point-at-queued-track-line)
-
 (defvar bongo-queued-track-arrow-marker nil
   "Overlay arrow marker following `bongo-queued-track-marker'.
 See also `overlay-arrow-variable-list'.")
@@ -6932,10 +6778,6 @@ In addition, set `bongo-next-action' to the value of
   (move-marker bongo-queued-track-marker nil)
   (move-marker bongo-queued-track-arrow-marker nil))
 
-(define-obsolete-function-alias
-  'bongo-unset-queued-track
-  'bongo-unset-queued-track-position)
-
 (defun bongo-set-queued-track-position (&optional point)
   "Make `bongo-queued-track-marker' point to the track at POINT.
 In addition, unless `bongo-next-action' is already set to
@@ -6960,10 +6802,6 @@ of `bongo-next-action' and set the latter to `bongo-play-queued'."
                (/ 1.0 bongo-queued-track-arrow-blink-frequency)
                (/ 1.0 bongo-queued-track-arrow-blink-frequency)
                'bongo-blink-queued-track-arrow))))))
-
-(define-obsolete-function-alias
-  'bongo-set-queued-track
-  'bongo-set-queued-track-position)
 
 (defun bongo-play-line (&optional point)
   "Start playing the track on the line at POINT.
@@ -9086,9 +8924,6 @@ Return the character position of the end of the copied text."
                    buffer-substring-filters)))
         (copy-region-as-kill (bongo-point-before-line point) end)))))
 
-(define-obsolete-function-alias 'bongo-copy-line-as-kill
-  'bongo-copy-line "2007-01-16")
-
 (defun bongo-copy-line-forward (&optional n)
   "In Bongo, copy the next N tracks or sections or lines of text."
   (interactive "p")
@@ -10391,13 +10226,6 @@ If BUFFER is neither nil nor a buffer, return nil."
   (let ((inhibit-read-only t))
     (insert (bongo-facify-copy text 'bongo-warning))))
 
-(define-obsolete-function-alias
-  'bongo-insert-comment
-  'bongo-insert-comment-text "2006-12-08")
-(define-obsolete-function-alias
-  'bongo-insert-warning
-  'bongo-insert-warning-text "2006-12-08")
-
 (defun bongo-update-enabled-backends-list ()
   (let* ((beg (next-single-property-change
                (point-min) 'bongo-enabled-backends-list))
@@ -10647,10 +10475,6 @@ See the function `bongo-buffer'."
 (custom-reevaluate-setting 'bongo-header-line-mode)
 (custom-reevaluate-setting 'bongo-mode-line-indicator-mode)
 (custom-reevaluate-setting 'bongo-global-lastfm-mode)
-
-;; For backwards compatibility.
-(provide 'bongo-lastfm)
-(provide 'bongo-mplayer)
 
 ;;; Local Variables:
 ;;; coding: utf-8
