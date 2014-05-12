@@ -5,6 +5,7 @@
 ;; Copyright (C) 2005  Lars Öhrman
 ;; Copyright (C) 1998, 2000, 2001, 2002, 2003, 2004, 2005
 ;;   Free Software Foundation, Inc.
+;; Copyright (C) 2011  Jürgen Hötzel <juergen@archlinux.org>
 
 ;; Author: Daniel Brockman <daniel@brockman.se>
 ;; Created: September 3, 2005
