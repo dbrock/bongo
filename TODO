@@ -1,0 +1,26 @@
+Shuffle operations.  It would be nice to have both a random shuffle
+operation and an interleaving enqueue operation.
+
+Sorting operations.
+
+Implement `bongo-file-name-roots' so that forcer can try Bongo. :-)
+
+Customizing `bongo-header-line-mode' should have immediate effect on
+existing Bongo playlist buffers.
+
+Implement scrolling for the header line.
+
+Better error messages when players fail.
+
+Generalize intra-playlist queue.
+
+Implement intra-track region repeat.
+
+Provide a way to specify that intermediate headers
+(cf. `bongo-insert-intermediate-headers') should be inserted even for
+singleton albums.
+
+Implement support for crossfading.
+
+Optimize `bongo-line-get-property' as much as possible, as it is
+called lots of times all over the place.

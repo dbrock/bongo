@@ -1,15 +1,10 @@
-;;; bongo.el --- flexible and usable media player for Emacs
+;;; bongo.el --- play music with Emacs
 
-;; Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010  Daniel Brockman
-;; Copyright (C) 2006, 2007  Daniel Jensen
-;; Copyright (C) 2005  Lars Öhrman
-;; Copyright (C) 1998, 2000, 2001, 2002, 2003, 2004, 2005
-;;   Free Software Foundation, Inc.
+;; Copyright (C) 2005-2010, 2014  Daniel Brockman <daniel@brockman.se>
+;; Copyright (C) 2006-2007  Daniel Jensen <daniel@bigwalter.net>
+;; Copyright (C) 2005  Lars Öhrman <larohr@gmail.com>
 ;; Copyright (C) 2011  Jürgen Hötzel <juergen@archlinux.org>
-
-;; Author: Daniel Brockman <daniel@brockman.se>
-;; Created: September 3, 2005
-;; URL: http://github.com/dbrock/bongo
+;; Copyright (C) 1998, 2000-2005  Free Software Foundation, Inc.
 
 ;; This file is part of Bongo.
 
@@ -27,37 +22,6 @@
 ;; License along with Bongo (see the file `COPYING'); if not,
 ;; write to the Free Software Foundation, 51 Franklin Street,
 ;; Fifth Floor, Boston, MA 02110-1301, USA.
-
-;;; To do:
-
-;; Shuffle operations.  It would be nice to have both a
-;; random shuffle operation and an interleaving
-;; enqueue operation.
-
-;; Sorting operations.
-
-;; Implement `bongo-file-name-roots' so that forcer can try
-;; out Bongo. :-)
-
-;; Customizing `bongo-header-line-mode' should have
-;; immediate effect on existing Bongo playlist buffers.
-
-;; Implement scrolling for the header line.
-
-;; Better error messages when players fail.
-
-;; Generalize intra-playlist queue.
-
-;; Implement intra-track region repeat.
-
-;; Provide a way to specify that intermediate headers
-;; (cf. `bongo-insert-intermediate-headers') should be
-;; inserted even for singleton albums.
-
-;; Implement support for crossfading.
-
-;; Optimize `bongo-line-get-property' as much as possible,
-;; as it is called lots of times all over the place.
 
 ;;; Code:
 

@@ -30,7 +30,7 @@ A copy of the license is included in the section entitled ``GNU FDL''.
 
 @dircategory Emacs
 @direntry
-* Bongo: (bongo).	Flexible and usable media player for Emacs.
+* Bongo: (bongo).	Play music with Emacs.
 @end direntry
 
 @ifnottex

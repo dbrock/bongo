@@ -1,8 +1,5 @@
 Bongo NEWS file listing user-visible changes.
 
-Copyright (C) 2007, 2009  Daniel Brockman
-See the end of the file for licensing conditions.
-
 July 13, 2009
 
  * Bongo now forces VLC to exit after finishing a track.
@@ -204,21 +201,3 @@ February 8, 2007
    players are paused and resumed using SIGSTOP and SIGCONT.
    In particular, this means that pausing and resuming is now
    available for ogg123, speexdec, TiMidity and MikMod.
-
-------------------------------------------------------------
-This file is part of Bongo.
-
-Bongo is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as
-published by the Free Software Foundation; either version 2 of
-the License, or (at your option) any later version.
-
-Bongo is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty
-of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public
-License along with Bongo (see the file `COPYING'); if not,
-write to the Free Software Foundation, 51 Franklin Street,
-Fifth Floor, Boston, MA 02110-1301, USA.

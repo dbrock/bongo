@@ -1,8 +1,5 @@
 ;;; lastfm-submit.el --- submit information to Last.fm
-;; Copyright (C) 2006  Daniel Brockman
-
-;; Author: Daniel Brockman <daniel@brockman.se>
-;; Created: May 24, 2006
+;; Copyright (C) 2006  Daniel Brockman <daniel@brockman.se>
 
 ;; This file is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
