@@ -1,5 +1,15 @@
 Bongo NEWS file listing user-visible changes.
 
+May 12, 2014
+
+ * Bongo can now be installed from MELPA using `M-x package-install'.
+
+ * Bongo no longer supports Emacs 21.
+
+ * All deprecated variables and functions have been purged.
+
+ * New simple backend `afplay' adds support for OS X.
+
 July 13, 2009
 
  * Bongo now forces VLC to exit after finishing a track.
