@@ -18,9 +18,9 @@ most important option is `bongo-enabled-backends', which determines
 what external programs Bongo will use to play media.
 
 Bongo will try to find a reasonable set of default backends by looking
-for the programs `vlc', `mpg123', `ogg123', `speexdec', `timidity' and
-`mikmod'.  (If you install one of these programs now, you will have to
-restart Emacs for Bongo to pick it up automatically.)
+for the programs `vlc', `mpg123', `ogg123', `speexdec', `timidity',
+`mikmod' and `afplay'.  (If you install one of these programs now, you
+will have to restart Emacs for Bongo to pick it up automatically.)
 
 If you want to use another program for media playback, you can easily
 define your own backend.  Basic play/pause functionality works with

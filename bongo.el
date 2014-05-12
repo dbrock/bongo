@@ -6137,6 +6137,9 @@ These will come at the end or right before the file name, if any."
                                          "tar" "tar.gz" "tar.bz2" "rar")))
                            string-end)))))
 
+(define-bongo-backend afplay
+  :matcher '(local-file "mp3"))
+
 
 ;;;; Audio CD and CDDB support
 
