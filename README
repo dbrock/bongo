@@ -1,0 +1,117 @@
+Bongo is a flexible and usable media player for GNU Emacs.  If you
+store your music collection locally and use structured file names,
+then Bongo is a great way for you to play music from within Emacs.
+
+Bongo can be installed through MELPA using `M-x package-install'.
+
+Getting Started
+===============
+
+Though Bongo has certain preferences about how you name the files in
+your music collection (see below), you should be able to get started
+right away by runing `M-x bongo RET' and following the instructions.
+
+Before getting your hands dirty, you might want to skim through the
+customization group for Bongo (`M-x customize-group RET bongo RET').
+It might be fun to browse through all of it, but at the moment the
+most important option is `bongo-enabled-backends', which determines
+what external programs Bongo will use to play media.
+
+Bongo will try to find a reasonable set of default backends by looking
+for the programs `vlc', `mpg123', `ogg123', `speexdec', `timidity' and
+`mikmod'.  (If you install one of these programs now, you will have to
+restart Emacs for Bongo to pick it up automatically.)
+
+If you want to use another program for media playback, you can easily
+define your own backend.  Basic play/pause functionality works with
+any backend, whereas other features like seeking require custom code.
+(The default pause functionality is implemented using `SIGSTOP'.)
+
+Your Music Collection
+=====================
+
+For the best Bongo user experience, your music collection should have
+hierarchical file names.  That is, they should be named according to
+one of the following templates:
+
+   Artist - 2014 - Album - 01 - Title.mp3
+   Artist - 2014 - Album - Title.mp3
+   Artist - Album - 01 - Title.mp3
+   Artist - Album - Title.mp3
+   Artist - Title.mp3
+   Title.mp3
+
+So any reasonable combination of artist, year, album, index and title
+in the right order (less specific to more specific) should be okay.
+Embedding the metadata in the file name is simple and robust and also
+speeds up the process of fetching it.
+
+You don't have to use ` - ' as the separator, but you can't use `/'
+and have your files in nested directories.  The information actually
+needs to be stored in the basename of each file.
+
+Many people use tags (e.g., ID3v2 tags or Ogg tags) for their metadata
+and don't care about file names.  Luckily, Bongo comes with a tool
+called `tree-from-tags.rb', which can be used to create a hierarchy of
+nicely-named symlinks into your tagged media collection.
+
+Basic Commands
+==============
+
+To start Bongo, run `M-x bongo RET'.  To insert a file or a whole
+directory of files, type `i'.  Then hit `RET' to play one of them.
+To see a list of available commands, run `M-x describe-mode RET'.
+Here are some common ones for your convenience:
+
+  `i'         Insert a track (or a directory tree full of tracks).
+  `RET'       Start playing the track at point (and then continue).
+  `SPC'       Pause playback (if supported by the backend).
+  `C-c C-s'   Stop playback (or start, if already stopped).
+  `C-c C-n'   Start playing the next track.
+  `C-c C-r'   Start playing a random track.
+  `s'         Seek backward or forward (if supported by the backend).
+  `l'         Move point to the current track and recenter.
+  `q'         Quit Bongo (bury Bongo buffers and delete windows).
+
+  `c'         Copy the track or section under point.
+  `k'         Kill the track or section under point.
+  `C-w'       Kill all tracks and sections in the region.
+  `y'         Reinsert the last copied or killed stuff.
+  `I u'       Insert a URI (can be used to play podcasts and radio).
+  `I TAB'     List other kinds of tracks that can be inserted.
+
+  `2 C-c C-n' Skip the next track and start playing the one after that.
+  `3 C-c C-s' Stop playback after the next three tracks finish playing.
+  `3 RET'     Start playing the track under point, and continue playing
+              tracks, but stop after playing the third track.
+  `C-u C-c C-s'
+              Stop playback after each track finishes playing (this is
+              good when playing movies, for example).
+  `C-u C-u C-c C-s'
+              Stop playback after the track at point finishes playing.
+  `C-u C-c C-n'
+              Play the next track after each track finishes playing
+              (this undoes the effect of `C-u C-c C-s').
+  `C-u C-c C-r'
+              Play tracks in random order.
+
+Here are some commands that are nice if you use library buffers:
+
+  `h'         Switch from playlist to library (or vice versa).
+  `C-u h'     Switch from playlist to library (or vice versa), leaving
+              the original buffer visible in another window.
+  `e'         Append the track under point or the region (if active)
+              to the end of the playlist buffer.
+  `3 e'       Append the track at point and the two after that to the
+              end of the playlist buffer.
+  `E'         Insert the track under point or the region (if active)
+              into the playlist buffer, directly below the track
+              that's currently playing.
+  `C-x C-s'   Save the current buffer (library buffers are stored
+              using the `.bongo-library' file extension).
+
+Finally, since you've read this far, here are a few bonus commands:
+
+  `d'         Open a Dired buffer containing the track under point.
+  `r'         Rename the file corresponding to the track under point.
+  `v'         Change audio volume (requires the `volume-el' package).
