@@ -734,12 +734,12 @@ If nil, use the same icon as for unplayed tracks."
   :type '(choice file (const :tag "Same as for other tracks" nil))
   :group 'bongo-track-icons)
 
-(defconst bongo-etc-directory
-  (or (expand-file-name "etc" (file-name-directory load-file-name))
+(defconst bongo-images-directory
+  (or (expand-file-name "images" (file-name-directory load-file-name))
       (error "Please use `load-file' to load bongo.el")))
 
 (defun bongo-find-image (file-name &optional face)
-  (let ((image-load-path (cons bongo-etc-directory
+  (let ((image-load-path (cons bongo-images-directory
                                (and (boundp 'image-load-path)
                                     image-load-path))))
     (find-image
