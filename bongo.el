@@ -7190,6 +7190,7 @@ insert an action track at point."
 (put 'bongo-play-random-or-stop
      'bongo-playback-mode-indicator "random")
 
+;;;###autoload
 (defun bongo-start (&optional called-interactively-p)
   "Start playing the current track in the nearest playlist buffer.
 If there is no current track, perform the action appropriate for the current
@@ -7278,6 +7279,7 @@ stop when playback reaches point."
                    n (if (= n 1) "" "s"))
          "Stop playback")))
 
+;;;###autoload
 (defun bongo-start/stop (&optional argument called-interactively-p)
   "Start or stop playback in the nearest Bongo playlist buffer.
 With prefix ARGUMENT, call `bongo-stop' even if already stopped.
@@ -8794,6 +8796,7 @@ If N is nil, just return nil."
           (setq result (format "%d:%s" hours result)))
         result))))
 
+;;;###autoload
 (defun bongo-show (&optional insert-flag)
   "Display what Bongo is playing in the minibuffer.
 If INSERT-FLAG (prefix argument if interactive) is non-nil,
@@ -10392,12 +10395,14 @@ the new buffer will be the value of `bongo-default-library-buffer-name'."
       (bongo-recent-library-buffer)
       (bongo-default-library-buffer)))
 
+;;;###autoload
 (defun bongo-playlist ()
   "Switch to a Bongo playlist buffer.
 See the function `bongo-playlist-buffer'."
   (interactive)
   (switch-to-buffer (bongo-playlist-buffer)))
 
+;;;###autoload
 (defun bongo-library ()
   "Switch to a Bongo library buffer.
 See the function `bongo-library-buffer'."
@@ -10443,6 +10448,7 @@ This function stores the current window configuration in the variable
                (bongo-library-mode)
              (bongo-playlist-mode))))))
 
+;;;###autoload
 (defun bongo-switch-buffers (&optional prompt)
   "In Bongo, switch from a playlist to a library, or vice versa.
 With prefix argument PROMPT, prompt for the buffer to switch to."
@@ -10466,6 +10472,7 @@ With prefix argument PROMPT, prompt for the buffer to switch to."
                  ("Libraries" (predicate . (bongo-library-buffer-p)))))
     (switch-to-buffer (list-buffers-noselect nil (bongo-buffers)))))
 
+;;;###autoload
 (defun bongo ()
   "Switch to a Bongo buffer.
 See the function `bongo-buffer'."
