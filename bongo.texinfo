@@ -4,8 +4,6 @@
 @settitle Bongo Manual
 @c %**end of header
 
-@set LAST-UPDATED  June 5, 2013
-
 @copying
 @noindent
 Copyright @copyright{} 2007  Daniel Brockman@*
@@ -41,7 +39,6 @@ A copy of the license is included in the section entitled ``GNU FDL''.
 
 Bongo is a flexible and usable media player for GNU Emacs.  This manual
 describes how to use Bongo and some of how to customize and extend it.
-The manual was last updated on @value{LAST-UPDATED}.
 
 @insertcopying
 @end ifnottex
@@ -1559,9 +1556,3 @@ free software license, such as the GNU General Public License,
 to permit their use in free software.
 
 @bye
-
-@c Local Variables:
-@c time-stamp-format: "%:b %:d, %:y"
-@c time-stamp-start: "@set LAST-UPDATED  "
-@c time-stamp-end: "$"
-@c End:
