@@ -426,7 +426,7 @@ This is used by the function `bongo-default-format-field'."
                  string)
   :group 'bongo-display)
 
-(defcustom bongo-insert-album-covers (and window-system t)
+(defcustom bongo-insert-album-covers nil
   "Whether to put album cover images into Bongo buffers.
 See also `bongo-album-cover-file-names'."
   :type 'boolean
