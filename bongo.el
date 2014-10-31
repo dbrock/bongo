@@ -5666,7 +5666,7 @@ These will come at the end or right before the file name, if any."
   ;; matches that of some potentially supported format.
   :matcher '((local-file "file:" "http:" "ftp:")
              "ogg" "flac" "mp3" "m4a" "mka" "wav" "wma"
-             "mpg" "mpeg" "vob" "avi" "ogm" "mp4" "m4v" "mkv"
+             "mpg" "mpeg" "vob" "avi" "ogm" "mp4" "m4v" "mkv" "flv"
              "mov" "asf" "wmv" "rm" "rmvb" "ts")
 
   ;; Play special media URIs regardless of the file name.
