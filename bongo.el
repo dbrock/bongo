@@ -5948,11 +5948,12 @@ These will come at the end or right before the file name, if any."
   (when (executable-find bongo-mplayer-program-name)
     (let ((result nil))
       (with-temp-buffer
-        (call-process bongo-mplayer-program-name nil t nil
-                      (ecase type
-                        (audio "-ao")
-                        (video "-vo"))
-                      "help")
+        (let ((process-environment (push "LC_ALL=C" process-environment)))
+          (call-process bongo-mplayer-program-name nil t nil
+                        (ecase type
+                          (audio "-ao")
+                          (video "-vo"))
+                        "help"))
         (goto-char (point-min))
         (search-forward (concat "Available " (ecase type
                                                (audio "audio")
