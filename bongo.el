@@ -5948,7 +5948,7 @@ These will come at the end or right before the file name, if any."
   (when (executable-find bongo-mplayer-program-name)
     (let ((result nil))
       (with-temp-buffer
-        (let ((process-environment (push "LC_ALL=C" process-environment)))
+        (let ((process-environment (cons "LC_ALL=en_US.UTF-8" process-environment)))
           (call-process bongo-mplayer-program-name nil t nil
                         (ecase type
                           (audio "-ao")
