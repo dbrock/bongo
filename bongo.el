@@ -6,6 +6,8 @@
 ;; Copyright (C) 2011  Jürgen Hötzel <juergen@archlinux.org>
 ;; Copyright (C) 1998, 2000-2005  Free Software Foundation, Inc.
 
+;; Version: 1.0
+
 ;; This file is part of Bongo.
 
 ;; Bongo is free software; you can redistribute it and/or modify
