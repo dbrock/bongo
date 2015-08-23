@@ -5795,7 +5795,7 @@ These will come at the end or right before the file name, if any."
     (error (concat "This VLC process is not interactive "
                    "and so does not support seeking")))
   (process-send-string (bongo-player-process player)
-                       (format "seek %f\n" (max seconds 0)))
+                       (format "seek %d\n" (max seconds 0)))
   (bongo-player-sought player seconds))
 
 (defun bongo-vlc-player-stop-timer (player)
