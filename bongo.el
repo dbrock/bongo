@@ -5940,7 +5940,7 @@ These will come at the end or right before the file name, if any."
          (arguments (append
                      (when bongo-vlc-interactive
                        (append (list "-I" "rc" "--rc-fake-tty"
-                                     "--play-and-exit")
+                                     "--play-and-stop" "--play-and-exit")
                                (when (bongo-uri-p file-name)
                                  (list "-vv"))
                                (when (eq window-system 'w32)
