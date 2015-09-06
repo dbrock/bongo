@@ -2502,8 +2502,7 @@ If no matching line is found, return nil."
     (when (not (bongo-first-line-p))
       (let (match)
         (while (and (not (bobp)) (not match))
-          (let ((goal-column 0))
-            (previous-line 1))
+          (forward-line -1)
           (when (funcall predicate)
             (setq match t)))
         (when match
@@ -2522,8 +2521,7 @@ If no matching line is found, return nil."
     (when (not (bongo-last-line-p))
       (let (match)
         (while (and (not (eobp)) (not match))
-          (let ((goal-column 0))
-            (next-line 1))
+          (forward-line 1)
           (when (funcall predicate)
             (setq match t)))
         (when match
