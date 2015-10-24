@@ -5843,6 +5843,18 @@ These will come at the end or right before the file name, if any."
                         (rx (and line-start
                                  "status change:"
                                  (zero-or-more (or space "("))
+                                 "audio volume:"
+                                 (zero-or-more space)
+                                 (submatch (one-or-more digit))
+                                 (zero-or-more (or space ")"))
+                                 line-end))))
+                     (when (null (bongo-player-get player 'timer))
+                       (bongo-vlc-player-start-timer player)))
+                    ((looking-at
+                      (eval-when-compile
+                        (rx (and line-start
+                                 "status change:"
+                                 (zero-or-more (or space "("))
                                  "play state:"
                                  (zero-or-more space)
                                  (submatch (one-or-more digit))
@@ -5937,7 +5949,7 @@ These will come at the end or right before the file name, if any."
   (let* ((process-connection-type nil)
          (arguments (append
                      (when bongo-vlc-interactive
-                       (append (list "-I" "rc" "--rc-fake-tty"
+                       (append (list "-I" "oldrc" "--rc-fake-tty"
                                      "--play-and-stop" "--play-and-exit")
                                (when (bongo-uri-p file-name)
                                  (list "-vv"))
