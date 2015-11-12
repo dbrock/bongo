@@ -5841,6 +5841,12 @@ These will come at the end or right before the file name, if any."
               (cond ((looking-at
                       (eval-when-compile
                         (rx (and line-start
+                                 "Remote control interface initialized."))))
+                     (when (null (bongo-player-get player 'timer))
+                       (bongo-vlc-player-start-timer player)))
+                    ((looking-at
+                      (eval-when-compile
+                        (rx (and line-start
                                  "status change:"
                                  (zero-or-more (or space "("))
                                  "play state:"
@@ -5851,9 +5857,7 @@ These will come at the end or right before the file name, if any."
                      (case (string-to-number (match-string 1))
                        ((1 3)
                         (bongo-player-put player 'paused nil)
-                        (bongo-player-paused/resumed player)
-                        (when (null (bongo-player-get player 'timer))
-                          (bongo-vlc-player-start-timer player)))
+                        (bongo-player-paused/resumed player))
                        ((2 4)
                         (bongo-player-put player 'paused t)
                         (bongo-player-paused/resumed player))))
@@ -5937,7 +5941,7 @@ These will come at the end or right before the file name, if any."
   (let* ((process-connection-type nil)
          (arguments (append
                      (when bongo-vlc-interactive
-                       (append (list "-I" "rc" "--rc-fake-tty"
+                       (append (list "-I" "oldrc" "--rc-fake-tty"
                                      "--play-and-stop" "--play-and-exit")
                                (when (bongo-uri-p file-name)
                                  (list "-vv"))
