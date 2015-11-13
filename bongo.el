@@ -7,6 +7,7 @@
 ;; Copyright (C) 1998, 2000-2005  Free Software Foundation, Inc.
 
 ;; Version: 1.0
+;; Package-Requires: ((cl-lib "0.5"))
 
 ;; This file is part of Bongo.
 
@@ -28,8 +29,8 @@
 ;;; Code:
 
 (eval-when-compile
-  (require 'cl)
   (require 'rx))
+(require 'cl-lib)
 
 ;; We try to load this library so that we can later decide
 ;; whether to enable Bongo Last.fm mode by default.
@@ -152,7 +153,7 @@ Return the final value of TEST.
 
 \(fn TEST BODY...)"
   (declare (indent 1) (debug t))
-  (let ((result (gensym)))
+  (let ((result (cl-gensym)))
     `(let (,result)
        (while (unless (setq ,result ,test)
                 (prog1 t
@@ -2126,7 +2127,7 @@ each field and separates the obtained field values using
 (defun bongo-default-format-field (field)
   (let ((type (car field))
         (data (cdr field)))
-    (case type
+    (cl-case type
      ((artist)
       (propertize (bongo-alist-get data 'name) 'face 'bongo-artist))
      ((album)
@@ -2218,7 +2219,7 @@ This is used by `bongo-default-file-name-from-infoset'."
 (defun bongo-default-file-name-part-from-field (field)
   (let ((type (car field))
         (data (cdr field)))
-    (case type
+    (cl-case type
      ((artist) data)
      ((album)
       (let ((title (bongo-alist-get data 'title))
@@ -3144,7 +3145,7 @@ See `bongo-line-proposed-external-fields'."
 
 (defun bongo-track-line-p (&optional point)
   "Return non-nil if the line at POINT is a track line."
-  (case major-mode
+  (cl-case major-mode
     ((bongo-playlist-mode bongo-library-mode)
      (or (bongo-file-track-line-p point)
          (bongo-action-track-line-p point)))
@@ -4766,7 +4767,7 @@ As soon as the track is paused or stopped, this marker is set to
 point to nowhere, and another marker assumes its role instead.")
 (make-variable-buffer-local 'bongo-playing-track-marker)
 (put 'bongo-playing-track-marker 'overlay-arrow-bitmap
-       (ecase (bongo-fringe-icon-size)
+       (cl-ecase (bongo-fringe-icon-size)
          (11 'bongo-playing-11)
          (18 'bongo-playing-18)))
 
@@ -4776,7 +4777,7 @@ As soon as the track is unpaused or stopped, this marker is set to
 point to nowhere, and another marker assumes its role instead.")
 (make-variable-buffer-local 'bongo-paused-track-marker)
 (put 'bongo-paused-track-marker 'overlay-arrow-bitmap
-       (ecase (bongo-fringe-icon-size)
+       (cl-ecase (bongo-fringe-icon-size)
          (11 'bongo-paused-11)
          (18 'bongo-paused-18)))
 
@@ -4786,7 +4787,7 @@ As soon as another track starts playing, this marker is set to
 point to nowhere.")
 (make-variable-buffer-local 'bongo-stopped-track-marker)
 (put 'bongo-stopped-track-marker 'overlay-arrow-bitmap
-     (ecase (bongo-fringe-icon-size)
+     (cl-ecase (bongo-fringe-icon-size)
        (11 'bongo-stopped-11)
        (18 'bongo-stopped-18)))
 
@@ -5018,7 +5019,7 @@ By ``one of the times'' is meant elapsed time or total time.")
 
 (defun bongo-player-times-changed (player)
   "Run the hooks for when one of the times of PLAYER has changed."
-  (let ((current-seconds (second (current-time))))
+  (let ((current-seconds (cl-second (current-time))))
     (when (> current-seconds bongo-player-times-last-updated)
       (setq bongo-player-times-last-updated current-seconds)
       (save-current-buffer
@@ -5604,7 +5605,7 @@ These will come at the end or right before the file name, if any."
 ;;;      to the process filter?
 (defun bongo-mpg123-parse-output (string)
   "Return a list of (STATUS &rest PARAMETERS) from mpg123 process output string"
-  (let* ((valid-lines (remove-if
+  (let* ((valid-lines (cl-remove-if
 		      ;; remove unparsable lines
 		      (lambda (line)
 			(or (< (length line) 3)
@@ -5628,7 +5629,7 @@ These will come at the end or right before the file name, if any."
   (condition-case condition
       (let ((player (process-get process 'bongo-player)))
         (dolist (event (bongo-mpg123-parse-output string))
-	  (case (car event)
+	  (cl-case (car event)
 	    ('F
 	     (let* ((elapsed-time (nth 1 event))
 		    (total-time (nth 2 event)))
@@ -5854,7 +5855,7 @@ These will come at the end or right before the file name, if any."
                                  (submatch (one-or-more digit))
                                  (zero-or-more (or space ")"))
                                  line-end))))
-                     (case (string-to-number (match-string 1))
+                     (cl-case (string-to-number (match-string 1))
                        ((1 3)
                         (bongo-player-put player 'paused nil)
                         (bongo-player-paused/resumed player))
@@ -5917,7 +5918,7 @@ These will come at the end or right before the file name, if any."
                                  line-end))))
                      (when (bongo-player-get player 'pending-queries)
                        (let ((value (string-to-number (match-string 1))))
-                         (ecase (bongo-player-shift player 'pending-queries)
+                         (cl-ecase (bongo-player-shift player 'pending-queries)
                            (time
                             (bongo-player-update-elapsed-time player value)
                             (bongo-player-times-changed player))
@@ -6022,12 +6023,12 @@ These will come at the end or right before the file name, if any."
       (with-temp-buffer
         (let ((process-environment (cons "LC_ALL=en_US.UTF-8" process-environment)))
           (call-process bongo-mplayer-program-name nil t nil
-                        (ecase type
+                        (cl-ecase type
                           (audio "-ao")
                           (video "-vo"))
                         "help"))
         (goto-char (point-min))
-        (search-forward (concat "Available " (ecase type
+        (search-forward (concat "Available " (cl-ecase type
                                                (audio "audio")
                                                (video "video"))
                                 " output drivers:\n"))
@@ -6478,10 +6479,10 @@ prompt for the CD device to use."
     (setq cddb-info (bongo-cddb-info device)))
   (when (null device)
     (setq device bongo-cd-device))
-  (destructuring-bind ((artist-name album-title album-year)
-                       track-count . tracks)
+  (cl-destructuring-bind ((artist-name album-title album-year)
+                          track-count . tracks)
       (or cddb-info (list (list nil nil nil) nil))
-    (destructuring-bind (track-title . track-length)
+    (cl-destructuring-bind (track-title . track-length)
         (or (nth (- track-index 1) tracks) (cons nil nil))
       (bongo-insert-line
        'bongo-file-name
@@ -7278,7 +7279,7 @@ CALLED-INTERACTIVELY-P is non-nil when called interactively."
       (let ((position (bongo-point-at-current-track-line))
             (line-move-ignore-invisible nil))
         (cond ((null position)
-               (case bongo-next-action
+               (cl-case bongo-next-action
                  ((bongo-play-next bongo-play-next-or-stop)
                   (bongo-play-line (bongo-point-at-first-track-line)))
                  ((bongo-play-previous bongo-play-previous-or-stop)
@@ -8167,7 +8168,7 @@ ACTION is ignored."
                   ;; always returns nil without MUST-EXIST.
                   (dnd-get-local-file-name local-file-uri 'must-exist))
                 (dnd-get-local-file-name uri 'must-exist))))
-      (goto-char (case bongo-dnd-destination
+      (goto-char (cl-case bongo-dnd-destination
                    (before-point (bongo-point-before-line))
                    (after-point (bongo-point-after-line))
                    (otherwise (point-max))))
@@ -9215,7 +9216,7 @@ see `bongo-display-playlist-after-enqueue'."
          (with-current-buffer (bongo-playlist-buffer)
            (save-excursion
              (goto-char
-              (ecase mode
+              (cl-ecase mode
                 (insert (or (and (bongo-point-at-current-track-line)
                                  (bongo-point-after-line
                                   (bongo-point-at-current-track-line)))
