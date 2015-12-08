@@ -564,6 +564,11 @@ This variable is used by the function `bongo-default-format-field'."
   :options '()
   :group 'bongo-display)
 
+(defcustom bongo-indentation-string "  "
+  "String prefixed to lines once for each level of indentation."
+  :type 'string
+  :group 'bongo-display)
+
 (defun bongo-default-track ()
   (concat
    (when bongo-index
@@ -698,11 +703,6 @@ When the expressions are evaluated,
  - `bongo-line' is short for `bongo-infoset-formatting-target-line'.
 The values of the expressions are concatenated."
   :type '(repeat sexp)
-  :group 'bongo-display)
-
-(defcustom bongo-indentation-string "  "
-  "String prefixed to lines once for each level of indentation."
-  :type 'string
   :group 'bongo-display)
 
 (defgroup bongo-track-icons nil
