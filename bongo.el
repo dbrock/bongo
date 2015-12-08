@@ -203,6 +203,12 @@ Return the final value of TEST.
 (defvar bongo-track nil
   "Bound dynamically is bound to the contents of the `track' field.")
 
+(defvar bongo-sprinkle-mode nil
+  "Non-nil if `bongo-sprinke-mode' is on.
+
+Declaring here so that it can be used in function appearing before the
+minor mode definition.")
+
 
 ;;;; Commonly-used variables
 
