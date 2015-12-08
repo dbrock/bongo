@@ -8990,7 +8990,11 @@ Return the character position of the end of the copied text."
                  (bongo-point-after-object point)
                (bongo-point-after-line point))))
     (prog1 end
-      (let ((buffer-substring-filters
+      ;; `filter-buffer-substring-functions' has been deprecated as of Emacs 24.4
+      ;; in favor of `filter-buffer-substring-function', however we are still using
+      ;; it since `filter-buffer-substring-function' is not available on versions
+      ;; below Emacs 24.4 (we support Emacs v24.1 onwards)
+      (let ((filter-buffer-substring-functions
              (cons (lambda (string)
                      (prog1 (setq string (copy-sequence string))
                        (remove-text-properties
@@ -9001,7 +9005,7 @@ Return the character position of the end of the copied text."
                               'bongo-marker nil
                               'bongo-reference-counted-marker nil)
                         string)))
-                   buffer-substring-filters)))
+                   filter-buffer-substring-functions)))
         (copy-region-as-kill (bongo-point-before-line point) end)))))
 
 (defun bongo-copy-line-forward (&optional n)
