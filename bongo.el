@@ -26,6 +26,12 @@
 ;; write to the Free Software Foundation, 51 Franklin Street,
 ;; Fifth Floor, Boston, MA 02110-1301, USA.
 
+;;; Commentary:
+
+;; Bongo is a flexible and usable media player for GNU Emacs.
+;; For detailed documentation see the projects README file at
+;; https://github.com/dbrock/bongo/
+
 ;;; Code:
 
 (eval-when-compile
@@ -10610,4 +10616,4 @@ See the function `bongo-buffer'."
 ;;; End:
 
 (provide 'bongo)
-;;; bongo.el ends here.
+;;; bongo.el ends here
