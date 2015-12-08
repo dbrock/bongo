@@ -40,6 +40,8 @@
 ;; whether to enable Bongo Last.fm mode by default.
 (require 'lastfm-submit nil 'no-error)
 
+(declare-function w32-get-clipboard-data "w32select.c")
+
 (defgroup bongo nil
   "Buffer-oriented media player."
   :prefix "bongo-"
