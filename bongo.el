@@ -2592,9 +2592,9 @@ If there are no lines that satisfy PREDICATE, loop forever."
     (random t)
     (setq bongo-random-number-generator-seeded t))
   (save-excursion
-    (while (progn (goto-line (+ (point-min)
-                                (random (count-lines (point-max)
-                                                     (point-min)))))
+    (while (progn (goto-char (point-min))
+                  (forward-line (1- (random (count-lines (point-max)
+                                                         (point-min)))))
                   (not (funcall predicate))))
     (point)))
 
