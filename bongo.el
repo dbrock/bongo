@@ -892,7 +892,7 @@ When called interactively, CALLED-INTERACTIVELY-P is non-nil."
           (> (prefix-numeric-value argument) 0)))
   (when called-interactively-p
     (customize-mark-as-set 'bongo-header-line-mode))
-  (when (interactive-p)
+  (when (called-interactively-p 'interactive)
     (message "Bongo header line mode %s."
              (if bongo-header-line-mode
                  "enabled" "disabled")))
@@ -1888,7 +1888,7 @@ When called interactively, CALLED-INTERACTIVELY-P is non-nil."
         (set bongo-mode-line-indicator-parent '("")))
       (add-to-list bongo-mode-line-indicator-parent
         'bongo-mode-line-indicator-string 'append)))
-  (when (interactive-p)
+  (when (called-interactively-p 'interactive)
     (message "Bongo mode line indicator mode %s."
              (if bongo-mode-line-indicator-mode
                  "enabled" "disabled")))
@@ -6542,7 +6542,7 @@ With a numerical prefix argument, insert only that particular track."
               (dotimes (n track-count)
                 (bongo-insert-cd-track (+ n 1) cddb-info device))
               (bongo-maybe-join-inserted-tracks beginning (point))))
-          (when (and (interactive-p) (not (bongo-buffer-p)))
+          (when (and (called-interactively-p 'interactive) (not (bongo-buffer-p)))
             (message "Inserted %d tracks." track-count)))))))
 
 
@@ -7811,7 +7811,7 @@ unless `find-file-wildcards' is set to nil."
         (t
          (with-bongo-buffer
            (bongo-insert-line 'bongo-file-name file-name))
-         (when (and (interactive-p) (not (bongo-buffer-p)))
+         (when (and (called-interactively-p 'interactive) (not (bongo-buffer-p)))
            (message "Inserted track: %s"
                     (bongo-format-infoset
                      (bongo-infoset-from-file-name file-name)))))))
@@ -7883,7 +7883,7 @@ Do not examine subdirectories of DIRECTORY-NAME."
           (when (bongo-backend-for-file file-name)
             (bongo-insert-file file-name)))
         (bongo-maybe-join-inserted-tracks beginning (point)))
-      (when (and (interactive-p) (not (bongo-buffer-p)))
+      (when (and (called-interactively-p 'interactive) (not (bongo-buffer-p)))
         (message "Inserted %d files." (length file-names))))))
 
 (defvar bongo-insert-directory-tree-total-file-count nil
@@ -7991,7 +7991,7 @@ Optional argument TITLE specifies a custom title for the URI."
     (apply 'bongo-insert-line 'bongo-file-name uri
            (when (and title (not (equal title "")))
              (list 'bongo-uri-title title))))
-  (when (and (interactive-p) (not (bongo-buffer-p)))
+  (when (and (called-interactively-p 'interactive) (not (bongo-buffer-p)))
     (message "Inserted URI: %s"
              (bongo-format-infoset
               (bongo-infoset-from-file-name uri)))))
@@ -8111,14 +8111,14 @@ See `bongo-insertion-command-alist'."
   (interactive)
   (set (make-local-variable 'dnd-protocol-alist)
        '(("" . bongo-dnd-insert-uri)))
-  (when (interactive-p)
+  (when (called-interactively-p 'interactive)
     (message "Bongo drag-and-drop support enabled")))
 
 (defun bongo-disable-dnd-support ()
   "Remove the Bongo drag-and-drop handler for the current buffer."
   (interactive)
   (kill-local-variable 'dnd-protocol-alist)
-  (when (interactive-p)
+  (when (called-interactively-p 'interactive)
     (message "Bongo drag-and-drop support disabled")))
 
 (defcustom bongo-dnd-support t
@@ -8787,18 +8787,18 @@ Enabling this may considerably slow down interactive seeking."
         (line-move-ignore-invisible nil)
         (end-marker (move-marker (make-marker) end)))
     (save-excursion
-      (when (interactive-p)
+      (when (called-interactively-p 'interactive)
         (message "Rendering %s..." target-string))
       (goto-char beg)
       (bongo-ignore-movement-errors
         (bongo-snap-to-object-line)
         (while (< (point) end-marker)
-          (when (interactive-p)
+          (when (called-interactively-p 'interactive)
             (message "Rendering %s...%d%%" target-string
                      (/ (* 100 (point)) (point-max))))
           (bongo-redisplay-line)
           (bongo-next-object-line)))
-      (when (interactive-p)
+      (when (called-interactively-p 'interactive)
         (message "Rendering %s...done" target-string)))))
 
 (defun bongo-redisplay ()
