@@ -211,6 +211,23 @@ This variable is only used in Bongo mode buffers.")
 (defvar bongo-seek-buffer nil
   "The current interactive Bongo Seek buffer, or nil.")
 
+(defvar bongo-library-buffer nil
+  "The default Bongo library buffer, or nil.
+Bongo library commands will operate on this buffer when
+executed from buffers that are not in Bongo Library mode.
+
+This variable overrides `bongo-default-library-buffer-name'.
+See the function `bongo-library-buffer'.")
+
+(defvar bongo-playlist-buffer nil
+  "The default Bongo playlist buffer, or nil.
+Bongo playlist commands will operate on this buffer when
+executed from buffers that are not in Bongo Playlist mode.
+
+This variable overrides `bongo-default-playlist-buffer-name'.
+See the function `bongo-playlist-buffer'.")
+
+
 
 ;;;; Customization variables
 
@@ -10273,22 +10290,6 @@ decides on the buffer from which to take the random tracks."
       (error "Bongo Sprinkle mode can only be used in playlist buffers"))
     (set (make-local-variable 'bongo-mark-played-tracks) t)
     (bongo-sprinkle-until-saturated)))
-
-(defvar bongo-library-buffer nil
-  "The default Bongo library buffer, or nil.
-Bongo library commands will operate on this buffer when
-executed from buffers that are not in Bongo Library mode.
-
-This variable overrides `bongo-default-library-buffer-name'.
-See the function `bongo-library-buffer'.")
-
-(defvar bongo-playlist-buffer nil
-  "The default Bongo playlist buffer, or nil.
-Bongo playlist commands will operate on this buffer when
-executed from buffers that are not in Bongo Playlist mode.
-
-This variable overrides `bongo-default-playlist-buffer-name'.
-See the function `bongo-playlist-buffer'.")
 
 (defun bongo-buffer-p (&optional buffer)
   "Return non-nil if BUFFER is in Bongo mode.
