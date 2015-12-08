@@ -161,6 +161,37 @@ Return the final value of TEST.
        ,result)))
 
 
+
+;;;; Global variables
+
+(defvar bongo-title nil
+  "Bound dynamically to the formatted album title or nil.")
+
+(defvar bongo-year nil
+  "Bound dynamically to the formatted album year or nil.")
+
+(defvar bongo-album nil
+  "Bound dynamically to the contents of album field or nil.")
+
+(defvar bongo-infoset nil
+  "Bound dynamically to the whole infoset or nil.")
+
+(defvar bongo-target nil
+  "Short for `bongo-infoset-formatting-target'.")
+
+(defvar bongo-line nil
+  "Short for `bongo-infoset-formatting-target-line'.")
+
+(defvar bongo-index nil
+  "Bound dynamically is bound to the formatted track index or nil.")
+
+(defvar bongo-length nil
+  "Bound dynamically is bound to the formatted track length or nil.")
+
+(defvar bongo-track nil
+  "Bound dynamically is bound to the contents of the `track' field.")
+
+
 ;;;; Commonly-used variables
 
 (defvar bongo-backends '()
@@ -490,7 +521,7 @@ When the function is evaluated,
  - `bongo-album' is bound to the contents of the `album' field;
  - `bongo-infoset' is bound to the whole infoset;
  - `bongo-target' is short for `bongo-infoset-formatting-target';
- - `bongo-line' is short for `bongo-infoset-formattnig-target-line'.
+ - `bongo-line' is short for `bongo-infoset-formatting-target-line'.
 
 This variable is used by the function `bongo-default-format-field'."
   :type 'function
@@ -564,7 +595,7 @@ When the function is evaluated,
  - `bongo-track' is bound to the contents of the `track' field;
  - `bongo-infoset' is bound to the whole infoset;
  - `bongo-target' is short for `bongo-infoset-formatting-target';
- - `bongo-line' is short for `bongo-infoset-formattnig-target-line'."
+ - `bongo-line' is short for `bongo-infoset-formatting-target-line'."
   :type 'function
   :options '(bongo-default-track-length)
   :group 'bongo-display)
