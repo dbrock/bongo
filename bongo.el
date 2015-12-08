@@ -31,6 +31,7 @@
 (eval-when-compile
   (require 'rx))
 
+(require 'dired)                        ; Required for dired integration
 (require 'volume nil 'no-error)         ; Required for adjusting volume
 
 (require 'cl-lib)
