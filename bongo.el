@@ -30,6 +30,9 @@
 
 (eval-when-compile
   (require 'rx))
+
+(require 'volume nil 'no-error)         ; Required for adjusting volume
+
 (require 'cl-lib)
 
 ;; We try to load this library so that we can later decide
@@ -997,7 +1000,7 @@ the function `bongo-hyphen-padded-mode-line-p'."
   (concat (bongo-mode-line-pad-string)
 	  (when (bongo-hyphen-padded-mode-line-p) "[")
 	  (bongo-mode-line-volume-button)
-	  (when (require 'volume nil t) " ")
+      (when (featurep 'volume) " ")
 	  (bongo-mode-line-backward/previous-button)
 	  (bongo-mode-line-pause/resume-button)
 	  (bongo-mode-line-start/stop-button)
@@ -1873,7 +1876,7 @@ If running without a window system, signal an error."
 
 (defun bongo-mode-line-volume-button ()
   "Return the string to use as [Volume] button in the mode line."
-  (when (and window-system (require 'volume nil t))
+  (when (and window-system (featurep 'volume))
     (let ((icon-size (bongo-mode-line-icon-size)))
       (concat
        (when (>= emacs-major-version 22)
@@ -10136,7 +10139,7 @@ However, setting it through Custom does this automatically."
         '("----" . nil))
       (define-key menu-map [bongo-change-volume]
         '(menu-item "Change the Audio Volume..." volume
-          :enable (require 'volume nil t)))
+          :enable (featurep 'volume)))
       (define-key menu-map [bongo-stop]
         '(menu-item "Stop Playback" bongo-start/stop
           :enable (bongo-playing-p)
