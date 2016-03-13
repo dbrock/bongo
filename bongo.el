@@ -7,7 +7,7 @@
 ;; Copyright (C) 1998, 2000-2005  Free Software Foundation, Inc.
 
 ;; Version: 1.0
-;; Package-Requires: ((cl-lib "0.5"))
+;; Package-Requires: ((cl-lib "0.5") (emacs "24.1"))
 
 ;; This file is part of Bongo.
 
@@ -26,15 +26,27 @@
 ;; write to the Free Software Foundation, 51 Franklin Street,
 ;; Fifth Floor, Boston, MA 02110-1301, USA.
 
+;;; Commentary:
+
+;; Bongo is a flexible and usable media player for GNU Emacs.
+;; For detailed documentation see the projects README file at
+;; https://github.com/dbrock/bongo/
+
 ;;; Code:
 
 (eval-when-compile
   (require 'rx))
+
+(require 'dired)                        ; Required for dired integration
+(require 'volume nil 'no-error)         ; Required for adjusting volume
+
 (require 'cl-lib)
 
 ;; We try to load this library so that we can later decide
 ;; whether to enable Bongo Last.fm mode by default.
 (require 'lastfm-submit nil 'no-error)
+
+(declare-function w32-get-clipboard-data "w32select.c")
 
 (defgroup bongo nil
   "Buffer-oriented media player."
@@ -161,6 +173,43 @@ Return the final value of TEST.
        ,result)))
 
 
+
+;;;; Global variables
+
+(defvar bongo-title nil
+  "Bound dynamically to the formatted album title or nil.")
+
+(defvar bongo-year nil
+  "Bound dynamically to the formatted album year or nil.")
+
+(defvar bongo-album nil
+  "Bound dynamically to the contents of album field or nil.")
+
+(defvar bongo-infoset nil
+  "Bound dynamically to the whole infoset or nil.")
+
+(defvar bongo-target nil
+  "Short for `bongo-infoset-formatting-target'.")
+
+(defvar bongo-line nil
+  "Short for `bongo-infoset-formatting-target-line'.")
+
+(defvar bongo-index nil
+  "Bound dynamically is bound to the formatted track index or nil.")
+
+(defvar bongo-length nil
+  "Bound dynamically is bound to the formatted track length or nil.")
+
+(defvar bongo-track nil
+  "Bound dynamically is bound to the contents of the `track' field.")
+
+(defvar bongo-sprinkle-mode nil
+  "Non-nil if `bongo-sprinke-mode' is on.
+
+Declaring here so that it can be used in function appearing before the
+minor mode definition.")
+
+
 ;;;; Commonly-used variables
 
 (defvar bongo-backends '()
@@ -179,6 +228,23 @@ This variable is only used in Bongo mode buffers.")
 
 (defvar bongo-seek-buffer nil
   "The current interactive Bongo Seek buffer, or nil.")
+
+(defvar bongo-library-buffer nil
+  "The default Bongo library buffer, or nil.
+Bongo library commands will operate on this buffer when
+executed from buffers that are not in Bongo Library mode.
+
+This variable overrides `bongo-default-library-buffer-name'.
+See the function `bongo-library-buffer'.")
+
+(defvar bongo-playlist-buffer nil
+  "The default Bongo playlist buffer, or nil.
+Bongo playlist commands will operate on this buffer when
+executed from buffers that are not in Bongo Playlist mode.
+
+This variable overrides `bongo-default-playlist-buffer-name'.
+See the function `bongo-playlist-buffer'.")
+
 
 
 ;;;; Customization variables
@@ -490,7 +556,7 @@ When the function is evaluated,
  - `bongo-album' is bound to the contents of the `album' field;
  - `bongo-infoset' is bound to the whole infoset;
  - `bongo-target' is short for `bongo-infoset-formatting-target';
- - `bongo-line' is short for `bongo-infoset-formattnig-target-line'.
+ - `bongo-line' is short for `bongo-infoset-formatting-target-line'.
 
 This variable is used by the function `bongo-default-format-field'."
   :type 'function
@@ -533,6 +599,11 @@ This variable is used by the function `bongo-default-format-field'."
   :options '()
   :group 'bongo-display)
 
+(defcustom bongo-indentation-string "  "
+  "String prefixed to lines once for each level of indentation."
+  :type 'string
+  :group 'bongo-display)
+
 (defun bongo-default-track ()
   (concat
    (when bongo-index
@@ -564,7 +635,7 @@ When the function is evaluated,
  - `bongo-track' is bound to the contents of the `track' field;
  - `bongo-infoset' is bound to the whole infoset;
  - `bongo-target' is short for `bongo-infoset-formatting-target';
- - `bongo-line' is short for `bongo-infoset-formattnig-target-line'."
+ - `bongo-line' is short for `bongo-infoset-formatting-target-line'."
   :type 'function
   :options '(bongo-default-track-length)
   :group 'bongo-display)
@@ -667,11 +738,6 @@ When the expressions are evaluated,
  - `bongo-line' is short for `bongo-infoset-formatting-target-line'.
 The values of the expressions are concatenated."
   :type '(repeat sexp)
-  :group 'bongo-display)
-
-(defcustom bongo-indentation-string "  "
-  "String prefixed to lines once for each level of indentation."
-  :type 'string
   :group 'bongo-display)
 
 (defgroup bongo-track-icons nil
@@ -892,7 +958,7 @@ When called interactively, CALLED-INTERACTIVELY-P is non-nil."
           (> (prefix-numeric-value argument) 0)))
   (when called-interactively-p
     (customize-mark-as-set 'bongo-header-line-mode))
-  (when (interactive-p)
+  (when (called-interactively-p 'interactive)
     (message "Bongo header line mode %s."
              (if bongo-header-line-mode
                  "enabled" "disabled")))
@@ -949,7 +1015,7 @@ the function `bongo-hyphen-padded-mode-line-p'."
   (concat (bongo-mode-line-pad-string)
 	  (when (bongo-hyphen-padded-mode-line-p) "[")
 	  (bongo-mode-line-volume-button)
-	  (when (require 'volume nil t) " ")
+      (when (featurep 'volume) " ")
 	  (bongo-mode-line-backward/previous-button)
 	  (bongo-mode-line-pause/resume-button)
 	  (bongo-mode-line-start/stop-button)
@@ -1825,7 +1891,7 @@ If running without a window system, signal an error."
 
 (defun bongo-mode-line-volume-button ()
   "Return the string to use as [Volume] button in the mode line."
-  (when (and window-system (require 'volume nil t))
+  (when (and window-system (featurep 'volume))
     (let ((icon-size (bongo-mode-line-icon-size)))
       (concat
        (when (>= emacs-major-version 22)
@@ -1888,7 +1954,7 @@ When called interactively, CALLED-INTERACTIVELY-P is non-nil."
         (set bongo-mode-line-indicator-parent '("")))
       (add-to-list bongo-mode-line-indicator-parent
         'bongo-mode-line-indicator-string 'append)))
-  (when (interactive-p)
+  (when (called-interactively-p 'interactive)
     (message "Bongo mode line indicator mode %s."
              (if bongo-mode-line-indicator-mode
                  "enabled" "disabled")))
@@ -2561,9 +2627,9 @@ If there are no lines that satisfy PREDICATE, loop forever."
     (random t)
     (setq bongo-random-number-generator-seeded t))
   (save-excursion
-    (while (progn (goto-line (+ (point-min)
-                                (random (count-lines (point-max)
-                                                     (point-min)))))
+    (while (progn (goto-char (point-min))
+                  (forward-line (1- (random (count-lines (point-max)
+                                                         (point-min)))))
                   (not (funcall predicate))))
     (point)))
 
@@ -3707,170 +3773,6 @@ existing header into two (see `bongo-maybe-insert-intermediate-header')."
         (bongo-maybe-insert-intermediate-header)))))
 
 
-;;;; The prefix/region/marking convention
-
-(defun bongo-universal-prefix/region/marking-object-command (&optional n)
-  "In Bongo, force the prefix/region/marking convention for a command.
-That is, read a key sequence and execute the command bound to that sequence
-some number of times, each time with point at a different track or section.
-If given a prefix argument N, execute the command once for each of the
-  next N tracks or sections.
-Otherwise, if the region is active, execute the command once for each
-  track or section in the region.
-Otherwise, if there are any marked tracks, execute the command once for
-  each marked track.
-Otherwise, just execute the command on the track or section at point.
-In all cases (and this is an important detail), execute the command
-without any prefix argument, active region or marking.
-See `bongo-universal-prefix/region/marking-track-command' for a similar
-utility that operates only on tracks (not sections)."
-  (interactive "P")
-  (let ((command (key-binding (read-key-sequence nil t))))
-    (when (eq command 'keyboard-quit)
-      (keyboard-quit))
-    (save-excursion
-      (cond (n
-             (setq n (prefix-numeric-value n))
-             (let ((mark-active nil)
-                   (marking bongo-marking))
-               (when marking
-                 ;; XXX: This discards the killed marking
-                 ;;      as an unfortunate side-effect.
-                 (bongo-kill-marking))
-               (if (< n 0)
-                   (dotimes (dummy (- n))
-                     (bongo-previous-object)
-                     (save-excursion
-                       (command-execute command)))
-                 (dotimes (dummy n)
-                   (bongo-snap-to-object-line)
-                   (save-excursion
-                     (command-execute command))
-                   (goto-char (bongo-point-after-object))))
-               (when marking
-                 (bongo-yank-marking))))
-            ((bongo-region-active-p)
-             (deactivate-mark)
-             (let ((marking bongo-marking)
-                   (end (move-marker (make-marker) (region-end))))
-               (when marking
-                 ;; XXX: This discards the killed marking
-                 ;;      as an unfortunate side-effect.
-                 (bongo-kill-marking))
-               (goto-char (region-beginning))
-               (while (and (bongo-snap-to-object-line 'no-error)
-                           (< (point) end))
-                 (command-execute command)
-                 (goto-char (bongo-point-after-object)))
-               (move-marker end nil)
-               (when marking
-                 (bongo-yank-marking))))
-            (bongo-marking
-             (let ((mark-active nil)
-                   (marking bongo-marking))
-               (bongo-kill-marking)
-               (dolist (marker (reverse marking))
-                 (catch 'abort
-                   (goto-char (or (marker-position (car marker))
-                                  (throw 'abort nil)))
-                   (command-execute command)))))
-            (t
-             (let ((mark-active nil)
-                   (marking bongo-marking))
-               (when marking
-                 ;; XXX: This discards the killed marking
-                 ;;      as an unfortunate side-effect.
-                 (bongo-kill-marking))
-               (bongo-snap-to-object-line)
-               (command-execute command)
-               (when marking
-                 (bongo-yank-marking))))))))
-
-(defun bongo-universal-prefix/region/marking-track-command (&optional n)
-  "In Bongo, force the prefix/region/marking convention for a command.
-That is, read a key sequence and execute the command bound to that sequence
-some number of times, each time with point at a different track.
-If given a prefix argument N, execute the command once for each of the
-  next N tracks.
-Otherwise, if the region is active, execute the command once for each
-  track in the region.
-Otherwise, if there are any marked tracks, execute the command once for
-  each marked track.
-Otherwise, just execute the command on the track at point.
-In all cases (and this is an important detail), execute the command
-without any prefix argument, active region or marking.
-Unlike `bongo-universal-prefix/region/marking-object-command',
-ignore all section structure (i.e., operate only on tracks)."
-  (interactive "P")
-  (let ((command (key-binding (read-key-sequence nil t))))
-    (when (eq command 'keyboard-quit)
-      (keyboard-quit))
-    (save-excursion
-      (cond (n
-             (setq n (prefix-numeric-value n))
-             (let ((mark-active nil)
-                   (marking bongo-marking))
-               (when marking
-                 ;; XXX: This discards the killed marking
-                 ;;      as an unfortunate side-effect.
-                 (bongo-kill-marking))
-               (if (< n 0)
-                   (dotimes (dummy (- n))
-                     (goto-char (or (bongo-point-at-previous-track-line)
-                                    (signal 'bongo-no-previous-object nil)))
-                     (save-excursion
-                       (command-execute command)))
-                 (dotimes (dummy n)
-                   (unless (bongo-track-line-p)
-                     (goto-char (or (bongo-point-at-next-track-line)
-                                    (signal 'bongo-no-next-object nil))))
-                   (save-excursion
-                     (command-execute command))
-                   (forward-line 1)))
-               (when marking
-                 (bongo-yank-marking))))
-            ((bongo-region-active-p)
-             (deactivate-mark)
-             (let ((marking bongo-marking)
-                   (end (move-marker (make-marker) (region-end))))
-               (when marking
-                 ;; XXX: This discards the killed marking
-                 ;;      as an unfortunate side-effect.
-                 (bongo-kill-marking))
-               (goto-char (region-beginning))
-               (while (and (or (bongo-track-line-p)
-                               (goto-char (or (bongo-point-at-next-track-line)
-                                              (point-max))))
-                           (< (point) end))
-                 (command-execute command)
-                 (forward-line 1))
-               (move-marker end nil)
-               (when marking
-                 (bongo-yank-marking))))
-            (bongo-marking
-             (let ((mark-active nil)
-                   (marking bongo-marking))
-               (bongo-kill-marking)
-               (dolist (marker (reverse marking))
-                 (catch 'abort
-                   (goto-char (or (marker-position (car marker))
-                                  (throw 'abort nil)))
-                   (command-execute command)))))
-            (t
-             (let ((mark-active nil)
-                   (marking bongo-marking))
-               (when marking
-                 ;; XXX: This discards the killed marking
-                 ;;      as an unfortunate side-effect.
-                 (bongo-kill-marking))
-               (unless (bongo-track-line-p)
-                 (goto-char (or (bongo-point-at-next-track-line)
-                                (signal 'bongo-no-next-object nil))))
-               (command-execute command)
-               (when marking
-                 (bongo-yank-marking))))))))
-
-
 ;;;; Markings
 
 ;;; Each track line in Bongo is either marked or unmarked.
@@ -4406,6 +4308,170 @@ Return the number of newly-unmarked track lines."
   (bongo-unmark-by-regexp regexp (lambda ()
                                    (bongo-infoset-track-title
                                     (bongo-line-infoset)))))
+
+
+;;;; The prefix/region/marking convention
+
+(defun bongo-universal-prefix/region/marking-object-command (&optional n)
+  "In Bongo, force the prefix/region/marking convention for a command.
+That is, read a key sequence and execute the command bound to that sequence
+some number of times, each time with point at a different track or section.
+If given a prefix argument N, execute the command once for each of the
+  next N tracks or sections.
+Otherwise, if the region is active, execute the command once for each
+  track or section in the region.
+Otherwise, if there are any marked tracks, execute the command once for
+  each marked track.
+Otherwise, just execute the command on the track or section at point.
+In all cases (and this is an important detail), execute the command
+without any prefix argument, active region or marking.
+See `bongo-universal-prefix/region/marking-track-command' for a similar
+utility that operates only on tracks (not sections)."
+  (interactive "P")
+  (let ((command (key-binding (read-key-sequence nil t))))
+    (when (eq command 'keyboard-quit)
+      (keyboard-quit))
+    (save-excursion
+      (cond (n
+             (setq n (prefix-numeric-value n))
+             (let ((mark-active nil)
+                   (marking bongo-marking))
+               (when marking
+                 ;; XXX: This discards the killed marking
+                 ;;      as an unfortunate side-effect.
+                 (bongo-kill-marking))
+               (if (< n 0)
+                   (dotimes (dummy (- n))
+                     (bongo-previous-object)
+                     (save-excursion
+                       (command-execute command)))
+                 (dotimes (dummy n)
+                   (bongo-snap-to-object-line)
+                   (save-excursion
+                     (command-execute command))
+                   (goto-char (bongo-point-after-object))))
+               (when marking
+                 (bongo-yank-marking))))
+            ((bongo-region-active-p)
+             (deactivate-mark)
+             (let ((marking bongo-marking)
+                   (end (move-marker (make-marker) (region-end))))
+               (when marking
+                 ;; XXX: This discards the killed marking
+                 ;;      as an unfortunate side-effect.
+                 (bongo-kill-marking))
+               (goto-char (region-beginning))
+               (while (and (bongo-snap-to-object-line 'no-error)
+                           (< (point) end))
+                 (command-execute command)
+                 (goto-char (bongo-point-after-object)))
+               (move-marker end nil)
+               (when marking
+                 (bongo-yank-marking))))
+            (bongo-marking
+             (let ((mark-active nil)
+                   (marking bongo-marking))
+               (bongo-kill-marking)
+               (dolist (marker (reverse marking))
+                 (catch 'abort
+                   (goto-char (or (marker-position (car marker))
+                                  (throw 'abort nil)))
+                   (command-execute command)))))
+            (t
+             (let ((mark-active nil)
+                   (marking bongo-marking))
+               (when marking
+                 ;; XXX: This discards the killed marking
+                 ;;      as an unfortunate side-effect.
+                 (bongo-kill-marking))
+               (bongo-snap-to-object-line)
+               (command-execute command)
+               (when marking
+                 (bongo-yank-marking))))))))
+
+(defun bongo-universal-prefix/region/marking-track-command (&optional n)
+  "In Bongo, force the prefix/region/marking convention for a command.
+That is, read a key sequence and execute the command bound to that sequence
+some number of times, each time with point at a different track.
+If given a prefix argument N, execute the command once for each of the
+  next N tracks.
+Otherwise, if the region is active, execute the command once for each
+  track in the region.
+Otherwise, if there are any marked tracks, execute the command once for
+  each marked track.
+Otherwise, just execute the command on the track at point.
+In all cases (and this is an important detail), execute the command
+without any prefix argument, active region or marking.
+Unlike `bongo-universal-prefix/region/marking-object-command',
+ignore all section structure (i.e., operate only on tracks)."
+  (interactive "P")
+  (let ((command (key-binding (read-key-sequence nil t))))
+    (when (eq command 'keyboard-quit)
+      (keyboard-quit))
+    (save-excursion
+      (cond (n
+             (setq n (prefix-numeric-value n))
+             (let ((mark-active nil)
+                   (marking bongo-marking))
+               (when marking
+                 ;; XXX: This discards the killed marking
+                 ;;      as an unfortunate side-effect.
+                 (bongo-kill-marking))
+               (if (< n 0)
+                   (dotimes (dummy (- n))
+                     (goto-char (or (bongo-point-at-previous-track-line)
+                                    (signal 'bongo-no-previous-object nil)))
+                     (save-excursion
+                       (command-execute command)))
+                 (dotimes (dummy n)
+                   (unless (bongo-track-line-p)
+                     (goto-char (or (bongo-point-at-next-track-line)
+                                    (signal 'bongo-no-next-object nil))))
+                   (save-excursion
+                     (command-execute command))
+                   (forward-line 1)))
+               (when marking
+                 (bongo-yank-marking))))
+            ((bongo-region-active-p)
+             (deactivate-mark)
+             (let ((marking bongo-marking)
+                   (end (move-marker (make-marker) (region-end))))
+               (when marking
+                 ;; XXX: This discards the killed marking
+                 ;;      as an unfortunate side-effect.
+                 (bongo-kill-marking))
+               (goto-char (region-beginning))
+               (while (and (or (bongo-track-line-p)
+                               (goto-char (or (bongo-point-at-next-track-line)
+                                              (point-max))))
+                           (< (point) end))
+                 (command-execute command)
+                 (forward-line 1))
+               (move-marker end nil)
+               (when marking
+                 (bongo-yank-marking))))
+            (bongo-marking
+             (let ((mark-active nil)
+                   (marking bongo-marking))
+               (bongo-kill-marking)
+               (dolist (marker (reverse marking))
+                 (catch 'abort
+                   (goto-char (or (marker-position (car marker))
+                                  (throw 'abort nil)))
+                   (command-execute command)))))
+            (t
+             (let ((mark-active nil)
+                   (marking bongo-marking))
+               (when marking
+                 ;; XXX: This discards the killed marking
+                 ;;      as an unfortunate side-effect.
+                 (bongo-kill-marking))
+               (unless (bongo-track-line-p)
+                 (goto-char (or (bongo-point-at-next-track-line)
+                                (signal 'bongo-no-next-object nil))))
+               (command-execute command)
+               (when marking
+                 (bongo-yank-marking))))))))
 
 
 ;;;; Backends
@@ -6542,7 +6608,7 @@ With a numerical prefix argument, insert only that particular track."
               (dotimes (n track-count)
                 (bongo-insert-cd-track (+ n 1) cddb-info device))
               (bongo-maybe-join-inserted-tracks beginning (point))))
-          (when (and (interactive-p) (not (bongo-buffer-p)))
+          (when (and (called-interactively-p 'interactive) (not (bongo-buffer-p)))
             (message "Inserted %d tracks." track-count)))))))
 
 
@@ -7811,7 +7877,7 @@ unless `find-file-wildcards' is set to nil."
         (t
          (with-bongo-buffer
            (bongo-insert-line 'bongo-file-name file-name))
-         (when (and (interactive-p) (not (bongo-buffer-p)))
+         (when (and (called-interactively-p 'interactive) (not (bongo-buffer-p)))
            (message "Inserted track: %s"
                     (bongo-format-infoset
                      (bongo-infoset-from-file-name file-name)))))))
@@ -7883,7 +7949,7 @@ Do not examine subdirectories of DIRECTORY-NAME."
           (when (bongo-backend-for-file file-name)
             (bongo-insert-file file-name)))
         (bongo-maybe-join-inserted-tracks beginning (point)))
-      (when (and (interactive-p) (not (bongo-buffer-p)))
+      (when (and (called-interactively-p 'interactive) (not (bongo-buffer-p)))
         (message "Inserted %d files." (length file-names))))))
 
 (defvar bongo-insert-directory-tree-total-file-count nil
@@ -7991,7 +8057,7 @@ Optional argument TITLE specifies a custom title for the URI."
     (apply 'bongo-insert-line 'bongo-file-name uri
            (when (and title (not (equal title "")))
              (list 'bongo-uri-title title))))
-  (when (and (interactive-p) (not (bongo-buffer-p)))
+  (when (and (called-interactively-p 'interactive) (not (bongo-buffer-p)))
     (message "Inserted URI: %s"
              (bongo-format-infoset
               (bongo-infoset-from-file-name uri)))))
@@ -8111,14 +8177,14 @@ See `bongo-insertion-command-alist'."
   (interactive)
   (set (make-local-variable 'dnd-protocol-alist)
        '(("" . bongo-dnd-insert-uri)))
-  (when (interactive-p)
+  (when (called-interactively-p 'interactive)
     (message "Bongo drag-and-drop support enabled")))
 
 (defun bongo-disable-dnd-support ()
   "Remove the Bongo drag-and-drop handler for the current buffer."
   (interactive)
   (kill-local-variable 'dnd-protocol-alist)
-  (when (interactive-p)
+  (when (called-interactively-p 'interactive)
     (message "Bongo drag-and-drop support disabled")))
 
 (defcustom bongo-dnd-support t
@@ -8787,18 +8853,18 @@ Enabling this may considerably slow down interactive seeking."
         (line-move-ignore-invisible nil)
         (end-marker (move-marker (make-marker) end)))
     (save-excursion
-      (when (interactive-p)
+      (when (called-interactively-p 'interactive)
         (message "Rendering %s..." target-string))
       (goto-char beg)
       (bongo-ignore-movement-errors
         (bongo-snap-to-object-line)
         (while (< (point) end-marker)
-          (when (interactive-p)
+          (when (called-interactively-p 'interactive)
             (message "Rendering %s...%d%%" target-string
                      (/ (* 100 (point)) (point-max))))
           (bongo-redisplay-line)
           (bongo-next-object-line)))
-      (when (interactive-p)
+      (when (called-interactively-p 'interactive)
         (message "Rendering %s...done" target-string)))))
 
 (defun bongo-redisplay ()
@@ -8990,7 +9056,11 @@ Return the character position of the end of the copied text."
                  (bongo-point-after-object point)
                (bongo-point-after-line point))))
     (prog1 end
-      (let ((buffer-substring-filters
+      ;; `filter-buffer-substring-functions' has been deprecated as of Emacs 24.4
+      ;; in favor of `filter-buffer-substring-function', however we are still using
+      ;; it since `filter-buffer-substring-function' is not available on versions
+      ;; below Emacs 24.4 (we support Emacs v24.1 onwards)
+      (let ((filter-buffer-substring-functions
              (cons (lambda (string)
                      (prog1 (setq string (copy-sequence string))
                        (remove-text-properties
@@ -9001,7 +9071,7 @@ Return the character position of the end of the copied text."
                               'bongo-marker nil
                               'bongo-reference-counted-marker nil)
                         string)))
-                   buffer-substring-filters)))
+                   filter-buffer-substring-functions)))
         (copy-region-as-kill (bongo-point-before-line point) end)))))
 
 (defun bongo-copy-line-forward (&optional n)
@@ -10084,7 +10154,7 @@ However, setting it through Custom does this automatically."
         '("----" . nil))
       (define-key menu-map [bongo-change-volume]
         '(menu-item "Change the Audio Volume..." volume
-          :enable (require 'volume nil t)))
+          :enable (featurep 'volume)))
       (define-key menu-map [bongo-stop]
         '(menu-item "Stop Playback" bongo-start/stop
           :enable (bongo-playing-p)
@@ -10238,22 +10308,6 @@ decides on the buffer from which to take the random tracks."
       (error "Bongo Sprinkle mode can only be used in playlist buffers"))
     (set (make-local-variable 'bongo-mark-played-tracks) t)
     (bongo-sprinkle-until-saturated)))
-
-(defvar bongo-library-buffer nil
-  "The default Bongo library buffer, or nil.
-Bongo library commands will operate on this buffer when
-executed from buffers that are not in Bongo Library mode.
-
-This variable overrides `bongo-default-library-buffer-name'.
-See the function `bongo-library-buffer'.")
-
-(defvar bongo-playlist-buffer nil
-  "The default Bongo playlist buffer, or nil.
-Bongo playlist commands will operate on this buffer when
-executed from buffers that are not in Bongo Playlist mode.
-
-This variable overrides `bongo-default-playlist-buffer-name'.
-See the function `bongo-playlist-buffer'.")
 
 (defun bongo-buffer-p (&optional buffer)
   "Return non-nil if BUFFER is in Bongo mode.
@@ -10568,4 +10622,4 @@ See the function `bongo-buffer'."
 ;;; End:
 
 (provide 'bongo)
-;;; bongo.el ends here.
+;;; bongo.el ends here
