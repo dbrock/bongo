@@ -3137,6 +3137,7 @@ See `bongo-line-proposed-external-fields'."
 
 (defcustom bongo-audio-file-name-extensions
   `("669"
+    "aac",
     "amf"
     "apun"
     "au"
