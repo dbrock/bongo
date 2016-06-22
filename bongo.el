@@ -5767,6 +5767,7 @@ These will come at the end or right before the file name, if any."
   ;; matches that of some potentially supported format.
   :matcher '((local-file "file:" "http:" "ftp:")
              "669"
+             "aac"
              "asf"
              "au"
              "avi"
