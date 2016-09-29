@@ -50,10 +50,18 @@ You don't have to use ` - ' as the separator, but you can't use `/'
 and have your files in nested directories.  The information actually
 needs to be stored in the basename of each file.
 
-Many people use tags (e.g., ID3v2 tags or Ogg tags) for their metadata
-and don't care about file names.  Luckily, Bongo comes with a tool
-called `tree-from-tags.rb', which can be used to create a hierarchy of
-nicely-named symlinks into your tagged media collection.
+Many people use tags (e.g., ID3v2 tags or Ogg tags) for their metadata and don't
+care about file names.  Luckily, Bongo comes with a tool called
+`tree-from-tags.rb`, which can be used to create a hierarchy of nicely-named
+symlinks into your tagged media collection. The tool depends
+on [ruby-taglib](https://robinst.github.io/taglib-ruby/) for extracting tag data
+from files make sure you have it installed before running the tool. Run
+
+``` shell
+ruby tree-from-tags.rb --help
+```
+
+for more details.
 
 Basic Commands
 ==============

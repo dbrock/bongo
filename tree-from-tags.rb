@@ -21,8 +21,7 @@
 # Boston, MA 02110-1301, USA.
 #
 # To run this program, you need Ruby-taglib, available at
-# <http://www.hakubi.us/ruby-taglib/>, and Mahoro, available at
-# <http://mahoro.rubyforge.org/>.
+# <https://robinst.github.io/taglib-ruby/>.
 
 require "fileutils"
 require "find"
@@ -166,54 +165,55 @@ Find.find *ARGV do |file_name|
       status_line << "Processing `#{file_name_tail}'..."
     end
   elsif FileTest.file? file_name
-    next if [".jpg", ".png", ".gif"].include? \
+    next if [".jpg", ".jpeg", ".png", ".gif"].include? \
       File.extname(file_name).downcase
-    begin 
-      file = TagLib::File.new(file_name)
-      n_processed_files += 1
-      data = { :artist_name => file.artist,
-               :album_year  => file.year.to_s,
-               :album_title => file.album,
-               :track_index => "#{0 if file.track < 10}#{file.track}",
-               :track_title => file.title }
+    begin
 
-      for key, value in data do
-        if value.blank?
-          data.delete key
-        else
-          data[key] = value.trim
+      TagLib::FileRef.open(file_name) do |file|
+        n_processed_files += 1
+        unless file.null?
+          tag = file.tag
+          data = { :artist_name => tag.artist,
+                   :album_year  => tag.year.to_s,
+                   :album_title => tag.album,
+                   :track_index => "#{0 if tag.track < 10}#{tag.track}",
+                   :track_title => tag.title }
+
+          for key, value in data do
+            if (value.nil? or value.blank?)
+              data.delete key
+            else
+              data[key] = value.trim
+            end
+          end
+
+          components = parse_data(data).map { |x| join_components(*x) }.
+                         inject([]) { |a, x| a << join_components(a.last, x) }
+
+          dir_name = components[0...-1] * "/"
+          new_file_name = components * "/" + File.extname(file_name)
+
+          FileUtils.mkdir_p(dir_name) if components.length > 1
+
+          begin
+            if $hardlinks
+              FileUtils.ln(file_name, new_file_name)
+            else
+              FileUtils.ln_s(file_name, new_file_name)
+            end
+            n_created_links += 1
+          rescue Errno::EEXIST
+            if $hardlinks
+              raise unless File.stat(file_name).ino ==
+                           File.stat(new_file_name).ino
+            else
+              raise unless FileTest.symlink? new_file_name and
+                File.readlink(new_file_name) == file_name
+            end
+          end
         end
       end
 
-      components = parse_data(data).map { |x| join_components(*x) }.
-        inject([]) { |a, x| a << join_components(a.last, x) }
-
-      dir_name = components[0...-1] * "/"
-      new_file_name = components * "/" + File.extname(file_name)
-
-      FileUtils.mkdir_p(dir_name) if components.length > 1
-
-      begin
-        if $hardlinks
-          FileUtils.ln(file_name, new_file_name)
-        else
-          FileUtils.ln_s(file_name, new_file_name)
-        end
-        n_created_links += 1
-      rescue Errno::EEXIST
-        if $hardlinks
-          raise unless File.stat(file_name).ino ==
-            File.stat(new_file_name).ino
-        else
-          raise unless FileTest.symlink? new_file_name and
-            File.readlink(new_file_name) == file_name
-        end
-      end
-
-    rescue TagLib::BadFile
-      puts ; warn_skip file_name, "Unrecognized file format."
-    rescue TagLib::BadTag
-      puts ; warn_skip file_name, "Unreadable tag."
     rescue NotEnoughData
       puts ; warn_skip file_name, "Not enough track data " +
         "(need at least the track title)."
@@ -225,8 +225,6 @@ Find.find *ARGV do |file_name|
       puts ; puts "Interrupted." ; exit(1)
     rescue Exception
       puts ; raise
-    ensure
-      file.close unless file == nil
     end
 
     n_completed_files += 1
