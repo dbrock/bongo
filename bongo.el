@@ -9805,6 +9805,25 @@ be a serialized Bongo buffer.")
                    bongo-playlist-magic-string 'bongo-decode
                    'bongo-encode t nil))
 
+(defun bongo-update-image-paths (string)
+  "Update paths to images in the STRING's display property.
+
+The image's location changes whenever MELPA updates leaving bongo buffers saved
+with older version with wrong image paths, this function updates the image paths
+to point to (potentially) new location."
+  (let* ((start (if (get-text-property 0 'display string)
+                    0
+                  (next-single-property-change 0 'display string)))
+         (end (length string)))
+    (while start
+      (let ((display (get-text-property start 'display string)))
+        (when (equal (car display) 'image)
+          (plist-put (cdr display)
+                     :file (expand-file-name (file-name-nondirectory (plist-get (cdr display) :file))
+                                             bongo-images-directory))))
+      (setq start (text-property-not-all (1+ start) end 'display nil string)))
+    string))
+
 (defun bongo-decode (beg end)
   "Convert a serialized Bongo buffer into the real thing.
 Modify region between BEG and END; return the new end of the region.
@@ -9832,7 +9851,7 @@ instead, use high-level functions such as `find-file'."
                 (let ((object (read (current-buffer))))
                   (delete-region start (point))
                   (if (stringp object)
-                      (insert object)
+                      (insert (bongo-update-image-paths object))
                     (error "Unexpected object: %s" object)))
               (end-of-file
                (delete-region start (point-max)))))))
