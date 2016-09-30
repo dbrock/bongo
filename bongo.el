@@ -10217,6 +10217,13 @@ However, setting it through Custom does this automatically."
 
 (bongo-redefine-keys)
 
+(defun bongo-confirm-player-stop ()
+  "If the current buffer has a player running stop it before killing the buffer."
+  (or (not bongo-player)
+      (when (yes-or-no-p "This buffer has an associated player running, stop it?")
+        (bongo-player-stop bongo-player)
+        t)))
+
 (defun bongo-mode ()
   "Common parent major mode for Bongo buffers.
 Do not use this mode directly.  Instead, use Bongo Playlist mode (see
@@ -10243,6 +10250,7 @@ Do not use this mode directly.  Instead, use Bongo Playlist mode (see
     (setq default-directory bongo-default-directory))
   (when bongo-dnd-support
     (bongo-enable-dnd-support))
+  (add-hook 'kill-buffer-query-functions 'bongo-confirm-player-stop t t)
   (run-mode-hooks 'bongo-mode-hook))
 
 (define-derived-mode bongo-library-mode bongo-mode "Library"
