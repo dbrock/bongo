@@ -6049,11 +6049,13 @@ These will come at the end or right before the file name, if any."
       (when bongo-vlc-interactive
         (set-process-filter process 'bongo-vlc-process-filter)))))
 
-;;;; The mplayer backend
 
+
+;;;; The MPlayer backend
 
 (define-bongo-backend mplayer
   :constructor 'bongo-start-mplayer-player
+  :pretty-name "MPlayer"
 
   ;; We define this variable manually so that we can get
   ;; some other customization variables to appear before it.
