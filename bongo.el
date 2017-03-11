@@ -6044,8 +6044,9 @@ These will come at the end or right before the file name, if any."
       (when bongo-vlc-interactive
         (set-process-filter process 'bongo-vlc-process-filter)))))
 
-;;;; The mplayer backend
 
+
+;;;; The mplayer backend
 
 (define-bongo-backend mplayer
   :constructor 'bongo-start-mplayer-player
@@ -8980,7 +8981,8 @@ Otherwise, just kill the line as `kill-line' would."
              (when (bongo-line-marker)
                (move-marker (bongo-line-marker) nil))
              (when (bongo-current-track-line-p)
-               (bongo-unset-current-track-position))
+               (bongo-unset-current-track-position)
+               (bongo-player-stop bongo-player))
              (when (bongo-queued-track-line-p)
                ;; Use a text property to communicate with
                ;; `bongo-clean-up-after-insertion'.
@@ -10217,6 +10219,13 @@ However, setting it through Custom does this automatically."
 
 (bongo-redefine-keys)
 
+(defun bongo-confirm-player-stop ()
+  "If the current buffer has a player running stop it before killing the buffer."
+  (or (not bongo-player)
+      (when (yes-or-no-p "This buffer has an associated player running, stop it?")
+        (bongo-player-stop bongo-player)
+        t)))
+
 (defun bongo-mode ()
   "Common parent major mode for Bongo buffers.
 Do not use this mode directly.  Instead, use Bongo Playlist mode (see
@@ -10243,6 +10252,7 @@ Do not use this mode directly.  Instead, use Bongo Playlist mode (see
     (setq default-directory bongo-default-directory))
   (when bongo-dnd-support
     (bongo-enable-dnd-support))
+  (add-hook 'kill-buffer-query-functions 'bongo-confirm-player-stop t t)
   (run-mode-hooks 'bongo-mode-hook))
 
 (define-derived-mode bongo-library-mode bongo-mode "Library"
