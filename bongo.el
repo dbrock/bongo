@@ -9805,6 +9805,35 @@ be a serialized Bongo buffer.")
                    bongo-playlist-magic-string 'bongo-decode
                    'bongo-encode t nil))
 
+(defun bongo-update-images (string)
+  "Update paths to images in the STRING's display property.
+
+The image's location changes whenever MELPA updates leaving bongo buffers saved
+with older version with wrong image paths, this function updates the image paths
+to point to (potentially) new location."
+  (let* ((start (if (get-text-property 0 'display string)
+                    0
+                  (next-single-property-change 0 'display string)))
+         (end (length string)))
+    (while start
+      (let* ((display (get-text-property start 'display string))
+             (face-prop (get-text-property start 'face string))
+             ;; Does not handle all the possible cases of faces
+             ;; See https://www.gnu.org/software/emacs/manual/html_node/elisp/Special-Properties.html#Special-Properties
+             ;; But Bongo seems to be using only list of faces and face name
+             (face-cand (if (listp face-prop) (car face-prop) face-prop))
+             (face (and (facep face-cand) face-cand)))
+        (when (equal (car display) 'image)
+          (plist-put (cdr display)
+                     :file (expand-file-name (file-name-nondirectory (plist-get (cdr display) :file))
+                                             bongo-images-directory))
+          (plist-put (cdr display)
+                     :background (face-background (or face 'default) nil 'default))
+          (plist-put (cdr display)
+                     :foreground (face-foreground (or face 'default) nil 'default))))
+      (setq start (text-property-not-all (1+ start) end 'display nil string)))
+    string))
+
 (defun bongo-decode (beg end)
   "Convert a serialized Bongo buffer into the real thing.
 Modify region between BEG and END; return the new end of the region.
@@ -9832,7 +9861,7 @@ instead, use high-level functions such as `find-file'."
                 (let ((object (read (current-buffer))))
                   (delete-region start (point))
                   (if (stringp object)
-                      (insert object)
+                      (insert (bongo-update-images object))
                     (error "Unexpected object: %s" object)))
               (end-of-file
                (delete-region start (point-max)))))))
