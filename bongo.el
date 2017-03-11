@@ -10568,18 +10568,9 @@ See the function `bongo-library-buffer'."
   (interactive)
   (switch-to-buffer (bongo-library-buffer)))
 
-(defvar bongo-stored-window-configuration nil
-  "This is used by `bongo' and `bongo-quit'.")
-
 (defun bongo-quit ()
-  "Quit Bongo by deleting all windows and selecting a non-Bongo buffer.
-
-This function stores the current window configuration in the variable
-`bongo-stored-window-configuration', which is consulted by `\\[bongo]'."
+  "Quit Bongo by deleting all windows and selecting a non-Bongo buffer."
   (interactive)
-  (setq bongo-stored-window-configuration
-        (current-window-configuration))
-  (delete-other-windows)
   (let ((first-buffer (current-buffer)))
     (while (and (bongo-buffer-p)
                 (progn (bury-buffer)
@@ -10636,8 +10627,6 @@ With prefix argument PROMPT, prompt for the buffer to switch to."
   "Switch to a Bongo buffer.
 See the function `bongo-buffer'."
   (interactive)
-  (when bongo-stored-window-configuration
-    (set-window-configuration bongo-stored-window-configuration))
   (unless (bongo-buffer-p)
     (switch-to-buffer (bongo-buffer))))
 
