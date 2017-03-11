@@ -114,7 +114,8 @@ the buffer returned by the function `bongo-playlist-buffer'."
 If there is no track at POINT, use the next track line.
 If there is no next track line, signal an error."
   (declare (indent 1) (debug t))
-  `(save-excursion
+  `(progn
+     (push-mark)
      (bongo-goto-point ,point)
      (when line-move-ignore-invisible
        (bongo-skip-invisible))
@@ -2611,11 +2612,12 @@ Start searching at POINT, or at point if POINT is nil."
 If POINT is non-nil, the search starts at the line at POINT.
 If POINT is nil, it starts at the first line in the buffer.
 If no matching line is found, return nil."
-  (when (null point)
-    (goto-char (point-min)))
-  (if (funcall predicate)
-      (point)
-    (bongo-point-at-next-line-satisfying predicate)))
+  (save-excursion
+    (when (null point)
+      (goto-char (point-min)))
+    (if (funcall predicate)
+        (point)
+      (bongo-point-at-next-line-satisfying predicate))))
 
 (defvar bongo-random-number-generator-seeded nil
   "Non-nil if Bongo has seeded the random number generator.")
