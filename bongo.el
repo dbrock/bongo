@@ -6044,9 +6044,8 @@ These will come at the end or right before the file name, if any."
       (when bongo-vlc-interactive
         (set-process-filter process 'bongo-vlc-process-filter)))))
 
-
-
 ;;;; The mplayer backend
+
 
 (define-bongo-backend mplayer
   :constructor 'bongo-start-mplayer-player
@@ -8981,8 +8980,7 @@ Otherwise, just kill the line as `kill-line' would."
              (when (bongo-line-marker)
                (move-marker (bongo-line-marker) nil))
              (when (bongo-current-track-line-p)
-               (bongo-unset-current-track-position)
-               (bongo-player-stop bongo-player))
+               (bongo-unset-current-track-position))
              (when (bongo-queued-track-line-p)
                ;; Use a text property to communicate with
                ;; `bongo-clean-up-after-insertion'.
