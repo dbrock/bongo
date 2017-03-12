@@ -5925,6 +5925,18 @@ These will come at the end or right before the file name, if any."
                         (rx (and line-start
                                  "status change:"
                                  (zero-or-more (or space "("))
+                                 "audio volume:"
+                                 (zero-or-more space)
+                                 (submatch (one-or-more digit))
+                                 (zero-or-more (or space ")"))
+                                 line-end))))
+                     (when (null (bongo-player-get player 'timer))
+                       (bongo-vlc-player-start-timer player)))
+                    ((looking-at
+                      (eval-when-compile
+                        (rx (and line-start
+                                 "status change:"
+                                 (zero-or-more (or space "("))
                                  "play state:"
                                  (zero-or-more space)
                                  (submatch (one-or-more digit))
