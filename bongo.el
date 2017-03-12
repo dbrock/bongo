@@ -4573,7 +4573,7 @@ If it is a list of strings, treat it as a set of file name extensions;
   return non-nil if the extension of FILE-NAME appears in VALUE-MATCHER.
 Otherwise, signal an error."
   (let ((type-matcher (car matcher))
-        (value-matcher (cdr matcher)))
+        (value-matcher (cadr matcher)))
     (when (let* ((uri-scheme (bongo-uri-scheme file-name))
                  (needed-type-matcher
                   (if uri-scheme
