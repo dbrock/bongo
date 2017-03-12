@@ -3446,15 +3446,16 @@ The content includes the final newline, if any."
 (defun bongo-clear-line (&optional point)
   "Remove all contents of the line at POINT."
   (let ((inhibit-read-only t))
-    (bongo-ensure-final-newline)
-    (save-excursion
-      (bongo-goto-point point)
-      ;; Avoid deleting the newline, because that would
-      ;; cause the markers on this line to become mixed up
-      ;; with those on the next line.
-      (delete-region (point-at-bol) (point-at-eol))
-      ;; Remove all text properties from the newline.
-      (set-text-properties (point) (1+ (point)) nil))))
+    (with-silent-modifications
+      (bongo-ensure-final-newline)
+      (save-excursion
+        (bongo-goto-point point)
+        ;; Avoid deleting the newline, because that would
+        ;; cause the markers on this line to become mixed up
+        ;; with those on the next line.
+        (delete-region (point-at-bol) (point-at-eol))
+        ;; Remove all text properties from the newline.
+        (set-text-properties (point) (1+ (point)) nil)))))
 
 (defun bongo-region-line-count (beg end)
   "Return the number of lines between BEG and END.
@@ -3516,41 +3517,45 @@ text properties are considered \"semantic\" by this function."
 (defun bongo-line-set-property (name value &optional point)
   "Set the text property NAME to VALUE on the line at POINT.
 The text property will only be set for the terminating newline."
-  (let ((inhibit-read-only t)
-        (position (bongo-point-at-eol point)))
-    (bongo-ensure-final-newline)
-    (put-text-property position (1+ position) name value)))
+  (with-silent-modifications
+    (let ((inhibit-read-only t)
+          (position (bongo-point-at-eol point)))
+      (bongo-ensure-final-newline)
+      (put-text-property position (1+ position) name value))))
 (put 'bongo-line-set-property 'lisp-indent-function 1)
 
 (defun bongo-line-set-properties (properties &optional point)
   "Set the text properties PROPERTIES on the line at POINT.
 The text properties will only be set for the terminating newline."
-  (let ((inhibit-read-only t)
-        (position (bongo-point-at-eol point)))
-    (bongo-ensure-final-newline)
-    (add-text-properties position (1+ position) properties)))
+  (with-silent-modifications
+    (let ((inhibit-read-only t)
+          (position (bongo-point-at-eol point)))
+      (bongo-ensure-final-newline)
+      (add-text-properties position (1+ position) properties))))
 
 (defun bongo-line-remove-property (name &optional point)
   "Remove the text property NAME from the line at POINT.
 The text properties will only be removed from the terminating newline."
-  (let ((inhibit-read-only t)
-        (position (bongo-point-at-eol point)))
-    (bongo-ensure-final-newline)
-    (remove-text-properties position (1+ position) (list name nil))))
+  (with-silent-modifications
+    (let ((inhibit-read-only t)
+          (position (bongo-point-at-eol point)))
+      (bongo-ensure-final-newline)
+      (remove-text-properties position (1+ position) (list name nil)))))
 
 (defun bongo-keep-text-properties (beg end keys)
   "Keep only some properties in the text between BEG and END.
 Remove any property that is not in KEYS."
-  (save-excursion
-    (save-restriction
-      (narrow-to-region beg end)
-      (goto-char (point-min))
-      (while (not (eobp))
-        (let* ((properties (text-properties-at (point)))
-               (kept-properties (bongo-filter-plist keys properties))
-               (next (or (next-property-change (point)) (point-max))))
-          (set-text-properties (point) next kept-properties)
-          (goto-char next))))))
+  (with-silent-modifications
+    (save-excursion
+      (save-restriction
+        (narrow-to-region beg end)
+        (goto-char (point-min))
+        (while (not (eobp))
+          (let* ((properties (text-properties-at (point)))
+                 (kept-properties (bongo-filter-plist keys properties))
+                 (next (or (next-property-change (point)) (point-max))))
+            (set-text-properties (point) next kept-properties)
+            (goto-char next)))))))
 
 
 ;;;; Sectioning
@@ -8262,39 +8267,40 @@ If SKIP is non-nil, leave point at the first object line
   after the section.
 If called interactively, SKIP is always non-nil."
   (interactive "p")
-  (when line-move-ignore-invisible
-    (bongo-skip-invisible))
-  (bongo-snap-to-object-line)
-  (unless (bongo-header-line-p)
-    (when (bongo-line-indented-p)
-      (bongo-backward-up-section)))
-  (if (not (bongo-header-line-p))
-      (when skip
-        (or (bongo-next-object 'no-error)
-            (goto-char (bongo-point-after-object))))
-    (let ((line-move-ignore-invisible nil)
-          (inhibit-read-only t))
-      (bongo-line-set-property 'bongo-collapsed t)
-      (bongo-redisplay-line)
-      (save-excursion
-        (forward-line 1)
-        ;; There is a bug in Emacs that causes invisible text
-        ;; with a `display' property to become visible, but
-        ;; only if it is right next to visible text.
-        ;; Therefore, we have to make sure that the invisible
-        ;; block of text starts with a character that does not
-        ;; have a `display' property.  This character is later
-        ;; removed by `bongo-expand'.
-        (unless (get-text-property (point) 'bongo-invisibility-padding)
-          (insert (propertize " " 'invisible t
-                              'bongo-invisibility-padding t))))
-      (let ((end (bongo-point-after-object)))
-        (forward-line 1)
-        (put-text-property (point) end 'invisible t)
-        (if (not skip)
-            (forward-line -1)
-          (goto-char end)
-          (bongo-snap-to-object-line 'no-error))))))
+  (with-silent-modifications
+    (when line-move-ignore-invisible
+      (bongo-skip-invisible))
+    (bongo-snap-to-object-line)
+    (unless (bongo-header-line-p)
+      (when (bongo-line-indented-p)
+        (bongo-backward-up-section)))
+    (if (not (bongo-header-line-p))
+        (when skip
+          (or (bongo-next-object 'no-error)
+              (goto-char (bongo-point-after-object))))
+      (let ((line-move-ignore-invisible nil)
+            (inhibit-read-only t))
+        (bongo-line-set-property 'bongo-collapsed t)
+        (bongo-redisplay-line)
+        (save-excursion
+          (forward-line 1)
+          ;; There is a bug in Emacs that causes invisible text
+          ;; with a `display' property to become visible, but
+          ;; only if it is right next to visible text.
+          ;; Therefore, we have to make sure that the invisible
+          ;; block of text starts with a character that does not
+          ;; have a `display' property.  This character is later
+          ;; removed by `bongo-expand'.
+          (unless (get-text-property (point) 'bongo-invisibility-padding)
+            (insert (propertize " " 'invisible t
+                                'bongo-invisibility-padding t))))
+        (let ((end (bongo-point-after-object)))
+          (forward-line 1)
+          (put-text-property (point) end 'invisible t)
+          (if (not skip)
+              (forward-line -1)
+            (goto-char end)
+            (bongo-snap-to-object-line 'no-error)))))))
 
 (defun bongo-expand (&optional skip)
   "Expand the section below the header line at point.
@@ -8306,39 +8312,40 @@ If SKIP is non-nil, leave point at the first object line
   after the section.
 If called interactively, SKIP is always non-nil."
   (interactive "p")
-  (when line-move-ignore-invisible
-    (bongo-skip-invisible))
-  (bongo-snap-to-object-line)
-  (unless (bongo-header-line-p)
-    (when (bongo-line-indented-p)
-      (bongo-backward-up-section)))
-  (if (not (bongo-header-line-p))
-      (when skip
-        (or (bongo-next-object 'no-error)
-            (goto-char (bongo-point-after-object))))
-    (let ((header-line-position (point))
-          (inhibit-read-only t)
-          (line-move-ignore-invisible nil))
-      (bongo-line-remove-property 'bongo-collapsed)
-      (bongo-redisplay-line)
-      (put-text-property (bongo-point-after-line)
-                         (bongo-point-after-object)
-                         'invisible nil)
-      (save-excursion
-        ;; See the comment in `bongo-collapse'.
-        (forward-line 1)
-        (when (get-text-property (point) 'bongo-invisibility-padding)
-          (delete-char 1)))
-      (let ((indentation (bongo-line-indentation)))
-        (bongo-ignore-movement-errors
-          (bongo-next-object-line)
-          (while (> (bongo-line-indentation) indentation)
-            (if (not (bongo-collapsed-header-line-p))
-                (bongo-next-object-line)
-              (bongo-collapse 'skip)
-              (bongo-snap-to-object-line 'no-error)))))
-      (when (not skip)
-        (goto-char header-line-position)))))
+  (with-silent-modifications
+    (when line-move-ignore-invisible
+      (bongo-skip-invisible))
+    (bongo-snap-to-object-line)
+    (unless (bongo-header-line-p)
+      (when (bongo-line-indented-p)
+        (bongo-backward-up-section)))
+    (if (not (bongo-header-line-p))
+        (when skip
+          (or (bongo-next-object 'no-error)
+              (goto-char (bongo-point-after-object))))
+      (let ((header-line-position (point))
+            (inhibit-read-only t)
+            (line-move-ignore-invisible nil))
+        (bongo-line-remove-property 'bongo-collapsed)
+        (bongo-redisplay-line)
+        (put-text-property (bongo-point-after-line)
+                           (bongo-point-after-object)
+                           'invisible nil)
+        (save-excursion
+          ;; See the comment in `bongo-collapse'.
+          (forward-line 1)
+          (when (get-text-property (point) 'bongo-invisibility-padding)
+            (delete-char 1)))
+        (let ((indentation (bongo-line-indentation)))
+          (bongo-ignore-movement-errors
+            (bongo-next-object-line)
+            (while (> (bongo-line-indentation) indentation)
+              (if (not (bongo-collapsed-header-line-p))
+                  (bongo-next-object-line)
+                (bongo-collapse 'skip)
+                (bongo-snap-to-object-line 'no-error)))))
+        (when (not skip)
+          (goto-char header-line-position))))))
 
 (defun bongo-toggle-collapsed ()
   "Collapse or expand the section at point.
@@ -8773,81 +8780,82 @@ Enabling this may considerably slow down interactive seeking."
 
 (defun bongo-redisplay-line (&optional point)
   "Redisplay the line at POINT, preserving semantic text properties."
-  (save-excursion
-    (bongo-goto-point point)
-    (let* ((inhibit-read-only t)
-           (line-move-ignore-invisible nil)
-           (invisible (bongo-line-get-property 'invisible)))
-      (let ((properties (bongo-line-get-semantic-properties)))
-        (bongo-clear-line)
-        (bongo-line-set-properties properties))
-      (insert (funcall bongo-track-mark-function))
-      (dotimes (dummy (bongo-line-indentation))
-        (insert bongo-indentation-string))
-      (let ((icon-string (bongo-line-icon-string)))
-        (when icon-string
-          (insert icon-string " ")))
-      (let* ((bongo-infoset-formatting-target
-              (current-buffer))
-             (bongo-infoset-formatting-target-line
-              (bongo-point-before-line))
-             (bongo-infoset
-              (bongo-line-infoset))
-             (bongo-internal-infoset
-              (bongo-filter-alist (bongo-line-internal-fields)
-                                  bongo-infoset))
-             (header (bongo-header-line-p))
-             (content
-              (propertize (if header
-                              (let ((bongo-collapsed
-                                     (bongo-collapsed-header-line-p)))
-                                (bongo-format-string
-                                 bongo-section-header-line-format))
-                            (bongo-format-string bongo-track-line-format))
-                          'follow-link t 'mouse-face 'highlight)))
-        (when (not header)
-          (cond ((bongo-currently-playing-track-line-p)
-                 (bongo-facify content 'bongo-currently-playing-track))
-                ((bongo-played-track-line-p)
-                 (bongo-facify content 'bongo-played-track)))
-          (cond ((bongo-marked-track-line-p)
-                 (bongo-facify content 'bongo-marked-track))))
-        (insert content))
-      (when (bongo-marked-track-line-p)
-        (let ((bongo-facify-below-existing-faces t))
-          (bongo-facify-current-line 'bongo-marked-track-line)))
-      (when (and bongo-display-inline-playback-progress
-                 (bongo-currently-playing-track-line-p)
-                 (bongo-elapsed-time)
-                 (bongo-total-time))
-        (let ((windows (get-buffer-window-list (current-buffer))))
-          (let (smallest-window)
-            (dolist (window windows)
-              (when (and (posn-at-point point window)
-                         (or (null smallest-window)
-                             (< (window-width window)
-                                (window-width smallest-window))))
-                (setq smallest-window window)))
-            (when smallest-window
-              (let ((point (point)))
-                (save-window-excursion
-                  (select-window smallest-window)
-                  (goto-char point)
-                  (let* ((middle (floor (* (window-width)
-                                           (/ (bongo-elapsed-time)
-                                              (bongo-total-time))))))
-                    (goto-char (point-at-bol))
-                    (while (let ((column (bongo-current-column)))
-                             (and column (< column middle)))
-                      (if (eolp)
-                          (insert " ")
-                        (forward-char 1)))
-                    (bongo-facify-region (point-at-bol) (point)
-                                         'bongo-elapsed-track-part))))))))
-      (when invisible
-        (put-text-property (bongo-point-before-line)
-                           (bongo-point-after-line)
-                           'invisible t)))))
+  (with-silent-modifications
+    (save-excursion
+      (bongo-goto-point point)
+      (let* ((inhibit-read-only t)
+             (line-move-ignore-invisible nil)
+             (invisible (bongo-line-get-property 'invisible)))
+        (let ((properties (bongo-line-get-semantic-properties)))
+          (bongo-clear-line)
+          (bongo-line-set-properties properties))
+        (insert (funcall bongo-track-mark-function))
+        (dotimes (dummy (bongo-line-indentation))
+          (insert bongo-indentation-string))
+        (let ((icon-string (bongo-line-icon-string)))
+          (when icon-string
+            (insert icon-string " ")))
+        (let* ((bongo-infoset-formatting-target
+                (current-buffer))
+               (bongo-infoset-formatting-target-line
+                (bongo-point-before-line))
+               (bongo-infoset
+                (bongo-line-infoset))
+               (bongo-internal-infoset
+                (bongo-filter-alist (bongo-line-internal-fields)
+                                    bongo-infoset))
+               (header (bongo-header-line-p))
+               (content
+                (propertize (if header
+                                (let ((bongo-collapsed
+                                       (bongo-collapsed-header-line-p)))
+                                  (bongo-format-string
+                                   bongo-section-header-line-format))
+                              (bongo-format-string bongo-track-line-format))
+                            'follow-link t 'mouse-face 'highlight)))
+          (when (not header)
+            (cond ((bongo-currently-playing-track-line-p)
+                   (bongo-facify content 'bongo-currently-playing-track))
+                  ((bongo-played-track-line-p)
+                   (bongo-facify content 'bongo-played-track)))
+            (cond ((bongo-marked-track-line-p)
+                   (bongo-facify content 'bongo-marked-track))))
+          (insert content))
+        (when (bongo-marked-track-line-p)
+          (let ((bongo-facify-below-existing-faces t))
+            (bongo-facify-current-line 'bongo-marked-track-line)))
+        (when (and bongo-display-inline-playback-progress
+                   (bongo-currently-playing-track-line-p)
+                   (bongo-elapsed-time)
+                   (bongo-total-time))
+          (let ((windows (get-buffer-window-list (current-buffer))))
+            (let (smallest-window)
+              (dolist (window windows)
+                (when (and (posn-at-point point window)
+                           (or (null smallest-window)
+                               (< (window-width window)
+                                  (window-width smallest-window))))
+                  (setq smallest-window window)))
+              (when smallest-window
+                (let ((point (point)))
+                  (save-window-excursion
+                    (select-window smallest-window)
+                    (goto-char point)
+                    (let* ((middle (floor (* (window-width)
+                                             (/ (bongo-elapsed-time)
+                                                (bongo-total-time))))))
+                      (goto-char (point-at-bol))
+                      (while (let ((column (bongo-current-column)))
+                               (and column (< column middle)))
+                        (if (eolp)
+                            (insert " ")
+                          (forward-char 1)))
+                      (bongo-facify-region (point-at-bol) (point)
+                                           'bongo-elapsed-track-part))))))))
+        (when invisible
+          (put-text-property (bongo-point-before-line)
+                             (bongo-point-after-line)
+                             'invisible t))))))
 
 (defun bongo-redisplay-region (beg end)
   "Redisplay the Bongo objects in the region between BEG and END."
