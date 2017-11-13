@@ -8074,7 +8074,8 @@ Optional argument TITLE specifies a custom title for the URI."
 (defun bongo-insert-m3u-playlist-contents (file-name)
   "Insert the contents of M3U playlist FILE-NAME."
   (interactive "fInsert contents of M3U playlist file: ")
-  (bongo-maybe-insert-album-cover (file-name-directory file-name))
+  (when bongo-insert-album-covers
+    (bongo-maybe-insert-album-cover (file-name-directory file-name)))
   (let ((beginning (with-bongo-buffer (point))))
     (with-temp-buffer
       (let ((coding-system-for-read
@@ -8096,7 +8097,8 @@ Optional argument TITLE specifies a custom title for the URI."
 (defun bongo-insert-pls-playlist-contents (file-name)
   "Insert the contents of PLS playlist FILE-NAME."
   (interactive "fInsert contents of PLS playlist file: ")
-  (bongo-maybe-insert-album-cover (file-name-directory file-name))
+  (when bongo-insert-album-covers
+    (bongo-maybe-insert-album-cover (file-name-directory file-name)))
   (let ((beginning (with-bongo-buffer (point))))
     (with-temp-buffer
       (let* ((absolute-file-name (car (insert-file-contents file-name)))
