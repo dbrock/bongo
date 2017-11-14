@@ -7907,30 +7907,26 @@ Album covers are files whose names are in `bongo-album-cover-file-names'."
           (setq cover-file-name file-name)))
       (setq file-names (cdr file-names)))
     (when cover-file-name
-      (cond
-       ((image-type-available-p 'imagemagick)
-        (let ((inhibit-read-only t))
+      (let ((file-type-entry
+             (assoc (downcase (file-name-extension cover-file-name))
+                    '(("jpg" . jpeg) ("jpeg" . jpeg)
+                      ("png" . png) ("gif" . gif)))))
+        (when (null file-type-entry)
+          (error "Unrecognized file name extension: %s" cover-file-name))
+        (let ((cover-file-type (cdr file-type-entry))
+              (inhibit-read-only t))
           (insert (propertize " " 'display
-                              (find-image (list (list
-                                                 :type 'imagemagick
-                                                 :scale 16
-                                                 :max-width bongo-album-cover-size
-                                                 :max-height bongo-album-cover-size
-                                                 :file cover-file-name)))))
-          (insert "\n")))
-       (t
-        (let ((file-type-entry
-               (assoc (downcase (file-name-extension cover-file-name))
-                      '(("jpg" . jpeg) ("jpeg" . jpeg)
-                        ("png" . png) ("gif" . gif)))))
-          (when (null file-type-entry)
-            (error "Unrecognized file name extension: %s" cover-file-name))
-          (let ((cover-file-type (cdr file-type-entry))
-                (inhibit-read-only t))
-            (insert (propertize " " 'display
-                                `(image :type ,cover-file-type
-                                        :file ,cover-file-name)))
-            (insert "\n"))))))))
+                              (if (image-type-available-p 'imagemagick)
+                                  (find-image (list (list
+                                                     :type 'imagemagick
+                                                     :scale 16
+                                                     :max-width bongo-album-cover-size
+                                                     :max-height bongo-album-cover-size
+                                                     :file cover-file-name)))
+                                (find-image (list (list
+                                                   :type cover-file-type
+                                                   :file cover-file-name))))))
+          (insert "\n"))))))
 
 (defun bongo-maybe-join-inserted-tracks (beg end)
   "Maybe run `bongo-join' repeatedly from BEG to END.
