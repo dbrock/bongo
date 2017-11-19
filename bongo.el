@@ -503,6 +503,11 @@ See also `bongo-album-cover-file-names'."
   :link '(custom-group-link bongo-file-names)
   :group 'bongo-display)
 
+(defcustom bongo-album-cover-size 200
+  "Size in pixels to which album cover art should be scaled."
+  :type 'integer
+  :group 'bongo-display)
+
 (defcustom bongo-join-inserted-tracks t
   "Whether to automatically join newly-inserted tracks.
 This is done by repeatedly running `bongo-join'."
@@ -7911,8 +7916,16 @@ Album covers are files whose names are in `bongo-album-cover-file-names'."
         (let ((cover-file-type (cdr file-type-entry))
               (inhibit-read-only t))
           (insert (propertize " " 'display
-                              `(image :type ,cover-file-type
-                                      :file ,cover-file-name)))
+                              (if (image-type-available-p 'imagemagick)
+                                  (find-image (list (list
+                                                     :type 'imagemagick
+                                                     :scale 16
+                                                     :max-width bongo-album-cover-size
+                                                     :max-height bongo-album-cover-size
+                                                     :file cover-file-name)))
+                                (find-image (list (list
+                                                   :type cover-file-type
+                                                   :file cover-file-name))))))
           (insert "\n"))))))
 
 (defun bongo-maybe-join-inserted-tracks (beg end)
@@ -8074,7 +8087,8 @@ Optional argument TITLE specifies a custom title for the URI."
 (defun bongo-insert-m3u-playlist-contents (file-name)
   "Insert the contents of M3U playlist FILE-NAME."
   (interactive "fInsert contents of M3U playlist file: ")
-  (bongo-maybe-insert-album-cover (file-name-directory file-name))
+  (when bongo-insert-album-covers
+    (bongo-maybe-insert-album-cover (file-name-directory file-name)))
   (let ((beginning (with-bongo-buffer (point))))
     (with-temp-buffer
       (let ((coding-system-for-read
@@ -8096,7 +8110,8 @@ Optional argument TITLE specifies a custom title for the URI."
 (defun bongo-insert-pls-playlist-contents (file-name)
   "Insert the contents of PLS playlist FILE-NAME."
   (interactive "fInsert contents of PLS playlist file: ")
-  (bongo-maybe-insert-album-cover (file-name-directory file-name))
+  (when bongo-insert-album-covers
+    (bongo-maybe-insert-album-cover (file-name-directory file-name)))
   (let ((beginning (with-bongo-buffer (point))))
     (with-temp-buffer
       (let* ((absolute-file-name (car (insert-file-contents file-name)))
