@@ -8,6 +8,7 @@
 
 ;; Version: 1.0
 ;; Package-Requires: ((cl-lib "0.5") (emacs "24.1"))
+;; URL: https://github.com/dbrock/bongo
 
 ;; This file is part of Bongo.
 
