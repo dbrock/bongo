@@ -3242,6 +3242,7 @@ See `bongo-line-proposed-external-fields'."
 (defun bongo-unplayed-track-line-p (&optional point)
   "Return non-nil if the line at POINT is an unplayed track line."
   (and (bongo-track-line-p point)
+       (null (bongo-action-track-line-p))
        (null (bongo-line-get-property 'bongo-played point))))
 
 (defun bongo-mark-line-as-played (&optional point)
