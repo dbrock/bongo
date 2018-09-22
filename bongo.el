@@ -3197,8 +3197,22 @@ See `bongo-line-proposed-external-fields'."
        (bongo-audio-file-name-p (bongo-line-file-name point))))
 
 (defcustom bongo-video-file-name-extensions
-  `("ogm" "avi" "mpg" "mpeg" "mp4" "vob" "mkv" "flv"
-    "mov" "asf" "wmv" "rm" "rmvb" "qt" "ts")
+  `("asf"
+    "avi"
+    "flv"
+    "mkv"
+    "mov"
+    "mp4"
+    "mpeg"
+    "mpg"
+    "ogm"
+    "qt"
+    "rm"
+    "rmvb"
+    "ts"
+    "vob"
+    "webm"
+    "wmv")
   "List of file name extensions of video files."
   :type '(repeat string)
   :group 'bongo-file-names)
@@ -5815,6 +5829,7 @@ These will come at the end or right before the file name, if any."
              "vob"
              "vqf"
              "wav"
+             "webm"
              "wma"
              "wmv"
              "xm")
