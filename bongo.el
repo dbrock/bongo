@@ -5792,7 +5792,7 @@ These will come at the end or right before the file name, if any."
 
   ;; Play generic URLs and files if the file extension
   ;; matches that of some potentially supported format.
-  :matcher '((local-file "file:" "http:" "ftp:")
+  :matcher '((local-file "file:" "http:" "https:" "ftp:")
              "669"
              "aac"
              "asf"
@@ -5842,7 +5842,7 @@ These will come at the end or right before the file name, if any."
   ;;      would be good to keep this matcher as a fallback
   ;;      if we could somehow declare that more specific
   ;;      matchers should be tried first.)
-  :matcher '(("http:") . t)
+  :matcher '(("http:" "https:") . t)
 
   ;; VLC fails to report time information for CD tracks
   ;; played using the `vlc cdda://@1' syntax.  The bug
