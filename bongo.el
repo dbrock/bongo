@@ -7932,16 +7932,12 @@ Album covers are files whose names are in `bongo-album-cover-file-names'."
         (let ((cover-file-type (cdr file-type-entry))
               (inhibit-read-only t))
           (insert (propertize " " 'display
-                              (if (image-type-available-p 'imagemagick)
-                                  (find-image (list (list
-                                                     :type 'imagemagick
-                                                     :scale 16
-                                                     :max-width bongo-album-cover-size
-                                                     :max-height bongo-album-cover-size
-                                                     :file cover-file-name)))
-                                (find-image (list (list
-                                                   :type cover-file-type
-                                                   :file cover-file-name))))))
+                              (find-image (list (list
+                                                 :type cover-file-type
+                                                 :scale 16
+                                                 :max-width bongo-album-cover-size
+                                                 :max-height bongo-album-cover-size
+                                                 :file cover-file-name)))))
           (insert "\n"))))))
 
 (defun bongo-maybe-join-inserted-tracks (beg end)
