@@ -6,7 +6,7 @@
 ;; Copyright (C) 2011  Jürgen Hötzel <juergen@archlinux.org>
 ;; Copyright (C) 1998, 2000-2005  Free Software Foundation, Inc.
 
-;; Version: 1.0
+;; Version: 1.1
 ;; Package-Requires: ((cl-lib "0.5") (emacs "24.1"))
 
 ;; This file is part of Bongo.
