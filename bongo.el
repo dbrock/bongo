@@ -40,6 +40,7 @@
 (require 'dired)                        ; Required for dired integration
 (require 'volume nil 'no-error)         ; Required for adjusting volume
 
+(require 'pcase)
 (require 'cl-lib)
 
 ;; We try to load this library so that we can later decide
@@ -6070,11 +6071,13 @@ These will come at the end or right before the file name, if any."
       (when bongo-vlc-interactive
         (set-process-filter process 'bongo-vlc-process-filter)))))
 
-;;;; The mplayer backend
 
+
+;;;; The MPlayer backend
 
 (define-bongo-backend mplayer
   :constructor 'bongo-start-mplayer-player
+  :pretty-name "MPlayer"
 
   ;; We define this variable manually so that we can get
   ;; some other customization variables to appear before it.
@@ -6278,6 +6281,221 @@ These will come at the end or right before the file name, if any."
       (when bongo-mplayer-interactive
         (set-process-filter process 'bongo-mplayer-process-filter)
         (bongo-mplayer-player-start-timer player)))))
+
+
+
+;;;; mpv backend
+
+(defcustom bongo-mpv-time-update-delay-after-seek 1
+  "Number of seconds to delay time updates from mpv after seeking.
+Such delays may prevent jerkiness in the visual seek interface."
+  :type 'number
+  :group 'bongo-mpv)
+
+(defcustom bongo-mpv-initialization-period 0.2
+  "Number of seconds to wait before querying MPV for time information.
+We can't call out MPV immediately since the socket might not be ready"
+  :type 'number
+  :group 'bongo-vlc)
+
+(defvar bongo-mpv-remote-option 'unknown
+  "The command line option to be used with mpv to start remote control.
+
+This is calculated when needed and cached, we cannot hardcode the value since
+the a different option is used in newer versions of mpv")
+
+(defun bongo--mpv-get-remote-option ()
+  "Get the command line option for starting mpv's remote control."
+  (with-temp-buffer
+    (when (executable-find "mpv")
+      (insert (shell-command-to-string "mpv --list-options"))
+      (goto-char (point-min))
+      (save-match-data
+        (when (search-forward-regexp "\\(--input-ipc-server\\|--input-unix-socket\\)" nil t)
+          (match-string 0))))))
+
+(defun bongo--mpv-connect-to-socket (player)
+  "Establish connection with mpv's remote interface for the PLAYER."
+  (let ((socket (make-network-process :name "bongo-mpv"
+                                      :buffer nil
+                                      :family 'local
+                                      :service (bongo-player-get player 'socket-file)
+                                      :filter 'bongo--mpv-socket-filter)))
+    (bongo-player-put player 'socket socket)
+    (process-put socket 'bongo-player player)
+    socket))
+
+(defun bongo--mpv-player-process-sentinel (process string)
+  "Process sentinel for mpv PROCESS, close the socket after mpv exits.
+
+STRING is simply passed to the default."
+  (let ((status (process-status process))
+        (player (process-get process 'bongo-player)))
+    (when (memq status '(exit signal))
+      (when (bongo-player-get player 'socket)
+        (delete-process (bongo-player-get player 'socket))))
+    (bongo-default-player-process-sentinel process string)))
+
+(defun bongo--run-mpv-command (player request-id command &rest args)
+  "For mpv instance associated with PLAYER run COMMAND with ARGS.
+
+REQUEST-ID is used to identity the response in the socket filter. See also
+`bongo--mpv-socket-filter'.
+
+It connects to mpv's remote interface if the connection has not being already
+created, we defer the socket creation, rather than creating it right after
+starting mpv because it takes sometime for the socket to be ready."
+  (let ((socket (bongo-player-get player 'socket)))
+    (unless socket
+      (setq socket (bongo--mpv-connect-to-socket player)))
+    (process-send-string socket
+                         (concat (json-encode `(("command" . (,command ,@args))
+                                                ("request_id" . ,request-id)))
+                                 "\n"))))
+
+(defun bongo--mpv-socket-filter (process output)
+  "Filter for socket connection with mpv.
+
+PROCESS is the socket which returned the OUTPUT."
+  (let ((player (process-get process 'bongo-player)))
+    (dolist (parsed-response (mapcar #'json-read-from-string
+                                     (split-string output "\n" t)))
+      ;; Events are treated differently from normal responses
+      (if (assoc 'event parsed-response)
+          (pcase (bongo-alist-get parsed-response 'event)
+            (`"pause" (progn
+                        (bongo-player-put player 'paused t)
+                        (bongo-player-paused/resumed player)))
+            (`"unpause" (progn
+                          (bongo-player-put player 'paused nil)
+                          (bongo-player-paused/resumed player))))
+        ;; Use request-id to identify the type of response
+        (pcase (bongo-alist-get parsed-response 'request_id)
+          (`"time-pos" (progn
+                         (bongo-player-update-elapsed-time player
+                                                           (bongo-alist-get parsed-response
+                                                                            'data))
+                         (bongo-player-times-changed player)))
+          (`"duration" (progn
+                         (bongo-player-update-total-time player
+                                                         (bongo-alist-get parsed-response
+                                                                          'data))
+                         (bongo-player-times-changed player)))
+          (`"metadata" (let* ((data (bongo-alist-get parsed-response 'data))
+                              (album (bongo-alist-get data 'album))
+                              (title (bongo-alist-get data 'title))
+                              (genre (bongo-alist-get data 'genre)))
+                         (bongo-player-put player 'metadata-fetched t)
+                         (when album
+                           (bongo-player-put player 'stream-name album))
+                         (when title
+                           (bongo-player-put player 'stream-part-title title))
+                         (when genre
+                           (bongo-player-put player 'stream-genre genre))
+                         (when (or album title genre)
+                           (bongo-player-metadata-changed player)))))))))
+
+(defun bongo-mpv-player-stop-timer (player)
+  "Stop timer for the PLAYER."
+  (let ((timer (bongo-player-get player 'timer)))
+    (when timer
+      (cancel-timer timer)
+      (bongo-player-put player 'timer nil))))
+
+(defun bongo-mpv-player-tick (player)
+  "Update elapsed time for PLAYER.
+
+Also fetch metadata and length of track if not fetched already."
+  (if (or (not (bongo-player-running-p player))
+          (and (bongo-player-get player 'socket)
+               (not (equal (process-status (bongo-player-get player 'socket))
+                           'open))))
+      (bongo-mpv-player-stop-timer player)
+    (bongo--run-mpv-command player "time-pos" "get_property" "time-pos")
+    (when (null (bongo-player-total-time player))
+      (bongo--run-mpv-command player "duration" "get_property" "duration"))
+    (unless (bongo-player-get player 'metadata-fetched)
+      (bongo--run-mpv-command player "metadata" "get_property" "metadata"))))
+
+(defun bongo-mpv-player-start-timer (player)
+  "Start tick timer for PLAYER."
+  (bongo-mpv-player-stop-timer player)
+  (let ((timer (run-with-timer bongo-mpv-initialization-period
+                               0.1
+                               'bongo-mpv-player-tick
+                               player)))
+    (bongo-player-put player 'timer timer)))
+
+(defun bongo-compose-remote-option (socket-file)
+  "Get the command line argument for starting mpv's remote interface at SOCKET-FILE."
+  (when (equal bongo-mpv-remote-option 'unknown)
+    (setq bongo-mpv-remote-option (bongo--mpv-get-remote-option)))
+  (list bongo-mpv-remote-option socket-file))
+
+(defun bongo-mpv-player-pause/resume (player)
+  "Play/pause mpv PLAYER."
+  (if (bongo-player-paused-p player)
+      (bongo--run-mpv-command player
+                             "pause"
+                             "set_property_string"
+                             "pause"
+                             "no")
+    (bongo--run-mpv-command player
+                           "pause"
+                           "set_property"
+                           "pause"
+                           t)))
+
+(defun bongo-mpv-player-seek-to (player seconds)
+  "Seek mpv PLAYER by given SECONDS."
+  (bongo--run-mpv-command player "seek" "seek" seconds "absolute"))
+
+(defun bongo-start-mpv-player (file-name &optional extra-arguments)
+  "Play FILE-NAME with mpv, EXTRA-ARGUMENTS are passed to mpv."
+  (let* ((process-connection-type nil)
+         (socket-file (expand-file-name "bongo-mpv.socket" temporary-file-directory))
+         (arguments (append
+                     (bongo-compose-remote-option socket-file)
+                     (bongo-evaluate-program-arguments bongo-mpv-extra-arguments)
+                     extra-arguments
+                     (list file-name)))
+         (process (apply 'start-process "bongo-mpv" nil
+                         bongo-mpv-program-name arguments))
+         (player
+          (list 'mpv
+                (cons 'process process)
+                (cons 'file-name file-name)
+                (cons 'buffer (current-buffer))
+                (cons 'interactive t)
+                (cons 'pausing-supported t)
+                (cons 'seeking-supported t)
+                (cons 'time-update-delay-after-seek
+                      bongo-mpv-time-update-delay-after-seek)
+                (cons 'paused nil)
+                (cons 'pause/resume 'bongo-mpv-player-pause/resume)
+                (cons 'seek-to 'bongo-mpv-player-seek-to)
+                (cons 'seek-unit 'seconds)
+                (cons 'socket-file socket-file))))
+    (prog1 player
+      (set-process-sentinel process 'bongo--mpv-player-process-sentinel)
+      (process-put process 'bongo-player player)
+      (bongo-mpv-player-start-timer player))))
+
+(define-bongo-backend mpv
+  :constructor 'bongo-start-mpv-player
+  :extra-program-arguments '("--no-audio-display")
+  ;; TODO: The matchers below are just copied from MPlayer's config, since
+  ;; mpv was forked off MPlayer
+  :matcher '((local-file "file:" "http:" "ftp:")
+             "ogg" "flac" "mp3" "mka" "wav" "wma"
+             "mpg" "mpeg" "vob" "avi" "ogm" "mp4" "mkv"
+             "mov" "asf" "wmv" "rm" "rmvb" "ts")
+
+  :matcher '(("mms:" "mmst:" "rtp:" "rtsp:" "udp:" "unsv:"
+              "dvd:" "vcd:" "tv:" "dvb:" "mf:" "cdda:" "cddb:"
+              "cue:" "sdp:" "mpst:" "tivo:") . t)
+
+  :matcher '(("http:") . t))
 
 
 ;;;; Simple backends
