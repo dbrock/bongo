@@ -3197,8 +3197,22 @@ See `bongo-line-proposed-external-fields'."
        (bongo-audio-file-name-p (bongo-line-file-name point))))
 
 (defcustom bongo-video-file-name-extensions
-  `("ogm" "avi" "mpg" "mpeg" "mp4" "vob" "mkv" "flv"
-    "mov" "asf" "wmv" "rm" "rmvb" "qt" "ts")
+  `("asf"
+    "avi"
+    "flv"
+    "mkv"
+    "mov"
+    "mp4"
+    "mpeg"
+    "mpg"
+    "ogm"
+    "qt"
+    "rm"
+    "rmvb"
+    "ts"
+    "vob"
+    "webm"
+    "wmv")
   "List of file name extensions of video files."
   :type '(repeat string)
   :group 'bongo-file-names)
@@ -3242,6 +3256,7 @@ See `bongo-line-proposed-external-fields'."
 (defun bongo-unplayed-track-line-p (&optional point)
   "Return non-nil if the line at POINT is an unplayed track line."
   (and (bongo-track-line-p point)
+       (null (bongo-action-track-line-p))
        (null (bongo-line-get-property 'bongo-played point))))
 
 (defun bongo-mark-line-as-played (&optional point)
@@ -5777,7 +5792,7 @@ These will come at the end or right before the file name, if any."
 
   ;; Play generic URLs and files if the file extension
   ;; matches that of some potentially supported format.
-  :matcher '((local-file "file:" "http:" "ftp:")
+  :matcher '((local-file "file:" "http:" "https:" "ftp:")
              "669"
              "aac"
              "asf"
@@ -5814,6 +5829,7 @@ These will come at the end or right before the file name, if any."
              "vob"
              "vqf"
              "wav"
+             "webm"
              "wma"
              "wmv"
              "xm")
@@ -5826,7 +5842,7 @@ These will come at the end or right before the file name, if any."
   ;;      would be good to keep this matcher as a fallback
   ;;      if we could somehow declare that more specific
   ;;      matchers should be tried first.)
-  :matcher '(("http:") . t)
+  :matcher '(("http:" "https:") . t)
 
   ;; VLC fails to report time information for CD tracks
   ;; played using the `vlc cdda://@1' syntax.  The bug
@@ -7916,16 +7932,12 @@ Album covers are files whose names are in `bongo-album-cover-file-names'."
         (let ((cover-file-type (cdr file-type-entry))
               (inhibit-read-only t))
           (insert (propertize " " 'display
-                              (if (image-type-available-p 'imagemagick)
-                                  (find-image (list (list
-                                                     :type 'imagemagick
-                                                     :scale 16
-                                                     :max-width bongo-album-cover-size
-                                                     :max-height bongo-album-cover-size
-                                                     :file cover-file-name)))
-                                (find-image (list (list
-                                                   :type cover-file-type
-                                                   :file cover-file-name))))))
+                              (find-image (list (list
+                                                 :type cover-file-type
+                                                 :scale 16
+                                                 :max-width bongo-album-cover-size
+                                                 :max-height bongo-album-cover-size
+                                                 :file cover-file-name)))))
           (insert "\n"))))))
 
 (defun bongo-maybe-join-inserted-tracks (beg end)
