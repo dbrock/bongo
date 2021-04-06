@@ -10473,7 +10473,7 @@ However, setting it through Custom does this automatically."
 (defun bongo-confirm-player-stop ()
   "If the current buffer has a player running stop it before killing the buffer."
   (or (not bongo-player)
-      (when (yes-or-no-p "This buffer has an associated player running, stop it?")
+      (when (yes-or-no-p "This buffer has an associated player running, stop it? ")
         (bongo-player-stop bongo-player)
         t)))
 
