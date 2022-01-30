@@ -8023,7 +8023,7 @@ That is, when `bongo-seek-electric-mode' is non-nil.")
           (if (and (fboundp 'face-attr-construct)
                    (plist-get (face-attr-construct 'modeline) :box))
               -3 -2)))
-        (switch-to-buffer bongo-seek-buffer)))
+        (pop-to-buffer-same-window bongo-seek-buffer)))
      ((not (eq (current-buffer) bongo-seek-buffer))
       (select-window (get-buffer-window bongo-seek-buffer))))
     (bongo-seek-mode)
@@ -10822,14 +10822,14 @@ the new buffer will be the value of `bongo-default-library-buffer-name'."
   "Switch to a Bongo playlist buffer.
 See the function `bongo-playlist-buffer'."
   (interactive)
-  (switch-to-buffer (bongo-playlist-buffer)))
+  (pop-to-buffer-same-window (bongo-playlist-buffer)))
 
 ;;;###autoload
 (defun bongo-library ()
   "Switch to a Bongo library buffer.
 See the function `bongo-library-buffer'."
   (interactive)
-  (switch-to-buffer (bongo-library-buffer)))
+  (pop-to-buffer-same-window (bongo-library-buffer)))
 
 (defun bongo-quit ()
   "Quit Bongo by deleting all windows and selecting a non-Bongo buffer."
@@ -10883,7 +10883,7 @@ With prefix argument PROMPT, prompt for the buffer to switch to."
                '((predicate . (bongo-buffer-p))) nil nil
                '(("Playlists" (predicate . (bongo-playlist-buffer-p)))
                  ("Libraries" (predicate . (bongo-library-buffer-p)))))
-    (switch-to-buffer (list-buffers-noselect nil (bongo-buffers)))))
+    (pop-to-buffer-same-window (list-buffers-noselect nil (bongo-buffers)))))
 
 ;;;###autoload
 (defun bongo ()
@@ -10891,7 +10891,7 @@ With prefix argument PROMPT, prompt for the buffer to switch to."
 See the function `bongo-buffer'."
   (interactive)
   (unless (bongo-buffer-p)
-    (switch-to-buffer (bongo-buffer))))
+    (pop-to-buffer-same-window (bongo-buffer))))
 
 (custom-reevaluate-setting 'bongo-header-line-mode)
 (custom-reevaluate-setting 'bongo-mode-line-indicator-mode)
