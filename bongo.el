@@ -6421,7 +6421,7 @@ Also fetch metadata and length of track if not fetched already."
   "Start tick timer for PLAYER."
   (bongo-mpv-player-stop-timer player)
   (let ((timer (run-with-timer bongo-mpv-initialization-period
-                               0.1
+                               1
                                'bongo-mpv-player-tick
                                player)))
     (bongo-player-put player 'timer timer)))
