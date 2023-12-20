@@ -3167,6 +3167,7 @@ See `bongo-line-proposed-external-fields'."
     "mp3"
     "mtm"
     "ogg"
+    "ogx"
     "okt"
     "r36"
     "ra"
@@ -5818,6 +5819,7 @@ These will come at the end or right before the file name, if any."
              "mpg"
              "mtm"
              "ogg"
+	     "ogx"
              "ogm"
              "ra"
              "rm"
@@ -6086,7 +6088,7 @@ These will come at the end or right before the file name, if any."
   ;; Play generic URLs and files if the file extension
   ;; matches that of some potentially supported format.
   :matcher '((local-file "file:" "http:" "ftp:")
-             "ogg" "flac" "mp3" "mka" "wav" "wma"
+             "ogg" "ogx" "flac" "mp3" "mka" "wav" "wma"
              "mpg" "mpeg" "vob" "avi" "ogm" "mp4" "mkv"
              "mov" "asf" "wmv" "rm" "rmvb" "ts")
 
@@ -6487,7 +6489,7 @@ Also fetch metadata and length of track if not fetched already."
   ;; TODO: The matchers below are just copied from MPlayer's config, since
   ;; mpv was forked off MPlayer
   :matcher '((local-file "file:" "http:" "ftp:")
-             "ogg" "flac" "mp3" "mka" "wav" "wma"
+             "ogg" "ogx" "flac" "mp3" "mka" "wav" "wma"
              "mpg" "mpeg" "vob" "avi" "ogm" "mp4" "mkv"
              "mov" "asf" "wmv" "rm" "rmvb" "ts")
 
